@@ -10,7 +10,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr)
 ```
 
 load data
@@ -57,12 +57,70 @@ df <- df %>%
   mutate(CSF = BrainSegVol - BrainSegVolNotVent)
 ```
 
+remove intersex subj, dummy-code sex and sex*age
+```{r}
+df <- df %>%
+  dplyr::filter(sex != "intersex") %>%
+  mutate(sexMale = ifelse(sex=="male", 1, 0),
+         sexMale_x_age = ifelse(sex=="male", age_days, 0))
+```
+
+write out lists of phenotypes by category
+```{r}
+#names(df)
+
+#global volumes
+glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF")
+write_lines(glob_vol_list, "./pheno_lists/global_vols.txt")
+saveRDS(glob_vol_list, "./pheno_lists/global_vols.rds")
+
+#cortical gmv
+gmv_list <- names(df)[grep("GM\\.", names(df))]
+stopifnot(length(gmv_list) == 68)
+write_lines(gmv_list, "./pheno_lists/cortical_vols.txt")
+saveRDS(gmv_list, "./pheno_lists/cortical_vols.rds")
+
+#subcortical gmv
+subcort <- names(df)[grep("SUBC\\.Right|SUBC\\.Left", names(df))]
+subcort_list <- subcort[-grep("Cerebellum|WM|Vent|choroid|vessel", subcort)] #drop WM, cerebellum, etc
+length(subcort_list)
+write_lines(subcort_list, "./pheno_lists/subcortical_vols.txt")
+saveRDS(subcort_list, "./pheno_lists/subcortical_vols.rds")
+
+#cortical thickness
+ct_list <- names(df)[grep("CT\\.", names(df))]
+stopifnot(length(ct_list) == 68)
+write_lines(ct_list, "./pheno_lists/cortical_thickness.txt")
+saveRDS(ct_list, "./pheno_lists/cortical_thickness.rds")
+
+#cortical SA
+sa_list <- names(df)[grep("SA\\.", names(df))]
+stopifnot(length(sa_list) == 68)
+write_lines(sa_list, "./pheno_lists/cortical_surf.txt")
+saveRDS(sa_list, "./pheno_lists/cortical_surf.rds")
+```
+
+keep only columns we need (phenotypes to model, covariates)
+
+```{r}
+pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
+covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale_x_age",
+                "age_days", "site", "country", "study_site", "SurfaceHoles",
+                "EstimatedTotalIntraCranialVol", "fs_version", "QC.SS")
+
+df_select <- df %>%
+  dplyr::select(all_of(c(pheno_list, covar_list)))
+
+stopifnot(length(c(pheno_list, covar_list)) == ncol(df_select))
+
+skim(df_select)
+```
 
 set aside selected psychosis studies
 ```{r}
 psych_dx_list <- c(unique(df$dx)[grepl("scz|sz|psych|schizo", unique(df$dx), ignore.case=T)], "CN")
 
-unique(df$study)
+unique(df_select$study)
 df %>%
   dplyr::filter(dx %in% psych_dx_list) %>%
   group_by(study, dx) %>%
@@ -73,7 +131,7 @@ scz_study_list <- c("ALSPAC", "AMP-SCZ", "BHRCS", "COBRE_FS6_part1", "Dublin_FS6
                     "NDAR-SCZGlu", "NDAR-SocialBrainSchizoAutism", "NDAR_BSNIP", "NDAR_PARDIP", "NDAR_SCZIowa", "OpenNeuro_LA5c",
                     "SRPBS1600", "TOPSY")
 
-psychosis_df <- df %>%
+psychosis_df <- df_select %>%
   dplyr::filter(study %in% scz_study_list) %>%
   dplyr::filter(dx %in% psych_dx_list) %>%
   group_by(INDEX.ID) %>% #remove duplicate participants
@@ -88,7 +146,7 @@ psychosis_df %>%
   summarise(count=n())
 ```
 
-write out csv
+write out csv - *not filtering/removing duplicate scans because planning to add more data!*
 ```{r}
 fwrite(psychosis_df, file="./data/240820-L.R.LBCC_scz_studies.csv")
 ```
@@ -97,7 +155,7 @@ FOR MORE SCZ STUDIES TO BE ADDED, SEE NDAR PROPOSAL GOOGLE DOC
 
 remove psychosis studies from main dataset so there's no data leakage
 ```{r}
-df_nopsych <- df %>%
+df_nopsych <- df_select %>%
   dplyr::filter(!(study %in% scz_study_list))
 ```
 
@@ -116,7 +174,6 @@ filter to just controls, single scan per subject
 unique(df_nopsych$dx)[grep("cn|control|none", unique(df_nopsych$dx), ignore.case=TRUE)]
 
 df_filt <- df_nopsych %>%
-  dplyr::filter(sex != "intersex") %>% #removing 5 intersex scans
   tidyr::drop_na(dx) %>%
   dplyr::filter(age_days <= (101*365.25)) %>%
   dplyr::filter(dx == "CN") %>%
@@ -127,7 +184,7 @@ df_filt <- df_nopsych %>%
 
 ```{r}
 ggplot(df_filt) +
-  geom_histogram(aes(x=(age_days/365.25), fill=sex), position="identity", alpha=.6)
+  geom_histogram(aes(x=(age_days/365.25), fill=as.factor(sexMale)), position="identity", alpha=.6)
 ```
 
 write out data csv
@@ -136,32 +193,4 @@ write out data csv
 fwrite(df_filt, file="./data/SBC_LBCC_controls.csv")
 ```
 
-write out lists of phenotypes by category
-```{r}
-names(df_filt)
 
-#global volumes
-glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF")
-write_lines(glob_vol_list, "global_vols.txt")
-
-#cortical gmv
-gmv_list <- names(df_filt)[grep("GM\\.", names(df_filt))]
-length(gmv_list) == 68
-write_lines(gmv_list, "cortical_vols.txt")
-
-#subcortical gmv
-subcort <- names(df_filt)[grep("SUBC\\.Right|SUBC\\.Left", names(df_filt))]
-subcort_list <- subcort[-grep("Cerebellum|WM|Vent|choroid|vessel", subcort)] #drop WM, cerebellum, etc
-length(subcort_list)
-write_lines(subcort_list, "subcortical_vols.txt")
-
-#cortical thickness
-ct_list <- names(df_filt)[grep("CT\\.", names(df_filt))]
-length(ct_list) == 68
-write_lines(ct_list, "cortical_thickness.txt")
-
-#cortical SA
-sa_list <- names(df_filt)[grep("SA\\.", names(df_filt))]
-length(sa_list) == 68
-write_lines(sa_list, "cortical_surf.txt")
-```
