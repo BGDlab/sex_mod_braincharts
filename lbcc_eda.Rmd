@@ -36,6 +36,22 @@ sum(is.na(df$dx))
 sum(is.na(df$session))
 ```
 
+```{r}
+#look at missing country info - should be findable
+df %>%
+  dplyr::filter(is.na(country)) %>%
+  group_by(study) %>%
+  summarise(n = n())
+
+#adding back country data based on OG nature paper
+
+df <- df %>%
+  dplyr::mutate(country = case_when(is.na(country) & (study == "SYS-Adolescents" | study == "SYS-Adults") ~ "Canada",
+                                    is.na(country) & study == "TOPSY" ~ "Canada",
+                                    is.na(country) & study == "dHCP-fetal" ~ "UK",
+                                    TRUE ~ country))
+```
+
 rename/calculate global volumes
 
 ```{r}
@@ -57,12 +73,13 @@ df <- df %>%
   mutate(CSF = BrainSegVol - BrainSegVolNotVent)
 ```
 
-remove intersex subj, dummy-code sex and sex*age
+remove intersex subj, dummy-code sex and sex*age, combine Euler and SS QC metrics (because of missingness)
 ```{r}
 df <- df %>%
   dplyr::filter(sex != "intersex") %>%
   mutate(sexMale = ifelse(sex=="male", 1, 0),
-         sexMale_x_age = ifelse(sex=="male", age_days, 0))
+         sexMale_x_age = ifelse(sex=="male", age_days, 0),
+         QC_Metric = ifelse(fs_version == "synthseg-robust", QC.SS, SurfaceHoles)) #only keep QC.SS for scans processed with synthseg
 ```
 
 write out lists of phenotypes by category
@@ -105,13 +122,12 @@ keep only columns we need (phenotypes to model, covariates)
 ```{r}
 pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
 covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale_x_age",
-                "age_days", "site", "country", "study_site", "SurfaceHoles",
-                "EstimatedTotalIntraCranialVol", "fs_version", "QC.SS")
+                "age_days", "site", "country", "study_site", "QC_Metric", "fs_version",
+                "EstimatedTotalIntraCranialVol")
 
 df_select <- df %>%
-  dplyr::select(all_of(c(pheno_list, covar_list)))
-
-stopifnot(length(c(pheno_list, covar_list)) == ncol(df_select))
+  dplyr::select(all_of(c(pheno_list, covar_list))) %>%
+  dplyr::select(where(~mean(is.na(.)) < 0.5)) #drop cols with <50% completion
 
 skim(df_select)
 ```
@@ -187,10 +203,50 @@ ggplot(df_filt) +
   geom_histogram(aes(x=(age_days/365.25), fill=as.factor(sexMale)), position="identity", alpha=.6)
 ```
 
-write out data csv
+write out separate csvs for each pheno category (because combatLS and gamlss can't handle NAs and not all subjects have all phenos)
 
 ```{r}
-fwrite(df_filt, file="./data/SBC_LBCC_controls.csv")
+#save out QC separately since these would only be used for sensitivity analyses and i dont want to loose lots of ppts because they're missing
+df_covars <- df_filt %>%
+  dplyr::select(all_of(covar_list))
+fwrite(df_covars, file="./data/SBC_LBCC_CN_covars.csv")
+
+covar_subset <- covar_list[!covar_list %in% c("QC_Metric", "run")]
+
+#global vols
+df_global <- df_filt %>%
+  dplyr::select(all_of(c(covar_subset, glob_vol_list))) %>%
+  na.omit()
+nrow(df_global)/nrow(df_filt)
+fwrite(df_global, file="./data/SBC_LBCC_CN_globvol.csv")
+
+#regional gmv
+df_gmv <- df_filt %>%
+  dplyr::select(all_of(c(covar_subset, gmv_list))) %>%
+  na.omit()
+nrow(df_gmv)/nrow(df_filt)
+fwrite(df_gmv, file="./data/SBC_LBCC_CN_gmv.csv")
+
+#regional sa
+df_sa <- df_filt %>%
+  dplyr::select(all_of(c(covar_subset, sa_list))) %>%
+  na.omit()
+nrow(df_sa)/nrow(df_filt)
+fwrite(df_sa, file="./data/SBC_LBCC_CN_sa.csv")
+
+#regional ct
+df_ct <- df_filt %>%
+  dplyr::select(all_of(c(covar_subset, ct_list))) %>%
+  na.omit()
+nrow(df_ct)/nrow(df_filt)
+fwrite(df_ct, file="./data/SBC_LBCC_CN_ct.csv")
+
+#subcortical vols
+df_sub <- df_filt %>%
+  dplyr::select(any_of(c(covar_subset, subcort_list))) %>%
+  na.omit()
+nrow(df_sub)/nrow(df_filt)
+fwrite(df_sub, file="./data/SBC_LBCC_CN_sub.csv")
 ```
 
 
