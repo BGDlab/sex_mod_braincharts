@@ -52,7 +52,9 @@ df <- df %>%
                                     TRUE ~ country))
 ```
 
-rename/calculate global volumes
+##Calculate Global Vols
+
+first from freesurfer-derived outputs (rename)
 
 ```{r}
 #cortical GMV
@@ -73,9 +75,110 @@ df <- df %>%
   mutate(CSF = BrainSegVol - BrainSegVolNotVent)
 ```
 
+then from synthseg scans
+```{r}
+#add ID for merging scans
+df <- df %>% mutate(merge_id = row_number())
+
+df_synthseg <- df %>%
+  dplyr::filter(fs_version == "synthseg-robust")
+
+#confirm all missing
+stopifnot(sum(is.na(df_synthseg$GMV)) == nrow(df_synthseg))
+stopifnot(sum(is.na(df_synthseg$sGMV)) == nrow(df_synthseg))
+stopifnot(sum(is.na(df_synthseg$WMV)) == nrow(df_synthseg))
+stopifnot(sum(is.na(df_synthseg$CSF)) == nrow(df_synthseg))
+
+#find appropriate cols to sum
+df_synthseg %>%
+  dplyr::select(all_of(c(contains("white"), contains("cort"), contains("hemi"), contains("ven")))) %>%
+  skim()
+
+df_synthseg %>%
+  dplyr::select(contains("SUBC")) %>%
+  skim()
+
+ss_subcort_list <- c("SUBC.Left.Thalamus.Proper", "SUBC.Right.Thalamus.Proper", 
+                     "SUBC.Left.Caudate", "SUBC.Right.Caudate",
+                     "SUBC.Left.Putamen", "SUBC.Right.Putamen",
+                     "SUBC.Left.Pallidum", "SUBC.Right.Pallidum",
+                     "SUBC.Left.Hippocampus", "SUBC.Right.Hippocampus",
+                     "SUBC.Left.Amygdala", "SUBC.Right.Amygdala",
+                     "SUBC.Left.Accumbens.area", "SUBC.Right.Accumbens.area")
+
+#calculate
+df_glob <- df %>%
+  mutate(GMV = ifelse(fs_version == "synthseg-robust", 
+                      rowSums(across(c(rhCortexVol, lhCortexVol)), na.rm=FALSE),
+                      GMV),
+         WMV = ifelse(fs_version == "synthseg-robust",
+                      rowSums(across(c(rhCerebralWhiteMatterVol, lhCerebralWhiteMatterVol)), na.rm=FALSE),
+                      WMV),
+         CSF = ifelse(fs_version == "synthseg-robust", Ventricles.all, CSF),
+         sGMV = ifelse(fs_version == "synthseg-robust",
+                       rowSums(across(all_of(ss_subcort_list)), na.rm=FALSE),
+                       sGMV))
+stopifnot(nrow(df_glob) == nrow(df))
+```
+
+plot for comparisons
+```{r}
+ggplot(df) + 
+  geom_point(aes(x=age_days, y=GMV, color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_glob) + 
+  geom_point(aes(x=age_days, y=GMV, color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+sum(is.na(df$GMV)) - sum(is.na(df_glob$GMV))
+```
+
+```{r}
+ggplot(df) + 
+  geom_point(aes(x=age_days, y=sGMV,color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_glob) + 
+  geom_point(aes(x=age_days, y=sGMV,color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280) +
+  facet_wrap(~fs_version)
+```
+
+```{r}
+ggplot(df) + 
+  geom_point(aes(x=age_days, y=WMV,color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_glob) + 
+  geom_point(aes(x=age_days, y=WMV,color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280)
+```
+
+```{r}
+ggplot(df) + 
+  geom_point(aes(x=age_days, y=CSF,color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_glob) + 
+  geom_point(aes(x=age_days, y=CSF,color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280)
+```
+
+CSF has s ome outliers but overall looks good, going to check with Lena but proceed for now
+
+check for any more big groups of missing global volumes
+```{r}
+df_glob %>%
+  dplyr::filter(is.na(GMV&sGMV&WMV&CSF)) %>%
+  group_by(fs_version) %>%
+  summarise(n = n())
+```
+
+## Data Cleaning
 remove intersex subj, dummy-code sex and sex*age, combine Euler and SS QC metrics (because of missingness)
 ```{r}
-df <- df %>%
+df_filt <- df_glob %>%
   dplyr::filter(sex != "intersex") %>%
   mutate(sexMale = ifelse(sex=="male", 1, 0),
          sexMale_x_age = ifelse(sex=="male", age_days, 0),
@@ -84,7 +187,7 @@ df <- df %>%
 
 write out lists of phenotypes by category
 ```{r}
-#names(df)
+#names(df_filt)
 
 #global volumes
 glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF")
@@ -92,26 +195,26 @@ write_lines(glob_vol_list, "./pheno_lists/global_vols.txt")
 saveRDS(glob_vol_list, "./pheno_lists/global_vols.rds")
 
 #cortical gmv
-gmv_list <- names(df)[grep("GM\\.", names(df))]
+gmv_list <- names(df_filt)[grep("GM\\.", names(df))]
 stopifnot(length(gmv_list) == 68)
 write_lines(gmv_list, "./pheno_lists/cortical_vols.txt")
 saveRDS(gmv_list, "./pheno_lists/cortical_vols.rds")
 
 #subcortical gmv
-subcort <- names(df)[grep("SUBC\\.Right|SUBC\\.Left", names(df))]
+subcort <- names(df_filt)[grep("SUBC\\.Right|SUBC\\.Left", names(df))]
 subcort_list <- subcort[-grep("Cerebellum|WM|Vent|choroid|vessel", subcort)] #drop WM, cerebellum, etc
 length(subcort_list)
 write_lines(subcort_list, "./pheno_lists/subcortical_vols.txt")
 saveRDS(subcort_list, "./pheno_lists/subcortical_vols.rds")
 
 #cortical thickness
-ct_list <- names(df)[grep("CT\\.", names(df))]
+ct_list <- names(df_filt)[grep("CT\\.", names(df))]
 stopifnot(length(ct_list) == 68)
 write_lines(ct_list, "./pheno_lists/cortical_thickness.txt")
 saveRDS(ct_list, "./pheno_lists/cortical_thickness.rds")
 
 #cortical SA
-sa_list <- names(df)[grep("SA\\.", names(df))]
+sa_list <- names(df_filt)[grep("SA\\.", names(df))]
 stopifnot(length(sa_list) == 68)
 write_lines(sa_list, "./pheno_lists/cortical_surf.txt")
 saveRDS(sa_list, "./pheno_lists/cortical_surf.rds")
@@ -125,16 +228,18 @@ covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale
                 "age_days", "site", "country", "study_site", "QC_Metric", "fs_version",
                 "EstimatedTotalIntraCranialVol")
 
-df_select <- df %>%
+df_select <- df_filt %>%
   dplyr::select(all_of(c(pheno_list, covar_list))) %>%
   dplyr::select(where(~mean(is.na(.)) < 0.5)) #drop cols with <50% completion
 
 skim(df_select)
 ```
 
+
+### Remove Psychosis Studies
 set aside selected psychosis studies
 ```{r}
-psych_dx_list <- c(unique(df$dx)[grepl("scz|sz|psych|schizo", unique(df$dx), ignore.case=T)], "CN")
+psych_dx_list <- c(unique(df$dx)[grepl("scz|sz|psych|schizo|cos", unique(df$dx), ignore.case=T)], "CN")
 
 unique(df_select$study)
 df %>%
@@ -145,7 +250,7 @@ df %>%
 scz_study_list <- c("ALSPAC", "AMP-SCZ", "BHRCS", "COBRE_FS6_part1", "Dublin_FS6", "HCP-EarlyPsychosis", "MCI", "Maastricht_FS6",
                     "NAPLS3", "NDAR-CCDP", "NDAR-PsychiatricCerebralBlood", "NDAR-PsychosisOMS", "NDAR-SCZAging", "NDAR-SCZEmot",
                     "NDAR-SCZGlu", "NDAR-SocialBrainSchizoAutism", "NDAR_BSNIP", "NDAR_PARDIP", "NDAR_SCZIowa", "OpenNeuro_LA5c",
-                    "SRPBS1600", "TOPSY")
+                    "SRPBS1600", "TOPSY", "NDAR_NIH-IRP") #NDAR_NIH-IRP = controls for Armin's COS dataset
 
 psychosis_df <- df_select %>%
   dplyr::filter(study %in% scz_study_list) %>%
@@ -179,74 +284,234 @@ df_nopsych <- df_select %>%
 look into subjects missing dx
 ```{r}
 no_dx <- df_nopsych %>% dplyr::filter(is.na(dx))
-hist((no_dx$age_days)/365.25)
+ggplot(no_dx) +
+  geom_histogram(aes(x=age_days)) +
+  geom_vline(xintercept = 280) +
+  geom_vline(xintercept = (365.25*3))
+
+no_dx %>%
+  group_by(study) %>%
+  summarise(mean_age = mean(age_days),
+            n = n())
+
+df_nopsych %>%
+  dplyr::filter(study == "NDAR_IBIS") %>%
+  group_by(dx) %>%
+  summarise(n=n(),
+            min_age = min(age_days),
+            max_age = max(age_days))
 ```
 
-subjects missing diagnoses are not consistently infants, going to remove
 
-filter to just controls, single scan per subject
+subjects missing diagnoses are not consistently infants
+
+filter to just controls, single scan per subject, drop studies with fewer than 5 ppl
 
 ```{r}
 unique(df_nopsych$dx)[grep("cn|control|none", unique(df_nopsych$dx), ignore.case=TRUE)]
 
-df_filt <- df_nopsych %>%
+df_clean <- df_nopsych %>%
   tidyr::drop_na(dx) %>%
   dplyr::filter(age_days <= (101*365.25)) %>%
   dplyr::filter(dx == "CN") %>%
   group_by(INDEX.ID) %>% #remove duplicate participants
   slice_sample() %>%
+  ungroup() %>%
+  group_by(study) %>%
+  filter(n_distinct(INDEX.ID) >=5) %>%
   ungroup()
-```
-
-```{r}
-ggplot(df_filt) +
-  geom_histogram(aes(x=(age_days/365.25), fill=as.factor(sexMale)), position="identity", alpha=.6)
 ```
 
 write out separate csvs for each pheno category (because combatLS and gamlss can't handle NAs and not all subjects have all phenos)
 
 ```{r}
 #save out QC separately since these would only be used for sensitivity analyses and i dont want to loose lots of ppts because they're missing
-df_covars <- df_filt %>%
+df_covars <- df_clean %>%
   dplyr::select(all_of(covar_list))
 fwrite(df_covars, file="./data/SBC_LBCC_CN_covars.csv")
 
 covar_subset <- covar_list[!covar_list %in% c("QC_Metric", "run")]
 
 #global vols
-df_global <- df_filt %>%
+df_global <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, glob_vol_list))) %>%
   na.omit()
-nrow(df_global)/nrow(df_filt)
+nrow(df_global)/nrow(df_clean)
 fwrite(df_global, file="./data/SBC_LBCC_CN_globvol.csv")
 
 #regional gmv
-df_gmv <- df_filt %>%
+df_gmv <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, gmv_list))) %>%
   na.omit()
-nrow(df_gmv)/nrow(df_filt)
+nrow(df_gmv)/nrow(df_clean)
 fwrite(df_gmv, file="./data/SBC_LBCC_CN_gmv.csv")
 
 #regional sa
-df_sa <- df_filt %>%
+df_sa <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, sa_list))) %>%
   na.omit()
-nrow(df_sa)/nrow(df_filt)
+nrow(df_sa)/nrow(df_clean)
 fwrite(df_sa, file="./data/SBC_LBCC_CN_sa.csv")
 
 #regional ct
-df_ct <- df_filt %>%
+df_ct <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, ct_list))) %>%
   na.omit()
-nrow(df_ct)/nrow(df_filt)
+nrow(df_ct)/nrow(df_clean)
 fwrite(df_ct, file="./data/SBC_LBCC_CN_ct.csv")
 
 #subcortical vols
-df_sub <- df_filt %>%
+df_sub <- df_clean %>%
   dplyr::select(any_of(c(covar_subset, subcort_list))) %>%
   na.omit()
-nrow(df_sub)/nrow(df_filt)
+nrow(df_sub)/nrow(df_clean)
 fwrite(df_sub, file="./data/SBC_LBCC_CN_sub.csv")
 ```
+Visualize remaining sample
+```{r}
+df_list <- list(df_clean, df_global, df_gmv, df_ct, df_sub, df_sa)
 
+ggplot(df) + geom_histogram(aes(x=age_days))
 
+for(dataset in df_list){
+  plt <- ggplot(dataset) + geom_histogram(aes(x=age_days))
+  print(plt)
+}
+```
+
+## Visualize Data
+
+### Global Phenotypes
+```{r}
+ggplot(df_global) + 
+  geom_point(aes(x=log(age_days), y=GMV,color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = log(280))
+
+ggplot(df_global) + 
+  geom_point(aes(x=log(age_days), y=WMV,color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = log(280))
+
+ggplot(df_global) + 
+  geom_point(aes(x=log(age_days), y=sGMV,color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = log(280))
+
+ggplot(df_global) + 
+  geom_point(aes(x=log(age_days), y=CSF,color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = log(280))
+```
+
+### Cortical volumes
+```{r}
+ggplot(df_gmv) + 
+  geom_point(aes(x=age_days, y=rh.GM.lingual,color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_gmv) + 
+  geom_point(aes(x=age_days, y=lh.GM.parsorbitalis,color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_gmv) + 
+  geom_point(aes(x=age_days, y=rh.GM.fusiform,color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_gmv) + 
+  geom_point(aes(x=age_days, y=lh.GM.inferiortemporal,color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280) +
+  geom_vline(xintercept = (365.25*3))
+
+#compare to original data
+
+df_test_dx <- df %>%
+  mutate(dx = case_when(is.na(dx) ~ NA,
+                        dx == "CN" ~ "CN",
+                        TRUE ~ "notCN"))
+ggplot(df_test_dx) + 
+  geom_point(aes(x=age_days, y=lh.GM.inferiortemporal, color=dx), alpha=.4) +
+  geom_vline(xintercept = 280) +
+  geom_vline(xintercept = (365.25*3))
+```
+
+###Cortical Thickness
+```{r}
+ggplot(df_ct) + 
+  geom_point(aes(x=age_days, y=rh.CT.superiorparietal, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_ct) + 
+  geom_point(aes(x=age_days, y=lh.CT.parahippocampal, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_ct) + 
+  geom_point(aes(x=age_days, y=rh.CT.caudalanteriorcingulate, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_ct) + 
+  geom_point(aes(x=age_days, y=lh.CT.transversetemporal,color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+```
+
+###Cortical SA
+```{r}
+ggplot(df_sa) + 
+  geom_point(aes(x=age_days, y=rh.SA.pericalcarine, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_sa) + 
+  geom_point(aes(x=age_days, y=lh.SA.lateralorbitofrontal, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_sa) + 
+  geom_point(aes(x=age_days, y=lh.SA.entorhinal, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_sa) + 
+  geom_point(aes(x=age_days, y=rh.SA.rostralmiddlefrontal, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+```
+
+###Subcortical Volumes
+```{r}
+ggplot(df_sub) + 
+  geom_point(aes(x=age_days, y=SUBC.Left.Hippocampus, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_sub) + 
+  geom_point(aes(x=age_days, y=SUBC.Left.Accumbens.area, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_sub) + 
+  geom_point(aes(x=age_days, y=SUBC.Left.Amygdala, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_sub) + 
+  geom_point(aes(x=age_days, y=SUBC.Right.Thalamus.Proper, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+```
+
+## some test models
+
+```{r}
+library(gamlss)
+devtools::install_github("BGDlab/gamlssTools")
+library(gamlssTools)
+```
+
+```{r}
+mod1 <- gamlss(GMV ~ pb(age_days, method="GAIC", k=log(length(df_global$GMV))) + sexMale + pb(sexMale_x_age, method="GAIC", k=log(length(df_global$GMV))) + study, family = GG, data=df_global)
+make_centile_fan(mod1, df_global, "age_days", "sexMale")
+```
+```{r}
+ggplot(df_global) + geom_point(aes(x=log10(age_days), y=GMV, color=as.factor(sexMale)), alpha=0.5)
+ggplot(df_global) + geom_point(aes(x=log10(age_days), y=sGMV, color=as.factor(sexMale)), alpha=0.5)
+ggplot(df_global) + geom_point(aes(x=log10(age_days), y=WMV, color=as.factor(sexMale)), alpha=0.5)
+ggplot(df_global) + geom_point(aes(x=log10(age_days), y=CSF, color=as.factor(sexMale)), alpha=0.5)
+```
+
+```{r}
+df_global_test <- df_global %>%
+  mutate(log_age = log10(age_days)) %>%
+  mutate(log_sex_age = sexMale*log_age)
+
+mod2 <- gamlss(GMV ~ pb(log_age, method="GAIC", k=log(length(df_global$GMV))) + sexMale + study + pb(log_sex_age, method="GAIC", k=log(length(df_global$GMV))), family = GG, data=df_global_test)
+make_centile_fan(mod2, df_global_test, "log_age", "sexMale")
+```
