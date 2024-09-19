@@ -43,20 +43,6 @@ if (endsWith(batch.arg, '.csv')){
 save_path <- as.character(args[3]) #path to save outputs
 config_name <- as.character(args[4])
 
-# see if optional args provided for combatting
-if (length(args) < 4){
-  stop("Too few arguments!", call.=FALSE)
-} else if(length(args)==4) {
-  print("Warning: No additional combat args provided, proceeding without covariate correction")
-  covar.list <- NULL
-} else if(length(args)==5) {
-  stop("Error! Missing args")
-} else if (length(args)==6) {
-  print("Applying additional combat args")
-  covar.list <- as.character(unlist(strsplit(args[5], ",")))
-  cf.args <- args[6]
-}
-
 #GET FEATURE LISTS
 vol_list_global <- readRDS(file="R_scripts/vol_list_global.rds")
 vol_list_regions <- readRDS(file="R_scripts/Vol_list_regions.rds")
@@ -75,6 +61,8 @@ covar.df <- raw.df %>%
 stopifnot(length(batch) == nrow(covar.df))
 #covar df only works with numeric variables (otherwise need to use matrix to dummy-code). sticking with just df for now, can update later
 stopifnot(all(sapply(covar.df, is.numeric)))
+} else {
+  stop("need list of covariates to preserve")
 }
 
 #extract csv name from input data
@@ -100,7 +88,7 @@ for (l in list_of_feature_lists){
   #replace any 0s w/ 1 pre-log-transform
   pheno.df <- replace(pheno.df, pheno.df==0, 1)
   
-  #log-transform ALL pheno vals - added for lifespan data analyses
+  #log-transform ALL pheno vals
   pheno.df <- pheno.df %>%
     mutate(across(c(l), \(x) log(x, base=10)))
   
@@ -114,57 +102,20 @@ for (l in list_of_feature_lists){
     eb_arg <- TRUE
   }
   
-  #run combat w/ or w/o additional args
-  if (length(args) < 5){
-    cf.obj <- comfam(pheno.df, batch)
-  } else if(length(args) > 5) {
-    #check for ref.batch
-    if (grepl("ref\\.batch\\s*=\\s*", cf.args)) {
-      # Split the string into two parts
-      cf.args_split <- unlist(strsplit(cf.args, "ref.batch", fixed = TRUE))
-      
-      # The split_string will contain two elements - ONLY WORKS if ref.batch is LAST argument passed
-      cf.arg1 <- cf.args_split[1]
-      ref_batch <- gsub("=", "", cf.args_split[2])
-      ref_batch <- trimws(ref_batch)
-      
-      #Combat w ref
-      if ("cf.gamlss" %in% config_name){
-        #def combatls fun
-        cf_gamlss_try <- function(x, y, eb_arg){
-          result <- tryCatch({
-            eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, " ref.batch = '", as.factor(y),"')")))
-          } , warning = function(w) {
-            message("warning")
-            eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, " ref.batch = '", as.factor(y),"')")))
-          } , error = function(e) {
-            message("error, trying method=CG()")
-            eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, " method=CG(), ref.batch = '", as.factor(y),"')")))
-          } , finally = {
-            message("done")
-          } )
-        }
-      cf.obj <- cf_gamlss_try(cf.arg1, ref_batch, eb_arg)
-      } else {
-      cf.obj <- eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", cf.arg1, " ref.batch = '", as.factor(ref_batch),"')")))
-      }
-    } else {
-      #Combat w/o ref
-      if ("cf.gamlss" %in% config_name){
-        #def combatls fun
-        cf_gamlss_try <- function(x, eb_arg){
-          result <- tryCatch({
-            eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, ")")))
-          } , warning = function(w) {
-            message("warning")
-            eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, ")")))
-          } , error = function(e) {
-            message("error, trying method=CG()")
-            eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, ")")))
-          } , finally = {
-            message("done")
-          } )
-        }
+  #def combatls fun - run CG if RS fails
+  cf_gamlss_try <- function(x, eb_arg){
+    result <- tryCatch({
+      eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, ")")))
+      } , warning = function(w) {
+      message("warning")
+      eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, ")")))
+      } , error = function(e) {
+      message("error, trying method=CG()")
+      eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, ", method = CG())")))
+      } , finally = {
+      message("done")
+      } )
+    }
         cf.obj <- cf_gamlss_try(cf.args, eb_arg)
       } else {
         cf.obj <- eval(parse(text = paste("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", cf.args, ")")))
