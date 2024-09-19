@@ -182,7 +182,9 @@ df_filt <- df_glob %>%
   dplyr::filter(sex != "intersex") %>%
   mutate(sexMale = ifelse(sex=="male", 1, 0),
          sexMale_x_age = ifelse(sex=="male", age_days, 0),
-         QC_Metric = ifelse(fs_version == "synthseg-robust", QC.SS, SurfaceHoles)) #only keep QC.SS for scans processed with synthseg
+         QC_Metric = ifelse(fs_version == "synthseg-robust", QC.SS, SurfaceHoles),
+         logAge_days = log(age_days, base=10)) %>% #only keep QC.SS for scans processed with synthseg]
+  mutate(sexMale_x_logAge = sexMale * logAge_days) #add log-scaled ages
 ```
 
 write out lists of phenotypes by category
@@ -225,7 +227,7 @@ keep only columns we need (phenotypes to model, covariates)
 ```{r}
 pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
 covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale_x_age",
-                "age_days", "site", "country", "study_site", "QC_Metric", "fs_version",
+                "age_days", "logAge_days", "sexMale_x_logAge", "site", "country", "study_site", "QC_Metric", "fs_version",
                 "EstimatedTotalIntraCranialVol")
 
 df_select <- df_filt %>%
@@ -320,6 +322,18 @@ df_clean <- df_nopsych %>%
   group_by(study) %>%
   filter(n_distinct(INDEX.ID) >=5) %>%
   ungroup()
+
+#look at completeness for infant/toddler data
+df_clean %>%
+  dplyr::filter(age_days <= (365.25*3 + 280)) %>%
+  skim()
+#some phenotypes around 50%
+
+
+df_clean %>%
+  dplyr::filter(age_days <= (365.25 + 280)) %>%
+  skim()
+#some as low as 25%
 ```
 
 write out separate csvs for each pheno category (because combatLS and gamlss can't handle NAs and not all subjects have all phenos)
@@ -367,6 +381,13 @@ df_sub <- df_clean %>%
 nrow(df_sub)/nrow(df_clean)
 fwrite(df_sub, file="./data/SBC_LBCC_CN_sub.csv")
 ```
+Also writing out full, unique dataset in case i want to run combat separately by pheno to try to preserve infants
+(many of whom are missing 1+ phenotypes)
+```{r}
+fwrite(df_clean, file="./data/SBC_LBCC_allunique_CN.csv")
+```
+
+
 Visualize remaining sample
 ```{r}
 df_list <- list(df_clean, df_global, df_gmv, df_ct, df_sub, df_sa)
@@ -437,6 +458,11 @@ ggplot(df_ct) +
   geom_point(aes(x=age_days, y=rh.CT.superiorparietal, color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = 280)
 
+#compare to full dataset
+ggplot(df_clean) + 
+  geom_point(aes(x=age_days, y=rh.CT.superiorparietal, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = 280)
+
 ggplot(df_ct) + 
   geom_point(aes(x=age_days, y=lh.CT.parahippocampal, color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = 280)
@@ -496,22 +522,52 @@ devtools::install_github("BGDlab/gamlssTools")
 library(gamlssTools)
 ```
 
+standard sex-mod model with pb()
 ```{r}
 mod1 <- gamlss(GMV ~ pb(age_days, method="GAIC", k=log(length(df_global$GMV))) + sexMale + pb(sexMale_x_age, method="GAIC", k=log(length(df_global$GMV))) + study, family = GG, data=df_global)
 make_centile_fan(mod1, df_global, "age_days", "sexMale")
 ```
+sex-mod model with pb() on log-scaled age
 ```{r}
-ggplot(df_global) + geom_point(aes(x=log10(age_days), y=GMV, color=as.factor(sexMale)), alpha=0.5)
-ggplot(df_global) + geom_point(aes(x=log10(age_days), y=sGMV, color=as.factor(sexMale)), alpha=0.5)
-ggplot(df_global) + geom_point(aes(x=log10(age_days), y=WMV, color=as.factor(sexMale)), alpha=0.5)
-ggplot(df_global) + geom_point(aes(x=log10(age_days), y=CSF, color=as.factor(sexMale)), alpha=0.5)
+mod2 <- gamlss(GMV ~ pb(logAge_days, method="GAIC", k=log(length(df_global$GMV))) + sexMale + pb(sexMale_x_logAge, method="GAIC", k=log(length(df_global$GMV))) + study, family = GG, data=df_global)
+make_centile_fan(mod2, df_global, "logAge_days", "sexMale")
+```
+looks better!
+
+```{r}
+irismod1 <-gamlss(Sepal.Length ~ ns(Sepal.Width) + Species, data=iris)
+make_centile_fan(irismod1, iris, "Sepal.Width", "Species")
+
+irismod2 <-gamlss(Sepal.Length ~ ns(Sepal.Width, knots=(c(mean(iris$Sepal.Width)-0.5, mean(iris$Sepal.Width), mean(iris$Sepal.Width)+0.5))) + Species, data=iris)
+make_centile_fan(irismod2, iris, "Sepal.Width", "Species")
+
+irismod3 <-gamlss(Sepal.Length ~ ns(Sepal.Width, df=4) + Species, data=iris)
+make_centile_fan(irismod3, iris, "Sepal.Width", "Species")
 ```
 
+sex-mod model with ns() on log-scaled age and biologically-informed spline placement
 ```{r}
-df_global_test <- df_global %>%
-  mutate(log_age = log10(age_days)) %>%
-  mutate(log_sex_age = sexMale*log_age)
+ages_yrs<-c(3, 7, 16, 25, 45, 70)
+ages_logdays <- lapply(ages_yrs, function(x){log(x*365.25, base=10)}) %>% unlist
 
-mod2 <- gamlss(GMV ~ pb(log_age, method="GAIC", k=log(length(df_global$GMV))) + sexMale + study + pb(log_sex_age, method="GAIC", k=log(length(df_global$GMV))), family = GG, data=df_global_test)
-make_centile_fan(mod2, df_global_test, "log_age", "sexMale")
+mod3 <- gamlss(GMV ~ ns(logAge_days, knots=c(3.039711, 3.407688, 3.766710, 3.960530, 4.215803, 4.407688)) + sexMale + ns(sexMale_x_logAge, df=10) + study, family = GG, data=df_global)
+make_centile_fan(mod3, df_global, "logAge_days", "sexMale")
+```
+
+sex-mod model with ns() on log-scaled age
+```{r}
+mod4 <- gamlss(GMV ~ ns(logAge_days, df=30) + sexMale + ns(sexMale_x_logAge, df=10) + study, family = GG, data=df_global)
+make_centile_fan(mod4, df_global, "logAge_days", "sexMale")
+```
+
+sex-strat model with ns() on log-scaled age and biologically-informed spline placement
+```{r}
+mod5 <- gamlss(GMV ~ ns(logAge_days, knots=c(3.039711, 3.407688, 3.766710, 3.960530, 4.215803, 4.407688)) + sexMale + study, family = GG, data=df_global)
+make_centile_fan(mod5, df_global, "logAge_days", "sexMale")
+```
+
+sex-mod model with ns() on log-scaled age
+```{r}
+mod6 <- gamlss(GMV ~ ns(logAge_days, df=30) + sexMale + study, family = GG, data=df_global)
+make_centile_fan(mod6, df_global, "logAge_days", "sexMale")
 ```
