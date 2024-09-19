@@ -177,9 +177,13 @@ df_glob %>%
 
 ## Data Cleaning
 remove intersex subj, dummy-code sex and sex*age, combine Euler and SS QC metrics (because of missingness)
+also fix age calculations for `OpenNeuro-PaingenPlacebo` study - study reported years, accidentally calculated as months
+
 ```{r}
 df_filt <- df_glob %>%
   dplyr::filter(sex != "intersex") %>%
+  mutate(age_days = ifelse(study != "OpenNeuro-PaingenPlacebo", age_days,
+                           ((age_days-280)*(12/365.25))*365.25+280)) %>% #convert back from days to 'months', then re-convert years to days
   mutate(sexMale = ifelse(sex=="male", 1, 0),
          sexMale_x_age = ifelse(sex=="male", age_days, 0),
          QC_Metric = ifelse(fs_version == "synthseg-robust", QC.SS, SurfaceHoles),
@@ -351,35 +355,35 @@ df_global <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, glob_vol_list))) %>%
   na.omit()
 nrow(df_global)/nrow(df_clean)
-fwrite(df_global, file="./data/SBC_LBCC_CN_globvol.csv")
+fwrite(df_global, file="./data/SBC_LBCC_CN_globvol_tocombat.csv")
 
 #regional gmv
 df_gmv <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, gmv_list))) %>%
   na.omit()
 nrow(df_gmv)/nrow(df_clean)
-fwrite(df_gmv, file="./data/SBC_LBCC_CN_gmv.csv")
+fwrite(df_gmv, file="./data/SBC_LBCC_CN_gmv_tocombat.csv")
 
 #regional sa
 df_sa <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, sa_list))) %>%
   na.omit()
 nrow(df_sa)/nrow(df_clean)
-fwrite(df_sa, file="./data/SBC_LBCC_CN_sa.csv")
+fwrite(df_sa, file="./data/SBC_LBCC_CN_sa_tocombat.csv")
 
 #regional ct
 df_ct <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, ct_list))) %>%
   na.omit()
 nrow(df_ct)/nrow(df_clean)
-fwrite(df_ct, file="./data/SBC_LBCC_CN_ct.csv")
+fwrite(df_ct, file="./data/SBC_LBCC_CN_ct_tocombat.csv")
 
 #subcortical vols
 df_sub <- df_clean %>%
   dplyr::select(any_of(c(covar_subset, subcort_list))) %>%
   na.omit()
 nrow(df_sub)/nrow(df_clean)
-fwrite(df_sub, file="./data/SBC_LBCC_CN_sub.csv")
+fwrite(df_sub, file="./data/SBC_LBCC_CN_sub_tocombat.csv")
 ```
 Also writing out full, unique dataset in case i want to run combat separately by pheno to try to preserve infants
 (many of whom are missing 1+ phenotypes)
@@ -547,7 +551,7 @@ make_centile_fan(irismod3, iris, "Sepal.Width", "Species")
 
 sex-mod model with ns() on log-scaled age and biologically-informed spline placement
 ```{r}
-ages_yrs<-c(3, 7, 16, 25, 45, 70)
+ages_yrs<-c(1, 3, 7, 16, 25, 45, 70)
 ages_logdays <- lapply(ages_yrs, function(x){log(x*365.25, base=10)}) %>% unlist
 
 mod3 <- gamlss(GMV ~ ns(logAge_days, knots=c(3.039711, 3.407688, 3.766710, 3.960530, 4.215803, 4.407688)) + sexMale + ns(sexMale_x_logAge, df=10) + study, family = GG, data=df_global)
@@ -562,7 +566,7 @@ make_centile_fan(mod4, df_global, "logAge_days", "sexMale")
 
 sex-strat model with ns() on log-scaled age and biologically-informed spline placement
 ```{r}
-mod5 <- gamlss(GMV ~ ns(logAge_days, knots=c(3.039711, 3.407688, 3.766710, 3.960530, 4.215803, 4.407688)) + sexMale + study, family = GG, data=df_global)
+mod5 <- gamlss(GMV ~ ns(logAge_days, knots=c(2.562590, 3.039711, 3.407688, 3.766710, 3.960530, 4.215803, 4.407688)) + sexMale + study, family = GG, data=df_global)
 make_centile_fan(mod5, df_global, "logAge_days", "sexMale")
 ```
 
