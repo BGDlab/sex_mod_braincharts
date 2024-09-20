@@ -1,4 +1,4 @@
-#EDA
+#Curation
 
 Script for cleaning and preparing data. Using dataset compiled by Lena, tentatively to be LBCC release v 5.0
 
@@ -10,7 +10,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel)
 ```
 
 load data
@@ -73,6 +73,10 @@ names(df)[names(df) == 'CerebralWhiteMatterVol'] <- 'WMV'
 names(df)[grepl("brainseg", names(df), ignore.case=T)]
 df <- df %>%
   mutate(CSF = BrainSegVol - BrainSegVolNotVent)
+
+#eTIV
+names(df)[grepl("total", names(df), ignore.case=T)]
+names(df)[names(df) == 'EstimatedTotalIntraCranialVol'] <- 'eTIV'
 ```
 
 then from synthseg scans
@@ -117,7 +121,10 @@ df_glob <- df %>%
          CSF = ifelse(fs_version == "synthseg-robust", Ventricles.all, CSF),
          sGMV = ifelse(fs_version == "synthseg-robust",
                        rowSums(across(all_of(ss_subcort_list)), na.rm=FALSE),
-                       sGMV))
+                       sGMV),
+         eTIV = ifelse(fs_version == "synthseg-robust" & is.na(eTIV),
+                       total.intracranial, eTIV)
+         )
 stopifnot(nrow(df_glob) == nrow(df))
 ```
 
@@ -231,12 +238,10 @@ keep only columns we need (phenotypes to model, covariates)
 ```{r}
 pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
 covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale_x_age",
-                "age_days", "logAge_days", "sexMale_x_logAge", "site", "country", "study_site", "QC_Metric", "fs_version",
-                "EstimatedTotalIntraCranialVol")
+                "age_days", "logAge_days", "sexMale_x_logAge", "site", "country", "study_site", "QC_Metric", "fs_version", "eTIV")
 
 df_select <- df_filt %>%
-  dplyr::select(all_of(c(pheno_list, covar_list))) %>%
-  dplyr::select(where(~mean(is.na(.)) < 0.5)) #drop cols with <50% completion
+  dplyr::select(all_of(c(pheno_list, covar_list)))
 
 skim(df_select)
 ```
@@ -340,68 +345,182 @@ df_clean %>%
 #some as low as 25%
 ```
 
-write out separate csvs for each pheno category (because combatLS and gamlss can't handle NAs and not all subjects have all phenos)
+###Subdivide by Missingness
+
+Making separate CSVs with maximally complete data in order to ComBat features. For each feature (target feature to ComBat) keep as many other features as possible (as priors) without including any NAs
+write out separate csvs for each pheno category
 
 ```{r}
-#save out QC separately since these would only be used for sensitivity analyses and i dont want to loose lots of ppts because they're missing
+#save out QC separately since these would only be used for sensitivity analyses
 df_covars <- df_clean %>%
   dplyr::select(all_of(covar_list))
 fwrite(df_covars, file="./data/SBC_LBCC_CN_covars.csv")
 
-covar_subset <- covar_list[!covar_list %in% c("QC_Metric", "run")]
+covar_subset <- covar_list[!covar_list %in% c("QC_Metric", "run", "eTIV")]
 
 #global vols
 df_global <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, glob_vol_list))) %>%
-  na.omit()
-nrow(df_global)/nrow(df_clean)
-fwrite(df_global, file="./data/SBC_LBCC_CN_globvol_tocombat.csv")
+  dplyr::select(all_of(c(covar_subset, glob_vol_list, "eTIV"))) %>%
+  filter_at(glob_vol_list, any_vars(complete.cases(.)))
 
 #regional gmv
 df_gmv <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, gmv_list))) %>%
-  na.omit()
-nrow(df_gmv)/nrow(df_clean)
-fwrite(df_gmv, file="./data/SBC_LBCC_CN_gmv_tocombat.csv")
+  dplyr::select(all_of(c(covar_subset, gmv_list)))%>%
+  filter_at(gmv_list, any_vars(complete.cases(.)))
 
 #regional sa
 df_sa <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, sa_list))) %>%
-  na.omit()
-nrow(df_sa)/nrow(df_clean)
-fwrite(df_sa, file="./data/SBC_LBCC_CN_sa_tocombat.csv")
+  dplyr::select(all_of(c(covar_subset, sa_list)))%>%
+  filter_at(sa_list, any_vars(complete.cases(.)))
 
 #regional ct
 df_ct <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, ct_list))) %>%
-  na.omit()
-nrow(df_ct)/nrow(df_clean)
-fwrite(df_ct, file="./data/SBC_LBCC_CN_ct_tocombat.csv")
+  dplyr::select(all_of(c(covar_subset, ct_list)))%>%
+  filter_at(ct_list, any_vars(complete.cases(.)))
 
 #subcortical vols
 df_sub <- df_clean %>%
-  dplyr::select(any_of(c(covar_subset, subcort_list))) %>%
-  na.omit()
-nrow(df_sub)/nrow(df_clean)
-fwrite(df_sub, file="./data/SBC_LBCC_CN_sub_tocombat.csv")
-```
-Also writing out full, unique dataset in case i want to run combat separately by pheno to try to preserve infants
-(many of whom are missing 1+ phenotypes)
-```{r}
-fwrite(df_clean, file="./data/SBC_LBCC_allunique_CN.csv")
+  dplyr::select(all_of(c(covar_subset, subcort_list)))%>%
+  filter_at(subcort_list, any_vars(complete.cases(.)))
 ```
 
-
-Visualize remaining sample
+start with global vols
 ```{r}
-df_list <- list(df_clean, df_global, df_gmv, df_ct, df_sub, df_sa)
+gg_miss_upset(df_global)
 
-ggplot(df) + geom_histogram(aes(x=age_days))
+gg_miss_var(df_global,
+            facet = fs_version)
+```
 
-for(dataset in df_list){
-  plt <- ggplot(dataset) + geom_histogram(aes(x=age_days))
-  print(plt)
+Functions
+```{r}
+#function to split out complete dataframes
+get_complete_df <- function(var, df){
+  #print(var)
+  new_df <- df %>%
+    dplyr::filter(!is.na(!!sym(var))) %>% #can't handle var name as string, fix this!
+    select_if(~ !any(is.na(.)))
+  return(new_df)
 }
+
+#re-combine dfs for any phenotypes that are identical - code with help from ChatGPT
+merge_identical_dfs <- function(df_list) {
+  df_names <- names(df_list)
+  processed <- rep(FALSE, length(df_list)) # Track which dataframes have been processed
+  new_list <- list() # Initialize an empty list to store merged dataframes
+  
+  for (i in seq_along(df_list)) {
+    if (!processed[i]) {
+      identical_dfs <- c(df_names[i]) # Start with the current dataframe's name
+      
+      # Compare the current dataframe with others
+      for (j in (i + 1):length(df_list)) {
+        if (!processed[j] && identical(df_list[[i]], df_list[[j]])) {
+          identical_dfs <- c(identical_dfs, df_names[j])
+          processed[j] <- TRUE # Mark the duplicate dataframe as processed
+        }
+      }
+      
+      # If there are any identical dataframes, rename the first one
+      if (length(identical_dfs) > 1) {
+        new_name <- paste(identical_dfs, collapse = "_") # Concatenate the names
+        new_list[[new_name]] <- df_list[[i]] # Add the merged dataframe with the new name
+      } else {
+        # If no identicals were found, keep the original dataframe
+        new_list[[df_names[i]]] <- df_list[[i]]
+      }
+      
+      processed[i] <- TRUE # Mark the current dataframe as processed
+    }
+  }
+  
+  return(new_list)
+}
+
+rename_cols <- function(df_list, col_list, ncores=5){
+   mclapply(names(df_list), function(df_name) {
+    # Construct the file path using the dataframe's name
+    combat_list <- strsplit(gsub("_", " ", df_name), " ")[[1]]
+   
+    #find any phenotypes that are NOT the combat targets
+    not_target <- setdiff(col_list, combat_list)
+    #print(not_target)
+    
+    #see which ones are in the dataframe
+    not_target <- intersect(not_target, names(df_list[[df_name]]))
+    #print(not_target)
+    
+    if (length(not_target)>0){
+    df_list[[df_name]] <- df_list[[df_name]] %>%
+      rename_with(~ paste(., "X", sep = "_"), any_of(not_target))
+    }
+    return(df_list[[df_name]])
+  }, mc.cores=ncores)
+}
+
+#write out csvs - writtenwith help from ChatGPT
+save_csv_list <- function(df_list, path = ".") {
+  lapply(seq(length(df_list)), function(idx) {
+    # Construct the file path using the dataframe's name
+    file_path <- paste0(path, idx, ".csv")
+    
+    # Use fwrite to save the dataframe
+    fwrite(df_list[[idx]], file_path)
+  })
+}
+```
+
+```{r}
+df_global_list <- lapply(c(glob_vol_list, "eTIV"), get_complete_df, df_global)
+names(df_global_list) <- c(glob_vol_list, "eTIV")
+lapply(df_global_list, ncol)
+df_global_final <- rename_cols(df_global_list, c(glob_vol_list, "eTIV"), 20)
+
+#save
+save_csv_list(df_global_list, "./data/to_combat/global_")
+rm(df_global_list)
+```
+
+```{r}
+df_sub_list <- lapply(subcort_list, get_complete_df, df_sub)
+names(df_sub_list) <- subcort_list
+
+df_sub_list_clean <- merge_identical_dfs(df_sub_list)
+lapply(df_sub_list_clean, ncol)
+
+df_sub_list_final <- rename_cols(df_sub_list_clean, subcort_list, 20)
+
+#save
+save_csv_list(df_sub_list_final, "./data/to_combat/sub_")
+rm(df_sub_list_final, df_sub_list, df_sub_list_clean)
+```
+
+```{r}
+df_gmv_list <- lapply(gmv_list, get_complete_df, df_gmv)
+names(df_gmv_list) <- gmv_list
+
+df_gmv_list_clean <- merge_identical_dfs(df_gmv_list)
+lapply(df_gmv_list_clean, ncol)
+
+df_gmv_list_final <- rename_cols(df_gmv_list_clean, df_gmv_list, 20)
+
+#save
+save_csv_list(df_gmv_list_final, "./data/to_combat/gmv_")
+rm(df_gmv_list_final, df_gmv_list)
+```
+
+```{r}
+df_ct_list <- lapply(ct_list, get_complete_df, df_ct)
+names(df_ct_list) <- ct_list
+
+df_ct_list_clean <- merge_identical_dfs(df_ct_list)
+```
+
+```{r}
+df_sa_list <- lapply(sa_list, get_complete_df, df_sa)
+names(df_sa_list) <- sa_list
+
+df_sa_list_clean <- merge_identical_dfs(df_sa_list)
 ```
 
 ## Visualize Data
@@ -409,7 +528,7 @@ for(dataset in df_list){
 ### Global Phenotypes
 ```{r}
 ggplot(df_global) + 
-  geom_point(aes(x=log(age_days), y=GMV,color=as.factor(sexMale)), alpha=.4) +
+  geom_point(aes(x=age_days, y=GMV,color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = log(280))
 
 ggplot(df_global) + 
@@ -574,4 +693,9 @@ sex-mod model with ns() on log-scaled age
 ```{r}
 mod6 <- gamlss(GMV ~ ns(logAge_days, df=30) + sexMale + study, family = GG, data=df_global)
 make_centile_fan(mod6, df_global, "logAge_days", "sexMale")
+```
+
+```{r}
+mod7 <- gamlss(GMV ~ ns(logAge_days, 5) + sexMale + study, family = GG, data=df_global)
+make_centile_fan(mod7, df_global, "logAge_days", "sexMale")
 ```
