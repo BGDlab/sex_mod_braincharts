@@ -203,7 +203,7 @@ write out lists of phenotypes by category
 #names(df_filt)
 
 #global volumes
-glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF")
+glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF","eTIV")
 write_lines(glob_vol_list, "./pheno_lists/global_vols.txt")
 saveRDS(glob_vol_list, "./pheno_lists/global_vols.rds")
 
@@ -360,28 +360,33 @@ covar_subset <- covar_list[!covar_list %in% c("QC_Metric", "run", "eTIV")]
 
 #global vols
 df_global <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, glob_vol_list, "eTIV"))) %>%
+  dplyr::select(all_of(c(covar_subset, glob_vol_list))) %>%
   filter_at(glob_vol_list, any_vars(complete.cases(.)))
+fwrite(df_global, "./data/csvs_by_pheno/global_vols.csv")
 
 #regional gmv
 df_gmv <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, gmv_list)))%>%
   filter_at(gmv_list, any_vars(complete.cases(.)))
+fwrite(df_gmv, "./data/csvs_by_pheno/cortical_vols.csv")
 
 #regional sa
 df_sa <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, sa_list)))%>%
   filter_at(sa_list, any_vars(complete.cases(.)))
+fwrite(df_sa, "./data/csvs_by_pheno/cortical_surf.csv")
 
 #regional ct
 df_ct <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, ct_list)))%>%
   filter_at(ct_list, any_vars(complete.cases(.)))
+fwrite(df_ct, "./data/csvs_by_pheno/cortical_thickness.csv")
 
 #subcortical vols
 df_sub <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, subcort_list)))%>%
   filter_at(subcort_list, any_vars(complete.cases(.)))
+fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 ```
 
 start with global vols
@@ -391,6 +396,7 @@ gg_miss_upset(df_global)
 gg_miss_var(df_global,
             facet = fs_version)
 ```
+Taking too much memory, writing `split_data_for_combat.R` to handle subdividing csvs 
 
 Functions
 ```{r}
