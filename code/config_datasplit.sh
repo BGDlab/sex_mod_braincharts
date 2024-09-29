@@ -27,6 +27,8 @@ save_path=$(realpath $save_path)
 # create the output file
 touch $config_path/datasplit_config.txt
 
+count=1
+
 #loop through each CSV of IDPs separated by phenotype category
 for file in $(find $(realpath $data_path)  -type f -name "*.csv")
 do
@@ -38,5 +40,7 @@ do
   echo "pheno list: $pheno_list"
 
   # Write the CSV file path and the formula to the output file (tab-delimited)
-  echo -e "$file\t$pheno_list\t$save_path\t$filename" >> "$config_path/datasplit_config.txt"
+  echo -e "$count\t$file\t$pheno_list\t$save_path\t$filename" >> "$config_path/datasplit_config.txt"
+  
+  count=$(( count+1 ))
 done

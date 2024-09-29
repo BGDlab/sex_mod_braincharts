@@ -3,7 +3,7 @@
 #run from outside code dir
 
 #list csvs to be harmonized
-data_path=./data
+data_path=./data/to_combat
 config_path=./code/config_files
 
 #batch
@@ -32,7 +32,7 @@ touch $config_path/combat_config.txt
 
 
 #loop through each CSV of IDPs separated by phenotype category
-for file in $(find $(realpath $data_path)  -type f -name "*tocombat.csv")
+for file in $(find $(realpath $data_path)  -type f )
 do
   echo "prepping: $file"
   for combat_config in $combat_list

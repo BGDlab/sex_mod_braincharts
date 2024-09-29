@@ -1,5 +1,14 @@
 #sub-divide IDPs into the largest possible complete chunks for ComBat harmonization
 
+#tempdir()
+#get_hostname <- function(){
+#	    return(as.character(Sys.info()["nodename"]))
+#}
+#print(get_hostname())
+ 
+#system('du -s /tmp')
+#system('df -h /tmp')
+
 #LOAD PACKAGES
 library(data.table)
 library(dplyr)
@@ -7,6 +16,7 @@ library(rlang)
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
+print(args)
 df_orig <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 idp_list <- readRDS(args[2]) #path to .rds obj of list
 save_path <- as.character(args[3])
