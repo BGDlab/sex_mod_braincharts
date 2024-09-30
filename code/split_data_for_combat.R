@@ -40,11 +40,14 @@ merge_identical_dfs <- function(df_list) {
   new_list <- list() # Initialize an empty list to store merged dataframes
   
   for (i in seq_along(df_list)) {
+    print(paste("testing dataframe #", i))
     if (!processed[i]) {
       identical_dfs <- c(df_names[i]) # Start with the current dataframe's name
       
       # Compare the current dataframe with others
       for (j in (i + 1):length(df_list)) {
+        if (j > length(df_list)) next  # Avoid index out of bounds
+        print(paste("compare to dataframe #", j))
         if (!processed[j] && identical(df_list[[i]], df_list[[j]])) {
           identical_dfs <- c(identical_dfs, df_names[j])
           processed[j] <- TRUE # Mark the duplicate dataframe as processed
