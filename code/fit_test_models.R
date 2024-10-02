@@ -18,8 +18,10 @@ df <- df %>%
   dplyr::select(all_of(c(pheno, "logAge_days", "sexMale", "fs_version", "study"))) %>%
   na.omit()
 
+print(paste("dataframe dimensions:", dim(df)))
+
 #define degrees of freedom to be tested
-degree_list <- seq(3, 24, by=3)
+degree_list <- seq(2, 24, by=2)
 
 results_df <- data.frame("degree" = as.numeric(),
                          "sigma_degree" = as.numeric(),
@@ -29,44 +31,48 @@ results_df <- data.frame("degree" = as.numeric(),
                          )
 
 #define gamlss fitting function
-gamlss_try <- function(pheno, df, degree, sigma_degree){
+gamlss_try <- function(pheno, degree, sigma_degree){
   result <- tryCatch({
     eval(parse(text = paste0("gamlss(formula =", pheno, "~ ns(logAge_days, df = ", degree, ") + sexMale + fs_version + study,
                   sigma.formula = ~ ns(logAge_days, df = ", sigma_degree, ") + sexMale + fs_version + study,
                   nu.formula = ~ 1,
                   control = gamlss.control(n.cyc = 200), 
-                  family = GG, data=", df, ", trace = FALSE)")))
+                  family = GG, data= df, trace = FALSE)")))
   } , warning = function(w) {
     message("warning")
     eval(parse(text = paste0("gamlss(formula =", pheno, "~ ns(logAge_days, df = ", degree, ") + sexMale + fs_version + study,
                   sigma.formula = ~ ns(logAge_days, df = ", sigma_degree, ") + sexMale + fs_version + study,
                   nu.formula = ~ 1,
                   control = gamlss.control(n.cyc = 200), 
-                  family = GG, data=", df, ", trace = FALSE)")))
+                  family = GG, data= df, trace = FALSE)")))
   } , error = function(e) {
     message("error, trying method=CG()")
     eval(parse(text = paste0("gamlss(formula =", pheno, "~ ns(logAge_days, df = ", degree, ") + sexMale + fs_version + study,
                   sigma.formula = ~ ns(logAge_days, df = ", sigma_degree, ") + sexMale + fs_version + study,
                   nu.formula = ~ 1, method=CG(),
                   control = gamlss.control(n.cyc = 200), 
-                  family = GG, data=", df, ", trace = FALSE)")))
+                  family = GG, data= df, trace = FALSE)")))
   } , finally = {
     message("done")
   } )
 }
 
 #sim data ONCE for centile fan plotting
+print("simulate data for plotting")
 sim_df <- sim_data(df, "logAge_days", color_var= "sexMale")
 
 #FIT BASE MODEL
 for (degree in degree_list){
-  sigma_degree <- degree/3
+
+  for (sigma_degree in c(degree/2, degree)){
   
-  model <- gamlss_try(pheno, df, degree, sigma_degree)
+  print("fitting model")
+  model <- gamlss_try(pheno, degree, sigma_degree)
   
   saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", "mu", degree, "sig", sigma_degree, "mod.rds"))
   
   #save centile fan plot
+  print("creating centile fan plot")
   fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
                                get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df) +
@@ -82,8 +88,9 @@ for (degree in degree_list){
                        "AIC" = AIC(model))
   
   results_df <- rbind(results_df, sub_df)
+  }
 }
 
 fwrite(results_df, file=paste0(save_path, "/", pheno, "_results.csv"))
 
-print()
+print(paste(pheno, "modeled successfully"))
