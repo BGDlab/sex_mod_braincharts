@@ -543,6 +543,8 @@ ggplot(df_sub) +
 library(gamlss)
 devtools::install_github("BGDlab/gamlssTools")
 library(gamlssTools)
+
+df_global <- fread("./data/csvs_by_pheno/global_vols.csv")
 ```
 
 ```{r}
@@ -668,4 +670,20 @@ make_centile_fan(WMV_mod_df9, na.omit(df_global), "logAge_days", "sexMale", labe
 
 WMV_mod_df10 <- gamlss(WMV ~ ns(logAge_days, df=10) + sexMale + study, family = GG, data=na.omit(df_global))
 make_centile_fan(WMV_mod_df10, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
+```
+penalized splines
+```{r}
+WMV_mod_pb <- gamlss(WMV ~ pb(logAge_days) + sexMale + study, family = GG, data=na.omit(df_global))
+make_centile_fan(WMV_mod_pb, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
+
+#play with lambda
+WMV_mod_pb5 <- gamlss(WMV ~ pb(logAge_days, lambda=5) + sexMale + study, family = GG, data=na.omit(df_global))
+make_centile_fan(WMV_mod_pb5, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
+
+WMV_mod_pb10 <- gamlss(WMV ~ pb(logAge_days, lambda=10) + sexMale + study, family = GG, data=na.omit(df_global))
+make_centile_fan(WMV_mod_pb10, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
+
+n <- nrow(na.omit(df_global))
+WMV_mod_pbgaic <- gamlss(WMV ~ pb(logAge_days, method="GAIC", k=log(n))) + sexMale + study, family = GG, data=na.omit(df_global))
+make_centile_fan(WMV_mod_pbgaic, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
 ```
