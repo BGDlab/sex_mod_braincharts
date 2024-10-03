@@ -47,19 +47,28 @@ gamlss_try <- function(pheno, degree, sigma_degree){
                   family = GG, data= df, trace = FALSE)")))
   } , error = function(e) {
     message("error, trying method=CG()")
+    tryCatch({
     eval(parse(text = paste0("gamlss(formula =", pheno, "~ ns(logAge_days, df = ", degree, ") + sexMale + fs_version + study,
                   sigma.formula = ~ ns(logAge_days, df = ", sigma_degree, ") + sexMale + fs_version + study,
                   nu.formula = ~ 1, method=CG(),
                   control = gamlss.control(n.cyc = 200), 
                   family = GG, data= df, trace = FALSE)")))
+      #if CG alos fails, return NULL
+      }, error = function(e2) {
+        message("second error, returning NULL")
+        return(NULL)
+    })
   } , finally = {
     message("done")
   } )
+  return(result)
 }
 
 #sim data ONCE for centile fan plotting
 print("simulate data for plotting")
 sim_df <- sim_data(df, "logAge_days", color_var= "sexMale")
+
+loop_count <- 0
 
 #FIT BASE MODEL
 for (degree in degree_list){
@@ -68,6 +77,14 @@ for (degree in degree_list){
   
   print("fitting model")
   model <- gamlss_try(pheno, degree, sigma_degree)
+  
+  loop_count <- loop_count+1
+  
+  #if model isn't fit, skip to next loop
+  if (is.null(model)) {
+    message("model fitting failed, skipping to next iteration")
+    next
+  }
   
   saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", "mu", degree, "sig", sigma_degree, "mod.rds"))
   
@@ -93,4 +110,4 @@ for (degree in degree_list){
 
 fwrite(results_df, file=paste0(save_path, "/", pheno, "_results.csv"))
 
-print(paste(pheno, "modeled successfully"))
+print(paste(nrow(results_df), "of", loop_count, pheno, "models successful"))
