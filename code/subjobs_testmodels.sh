@@ -17,10 +17,12 @@ echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
 #PARSE CONFIG FILE
 DF=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
 PHENO=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
-SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
+KNOTS=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
+SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
 
 echo "DF: $DF"
 echo "PHENO: $PHENO"
+echo "KNOTS: $KNOTS"
 echo "SAVE_PATH: $SAVE_PATH"
 
 #------------------
@@ -29,7 +31,7 @@ BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
 
 module load R/4.4.0
 
-Rscript $BASE/code/fit_test_models.R $DF $PHENO $SAVE_PATH 
+Rscript $BASE/code/fit_test_models.R $DF $PHENO $KNOTS $SAVE_PATH 
 
 # Done!
 echo "Job finished running!"

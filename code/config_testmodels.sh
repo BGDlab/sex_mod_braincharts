@@ -10,6 +10,10 @@ pheno_lists=./pheno_lists
 save_path=./test_models
 knot_lists=./code/knot_lists.RDS
 
+#get full paths
+save_path=$(realpath $save_path)
+knot_lists=$(realpath $knot_lists)
+
 #make config file dir or remove old file if necessary
 if ! [ -d $config_path ]
 	then
@@ -26,7 +30,6 @@ if ! [ -d $save_path ]
 	mkdir $save_path/model_objs
 	mkdir $save_path/plots
 fi
-save_path=$(realpath $save_path)
 
 # create the output file
 touch $config_file
