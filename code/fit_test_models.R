@@ -11,7 +11,8 @@ args <- commandArgs(trailingOnly = TRUE)
 print(args)
 df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 pheno <- as.character(args[2])
-save_path <- as.character(args[3])
+knot_lists <- readRDS(as.character(args[3]))
+save_path <- as.character(args[])
 
 #drop extra variables
 df <- df %>%
@@ -31,28 +32,26 @@ results_df <- data.frame("degree" = as.numeric(),
                          )
 
 #define gamlss fitting function
-gamlss_try <- function(pheno, degree, sigma_degree){
+gamlss_try <- function(pheno, degree=NULL, sigma_degree=NULL, knots=NULL, sigma_knots=NULL){
   result <- tryCatch({
-    eval(parse(text = paste0("gamlss(formula =", pheno, "~ ns(logAge_days, df = ", degree, ") + sexMale + fs_version + study,
-                  sigma.formula = ~ ns(logAge_days, df = ", sigma_degree, ") + sexMale + fs_version + study,
-                  nu.formula = ~ 1,
-                  control = gamlss.control(n.cyc = 200), 
-                  family = GG, data= df, trace = FALSE)")))
+    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, df =", degree, ") + sexMale + fs_version + study,",
+                             "sigma.formula = ~ ns(logAge_days, df =", sigma_degree, ") + sexMale + fs_version + study,",
+                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
+    
+    eval(parse(text = gamlss_RSformula))
+    
   } , warning = function(w) {
     message("warning")
-    eval(parse(text = paste0("gamlss(formula =", pheno, "~ ns(logAge_days, df = ", degree, ") + sexMale + fs_version + study,
-                  sigma.formula = ~ ns(logAge_days, df = ", sigma_degree, ") + sexMale + fs_version + study,
-                  nu.formula = ~ 1,
-                  control = gamlss.control(n.cyc = 200), 
-                  family = GG, data= df, trace = FALSE)")))
+    eval(parse(text = gamlss_RSformula))
+    
   } , error = function(e) {
     message("error, trying method=CG()")
     tryCatch({
-    eval(parse(text = paste0("gamlss(formula =", pheno, "~ ns(logAge_days, df = ", degree, ") + sexMale + fs_version + study,
-                  sigma.formula = ~ ns(logAge_days, df = ", sigma_degree, ") + sexMale + fs_version + study,
-                  nu.formula = ~ 1, method=CG(),
-                  control = gamlss.control(n.cyc = 200), 
-                  family = GG, data= df, trace = FALSE)")))
+      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, df =", degree, ") + sexMale + fs_version + study,",
+                  "sigma.formula = ~ ns(logAge_days, df =", sigma_degree, ") + sexMale + fs_version + study,",
+                  "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
+    eval(parse(text = gamlss_CGformula))
+    
       #if CG alos fails, return NULL
       }, error = function(e2) {
         message("second error, returning NULL")
@@ -66,45 +65,52 @@ gamlss_try <- function(pheno, degree, sigma_degree){
 
 #sim data ONCE for centile fan plotting
 print("simulate data for plotting")
-sim_df <- sim_data(df, "logAge_days", color_var= "sexMale")
+sim_df <- sim_data(df, "logAge_days", color_var="sexMale")
 
 loop_count <- 0
 
 #FIT BASE MODEL
 for (degree in degree_list){
+  
+  knot_index <- paste0("df", degree)
+  knots_list <- knot_lists[[knot_index]]
 
   for (sigma_degree in c(degree/2, degree)){
-  
-  print("fitting model")
-  model <- gamlss_try(pheno, degree, sigma_degree)
-  
-  loop_count <- loop_count+1
-  
-  #if model isn't fit, skip to next loop
-  if (is.null(model)) {
-    message("model fitting failed, skipping to next iteration")
-    next
-  }
-  
-  saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", "mu", degree, "sig", sigma_degree, "mod.rds"))
-  
-  #save centile fan plot
-  print("creating centile fan plot")
-  fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
+   if (sigma_degree <2){
+     next
+   }
+    s_knot_index <- paste0("df", sigma_degree)
+    s_knots_list <- knot_lists[[s_knot_index]]
+    
+    print("fitting model")
+    model <- gamlss_try(pheno, knots=knots_list, sigma_knots=s_knots_list)
+    loop_count <- loop_count+1
+    
+    #if model isn't fit, skip to next loop
+    if (is.null(model)) {
+      message("model fitting failed, skipping to next iteration")
+      next
+      }
+    
+    saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_mu", degree, "sig", sigma_degree, "_mod.rds"))
+    
+    #save centile fan plot
+    print("creating centile fan plot")
+    fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
                                get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df) +
-    ggtitle(paste(pheno, "smoothed\nw mu.df=", degree, ", sigma.df=", sigma_degree))
-  
-  ggsave(file=paste0(save_path, "/plots/", pheno, "_", "mu", degree, "sig", sigma_degree, ".png"), fan_plot)
-  
-  #compile results
-  sub_df <- data.frame("degree" = degree,
-                       "sigma_degree" = sigma_degree,
-                       "pheno" = pheno,
-                       "BIC" = BIC(model),
-                       "AIC" = AIC(model))
-  
-  results_df <- rbind(results_df, sub_df)
+    ggtitle(paste(pheno, "\nsmoothed w/ mu.df=", degree, ", sigma.df=", sigma_degree))
+    
+    ggsave(file=paste0(save_path, "/plots/", pheno, "_mu", degree, "sig", sigma_degree, ".png"), fan_plot)
+    
+    #compile results
+    sub_df <- data.frame("degree" = degree,
+                         "sigma_degree" = sigma_degree,
+                         "pheno" = pheno,
+                         "BIC" = BIC(model),
+                         "AIC" = AIC(model))
+    
+    results_df <- rbind(results_df, sub_df)
   }
 }
 

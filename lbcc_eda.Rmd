@@ -360,6 +360,21 @@ df_clean %>%
 #some as low as 25%
 ```
 
+determine equal knot placements 
+```{r}
+range(df_clean$logAge_days)
+
+knot_lists <- c()
+for (degree in seq(2, 24)){
+  list_name <- paste0("df", degree)
+  knot_lists[[list_name]] <- dlnm::equalknots(df_clean$logAge_days,
+                                             fun="ns",
+                                             df= degree)
+}
+
+saveRDS(knot_lists, "./code/knot_lists.RDS")
+```
+
 ###Subdivide by Missingness
 
 Making separate CSVs with maximally complete data in order to ComBat features. For each feature (target feature to ComBat) keep as many other features as possible (as priors) without including any NAs
@@ -684,6 +699,31 @@ WMV_mod_pb10 <- gamlss(WMV ~ pb(logAge_days, lambda=10) + sexMale + study, famil
 make_centile_fan(WMV_mod_pb10, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
 
 n <- nrow(na.omit(df_global))
-WMV_mod_pbgaic <- gamlss(WMV ~ pb(logAge_days, method="GAIC", k=log(n))) + sexMale + study, family = GG, data=na.omit(df_global))
+WMV_mod_pbgaic <- gamlss(WMV ~ pb(logAge_days, method="GAIC", k=log(n)) + sexMale + study, family = GG, data=na.omit(df_global))
 make_centile_fan(WMV_mod_pbgaic, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
+```
+
+
+playing around with spacing splines based on epochs in [Kang et al, 2013](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3566780/#SD1).
+
+```{r}
+month_to_days <- function(x){
+  d <- (x*365.25)/12 + 280
+  return(d)
+}
+
+yr_to_days <- function(x){
+  d <- x*365.25 + 280
+  return(d)
+}
+
+#convert age windows to days
+kang_windows <- c(4*7, 8*7, 10*7, 13*7, 16*7, 19*7, 24*7, 0, 
+                  month_to_days(6),
+                  month_to_days(12),
+                  yr_to_days(6),
+                  yr_to_days(12),
+                  yr_to_days(20),
+                  yr_to_days(40),
+                  yr_to_days(60))
 ```

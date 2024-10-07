@@ -8,6 +8,7 @@ config_path=./code/config_files
 config_file=$config_path/testmodels_config.txt
 pheno_lists=./pheno_lists
 save_path=./test_models
+knot_lists=./code/knot_lists.RDS
 
 #make config file dir or remove old file if necessary
 if ! [ -d $config_path ]
@@ -44,7 +45,7 @@ do
   do
 
   # Write the CSV file path and the formula to the output file (tab-delimited)
-  echo -e "$file\t$pheno_line\t$save_path" >> "$config_file"
+  echo -e "$file\t$pheno_line\t$knot_lists\t$save_path" >> "$config_file"
   done < "$pheno_list"
 done
 
