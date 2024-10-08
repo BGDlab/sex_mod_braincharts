@@ -12,7 +12,7 @@ print(args)
 df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 pheno <- as.character(args[2])
 knot_lists <- readRDS(as.character(args[3]))
-save_path <- as.character(args[])
+save_path <- as.character(args[4])
 
 #drop extra variables
 df <- df %>%
@@ -32,10 +32,10 @@ results_df <- data.frame("degree" = as.numeric(),
                          )
 
 #define gamlss fitting function
-gamlss_try <- function(pheno, degree=NULL, sigma_degree=NULL, knots=NULL, sigma_knots=NULL){
+gamlss_try <- function(pheno, deg=NULL, sigma_deg=NULL, knots=NULL, sigma_knots=NULL){
   result <- tryCatch({
-    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, df =", degree, ") + sexMale + fs_version + study,",
-                             "sigma.formula = ~ ns(logAge_days, df =", sigma_degree, ") + sexMale + fs_version + study,",
+    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, df =", deg, ") + sexMale + fs_version + study,",
+                             "sigma.formula = ~ ns(logAge_days, df =", sigma_deg, ") + sexMale + fs_version + study,",
                              "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
@@ -47,8 +47,8 @@ gamlss_try <- function(pheno, degree=NULL, sigma_degree=NULL, knots=NULL, sigma_
   } , error = function(e) {
     message("error, trying method=CG()")
     tryCatch({
-      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, df =", degree, ") + sexMale + fs_version + study,",
-                  "sigma.formula = ~ ns(logAge_days, df =", sigma_degree, ") + sexMale + fs_version + study,",
+      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, df =", deg, ") + sexMale + fs_version + study,",
+                  "sigma.formula = ~ ns(logAge_days, df =", sigma_deg, ") + sexMale + fs_version + study,",
                   "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
     eval(parse(text = gamlss_CGformula))
     
@@ -82,7 +82,7 @@ for (degree in degree_list){
     s_knot_index <- paste0("df", sigma_degree)
     s_knots_list <- knot_lists[[s_knot_index]]
     
-    print("fitting model")
+    print(paste("fitting model with df = ", degree, "in mu and df =", sigma_degree, "in sigma"))
     model <- gamlss_try(pheno, knots=knots_list, sigma_knots=s_knots_list)
     loop_count <- loop_count+1
     
@@ -90,8 +90,11 @@ for (degree in degree_list){
     if (is.null(model)) {
       message("model fitting failed, skipping to next iteration")
       next
-      }
-    
+    }
+
+#troubleshooting
+print(paste0(save_path, "/model_objs/", pheno, "_mu", degree, "sig", sigma_degree, "_mod.rds"))    
+
     saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_mu", degree, "sig", sigma_degree, "_mod.rds"))
     
     #save centile fan plot
