@@ -92,9 +92,6 @@ for (degree in degree_list){
       next
     }
 
-#troubleshooting
-print(paste0(save_path, "/model_objs/", pheno, "_mu", degree, "sig", sigma_degree, "_mod.rds"))    
-
     saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_mu", degree, "sig", sigma_degree, "_mod.rds"))
     
     #save centile fan plot
