@@ -32,10 +32,10 @@ results_df <- data.frame("degree" = as.numeric(),
                          )
 
 #define gamlss fitting function
-gamlss_try <- function(pheno, deg=NULL, sigma_deg=NULL, knots=NULL, sigma_knots=NULL){
+gamlss_try <- function(pheno, knots=NULL, sigma_knots=NULL){
   result <- tryCatch({
-    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, df =", deg, ") + sexMale + fs_version + study,",
-                             "sigma.formula = ~ ns(logAge_days, df =", sigma_deg, ") + sexMale + fs_version + study,",
+    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots =", knots, ") + sexMale + fs_version + study,",
+                             "sigma.formula = ~ ns(logAge_days, knots =", sigma_knots, ") + sexMale + fs_version + study,",
                              "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
@@ -47,8 +47,8 @@ gamlss_try <- function(pheno, deg=NULL, sigma_deg=NULL, knots=NULL, sigma_knots=
   } , error = function(e) {
     message("error, trying method=CG()")
     tryCatch({
-      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, df =", deg, ") + sexMale + fs_version + study,",
-                  "sigma.formula = ~ ns(logAge_days, df =", sigma_deg, ") + sexMale + fs_version + study,",
+      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots =", knots, ") + sexMale + fs_version + study,",
+                  "sigma.formula = ~ ns(logAge_days, knots =", sigma_knots, ") + sexMale + fs_version + study,",
                   "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
     eval(parse(text = gamlss_CGformula))
     
