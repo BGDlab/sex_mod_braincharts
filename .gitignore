@@ -3,3 +3,4 @@ data/
 code/jobfiles
 code/config_files
 test_models
+*.zip
