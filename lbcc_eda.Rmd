@@ -375,6 +375,44 @@ for (degree in seq(2, 24)){
 saveRDS(knot_lists, "./code/knot_lists.RDS")
 ```
 
+some phenotypes seem to only have younger data - looking into this
+```{r}
+df_clean %>%
+  ggplot() +
+  geom_point(aes(x=age_days, y=SUBC.Right.Lentiform.Nucleus))
+
+approx_max <- max(df_clean$age_days) - 5*365.25
+approx_min <- min(df_clean$age_days) + 5*365.25
+
+get_sample_range <- function(pheno, df){
+  df %>%
+    as.data.table %>%
+    na.omit(cols=pheno) %>%
+    summarise(max_age = max(age_days),
+              min_age = min (age_days))
+}
+
+list_ranges <- lapply(pheno_list, get_sample_range, df=df_clean)
+names(list_ranges) <- pheno_list
+
+
+df_ranges <- bind_rows(list_ranges, .id="pheno")
+
+restricted <-df_ranges %>%
+  dplyr::filter(max_age < approx_max | min_age > approx_min)
+```
+
+remove subcortical vols restricted to infants
+```{r}
+df_clean2 <- df_clean %>%
+  dplyr::select(!unique(restricted$pheno))
+
+#also updating subcort lists
+subcort_list <- subcort_list[!(subcort_list %in% unique(restricted$pheno))]
+write_lines(subcort_list, "./pheno_lists/subcortical_vols.txt")
+saveRDS(subcort_list, "./pheno_lists/subcortical_vols.rds")
+```
+
 ###Subdivide by Missingness
 
 Making separate CSVs with maximally complete data in order to ComBat features. For each feature (target feature to ComBat) keep as many other features as possible (as priors) without including any NAs
@@ -382,40 +420,40 @@ write out separate csvs for each pheno category, further subdivide using `subjob
 
 ```{r}
 #save out QC separately since these would only be used for sensitivity analyses
-df_covars <- df_clean %>%
+df_covars <- df_clean2 %>%
   dplyr::select(all_of(covar_list))
 fwrite(df_covars, file="./data/SBC_LBCC_CN_covars.csv")
 
 covar_subset <- covar_list[!covar_list %in% c("QC_Metric", "run", "eTIV")]
 
 #global vols
-df_global <- df_clean %>%
+df_global <- df_clean2 %>%
   dplyr::select(all_of(c(covar_subset, glob_vol_list))) %>%
   filter_at(glob_vol_list, any_vars(complete.cases(.)))
 fwrite(df_global, "./data/csvs_by_pheno/global_vols.csv")
 
 #regional gmv
-df_gmv <- df_clean %>%
+df_gmv <- df_clean2 %>%
   dplyr::select(all_of(c(covar_subset, gmv_list)))%>%
   filter_at(gmv_list, any_vars(complete.cases(.)))
 fwrite(df_gmv, "./data/csvs_by_pheno/cortical_vols.csv")
 
 #regional sa
-df_sa <- df_clean %>%
+df_sa <- df_clean2 %>%
   dplyr::select(all_of(c(covar_subset, sa_list)))%>%
   filter_at(sa_list, any_vars(complete.cases(.)))
 fwrite(df_sa, "./data/csvs_by_pheno/cortical_surf.csv")
 
 #regional ct
-df_ct <- df_clean %>%
+df_ct <- df_clean2 %>%
   dplyr::select(all_of(c(covar_subset, ct_list)))%>%
   filter_at(ct_list, any_vars(complete.cases(.)))
 fwrite(df_ct, "./data/csvs_by_pheno/cortical_thickness.csv")
 
 #subcortical vols
-df_sub <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, subcort_list)))%>%
-  filter_at(subcort_list, any_vars(complete.cases(.)))
+df_sub <- df_clean2 %>%
+  dplyr::select(any_of(c(covar_subset, subcort_list)))%>%
+  filter_at(vars(any_of(subcort_list)), any_vars(complete.cases(.)))
 fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 ```
 

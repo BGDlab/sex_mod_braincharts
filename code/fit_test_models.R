@@ -34,8 +34,8 @@ results_df <- data.frame("degree" = as.numeric(),
 #define gamlss fitting function
 gamlss_try <- function(pheno, knots=NULL, sigma_knots=NULL){
   result <- tryCatch({
-    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots =", knots, ") + sexMale + fs_version + study,",
-                             "sigma.formula = ~ ns(logAge_days, knots =", sigma_knots, ") + sexMale + fs_version + study,",
+    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + sexMale + fs_version + study,",
+                             "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + sexMale + fs_version + study,",
                              "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
@@ -47,8 +47,8 @@ gamlss_try <- function(pheno, knots=NULL, sigma_knots=NULL){
   } , error = function(e) {
     message("error, trying method=CG()")
     tryCatch({
-      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots =", knots, ") + sexMale + fs_version + study,",
-                  "sigma.formula = ~ ns(logAge_days, knots =", sigma_knots, ") + sexMale + fs_version + study,",
+      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + sexMale + fs_version + study,",
+                  "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + sexMale + fs_version + study,",
                   "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
     eval(parse(text = gamlss_CGformula))
     
@@ -73,14 +73,14 @@ loop_count <- 0
 for (degree in degree_list){
   
   knot_index <- paste0("df", degree)
-  knots_list <- knot_lists[[knot_index]]
+  knots_list <- paste(knot_lists[[knot_index]], collapse=", ")
 
   for (sigma_degree in c(degree/2, degree)){
    if (sigma_degree <2){
      next
    }
     s_knot_index <- paste0("df", sigma_degree)
-    s_knots_list <- knot_lists[[s_knot_index]]
+    s_knots_list <- paste(knot_lists[[s_knot_index]], collapse=", ")
     
     print(paste("fitting model with df = ", degree, "in mu and df =", sigma_degree, "in sigma"))
     model <- gamlss_try(pheno, knots=knots_list, sigma_knots=s_knots_list)
