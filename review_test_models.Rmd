@@ -1,0 +1,111 @@
+---
+title: "Review Test Models"
+output: html_document
+date: "2024-10-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, gamlss)
+
+devtools::install_github("BGDlab/gamlssTools", force=TRUE)
+library(gamlssTools)
+
+sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
+ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
+vol_list <- readRDS("./pheno_lists/cortical_vols.rds")
+global_list <- readRDS("./pheno_lists/global_vols.rds")
+sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+```
+
+#
+read csvs
+```{r}
+output_fread <- 
+    list.files(path="test_models", pattern = "\\.csv$", full.names=TRUE) %>% 
+    lapply(fread)
+names(output_fread[[1]])
+```
+
+Find lowest BICs
+
+```{r}
+#functions
+clean_outputs <- function(df){
+  #also getting category
+  df <- df %>%
+    mutate(pheno = as.character(pheno)) %>%
+    mutate(pheno_cat = case_when(pheno %in% sa_list ~ "SA",
+                                 pheno %in% ct_list ~ "CT",
+                                 pheno %in% vol_list ~ "Vol",
+                                 pheno %in% global_list ~ "Global",
+                                 pheno %in% sub_list ~ "Subcort"
+                                 )) %>%
+    unite("dfs", degree:sigma_degree, sep="_") 
+}
+
+lowest_BICs <- function(df, number){
+  df <- df %>%
+    arrange(BIC) %>%
+    slice_head(n = number)
+}
+```
+
+```{r}
+dataframe_list <- lapply(output_fread, clean_outputs)
+
+lowest_bics <- lapply(dataframe_list, lowest_BICs, number=5) %>%
+  bind_rows()
+
+#filter further within pheno categories
+lowest_bics %>%
+  group_by(pheno_cat) %>%
+  count(dfs) %>%
+  arrange(desc(n)) %>%
+  slice_head(n=5) %>%
+  mutate(dfs=paste0("mu", sub("_", "sig", dfs)))
+```
+
+select pngs to view
+```{r}
+sa_sub <- sample(sa_list, 10)
+sa_png_list <- c(paste(sa_sub, "mu10sig5.png", sep="_"), 
+                 paste(sa_sub, "mu12sig6.png", sep="_"), 
+                 paste(sa_sub, "mu8sig4.png", sep="_"))
+write_lines(sa_png_list, "./test_models/top_sa_plots.txt")
+
+ct_sub <- sample(ct_list, 10)
+ct_png_list <- c(paste(ct_sub, "mu16sig16.png", sep="_"), 
+                 paste(ct_sub, "mu18sig18.png", sep="_"), 
+                 paste(ct_sub, "mu20sig20.png", sep="_"))
+write_lines(ct_png_list, "./test_models/top_ct_plots.txt")
+
+vol_sub <- sample(vol_list, 10)
+vol_png_list <- c(paste(vol_sub, "mu16sig8.png", sep="_"), 
+                 paste(vol_sub, "mu12sig6.png", sep="_"), 
+                 paste(vol_sub, "mu14sig7.png", sep="_"))
+write_lines(vol_png_list, "./test_models/top_vol_plots.txt")
+
+glob_png_list <- c(paste(global_list, "mu10sig5.png", sep="_"), 
+                 paste(global_list, "mu12sig6.png", sep="_"),
+                 paste(global_list, "mu10sig10.png", sep="_"),
+                 paste(global_list, "mu14sig7.png", sep="_"))
+write_lines(glob_png_list, "./test_models/top_glob_plots.txt")
+
+sub_sub <- sample(sub_list, 10)
+sub_png_list <- c(paste(sub_sub, "mu16sig8.png", sep="_"), 
+                 paste(sub_sub, "mu12sig6.png", sep="_"), 
+                 paste(sub_sub, "mu20sig10.png", sep="_"),
+                 paste(sub_sub, "mu22sig11.png", sep="_"))
+write_lines(sub_png_list, "./test_models/top_sub_plots.txt")
+```
