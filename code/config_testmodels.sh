@@ -7,7 +7,7 @@ data_path=./data/csvs_by_pheno
 config_path=./code/config_files
 config_file=$config_path/testmodels_config.txt
 pheno_lists=./pheno_lists
-save_path=./test_models
+save_path=./test_sex_mod/models
 knot_lists=./code/knot_lists.RDS
 
 #get full paths

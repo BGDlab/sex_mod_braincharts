@@ -371,8 +371,6 @@ for (degree in seq(2, 24)){
                                              fun="ns",
                                              df= degree)
 }
-
-saveRDS(knot_lists, "./code/knot_lists.RDS")
 ```
 
 some phenotypes seem to only have younger data - looking into this
