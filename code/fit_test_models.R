@@ -96,7 +96,7 @@ gamlss_mod_try <- function(pheno, knots=NULL, sigma_knots=NULL){
 
 #sim data ONCE for centile fan plotting
 print("simulate data for plotting")
-sim_df <- sim_data(df, "logAge_days", color_var="sexMale")
+sim_df <- sim_data(df, "logAge_days", factor_var="sexMale")
 
 loop_count <- 0
 
