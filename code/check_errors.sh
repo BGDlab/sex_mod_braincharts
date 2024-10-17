@@ -1,6 +1,15 @@
 #!/bin/bash
 
 #script to search for failed R jobs via "Error in"
+
+#check arg
+if [ $# -eq 0 ]; then
+    >&2 echo "provide search string for error file name, e.g. 'name_jobnumber'"
+    exit 1
+fi
+
+#function
+
 grep -RH --after-context=2 "Error in" ./code/jobfiles/*$1*.err  | awk '
 BEGIN { filename = "" }
 /^--$/ { next }
