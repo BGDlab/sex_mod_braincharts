@@ -2,12 +2,19 @@
 #script to write config file that will be used to submit test models with varying smooths
 #run from outside code dir
 
-#list csvs to be harmonized
+######################################
+#UPDATE HERE AS NEEDED
+######################################
+config_file=$config_path/testmodels_config_log.txt
+save_path=./test_sex_mod_log
+log_scale="TRUE"
+fs="TRUE"
+######################################
+
+#paths
 data_path=./data/csvs_by_pheno
 config_path=./code/config_files
-config_file=$config_path/testmodels_config.txt
 pheno_lists=./pheno_lists
-save_path=./test_sex_mod
 knot_lists=./code/knot_lists.RDS
 
 #get full paths
@@ -28,7 +35,9 @@ if ! [ -d $save_path ]
 	then
 	mkdir $save_path
 	mkdir $save_path/model_objs
-	mkdir $save_path/plots
+	mkdir $save_path/centile_plots
+	mkdir $save_path/worm_plots
+	mkdir $save_path/cent_csvs
 fi
 
 # create the output file
@@ -48,7 +57,7 @@ do
   do
 
   # Write the CSV file path and the formula to the output file (tab-delimited)
-  echo -e "$file\t$pheno_line\t$knot_lists\t$save_path" >> "$config_file"
+  echo -e "$file\t$pheno_line\t$knot_lists\t$save_path\t$log_scale\t$fs" >> "$config_file"
   done < "$pheno_list"
 done
 

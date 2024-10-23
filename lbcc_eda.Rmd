@@ -32,6 +32,7 @@ sum(is.na(df$INDEX.ID))
 
 sum(is.na(df$participant))
 sum(is.na(df$study))
+sum(is.na(df$site))
 sum(is.na(df$dx))
 sum(is.na(df$session))
 ```
@@ -260,7 +261,6 @@ df_select <- df_filt %>%
 
 skim(df_select)
 ```
-
 
 ### Remove Psychosis Studies
 set aside selected psychosis studies
@@ -596,170 +596,24 @@ devtools::install_github("BGDlab/gamlssTools")
 library(gamlssTools)
 
 df_global <- fread("./data/csvs_by_pheno/global_vols.csv")
+knots_list <- readRDS("./code/knot_lists.RDS")
+```
+
+Function to try simple sex-mod gamlss model
+
+```{r}
+gamlss_sex_mod <- function(pheno, knots=NULL, sigma_knots=NULL){
+    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + ns(sexMale_x_logAge, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
+                             "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + ns(sexMale_x_logAge, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
+                             "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
+    
+    eval(parse(text = gamlss_RSformula))}
 ```
 
 ```{r}
-irismod1 <-gamlss(Sepal.Length ~ ns(Sepal.Width) + Species, data=iris)
-make_centile_fan(irismod1, iris, "Sepal.Width", "Species", label_centiles = FALSE)
-
-irismod2 <-gamlss(Sepal.Length ~ ns(Sepal.Width, knots=(c(mean(iris$Sepal.Width)-0.5, mean(iris$Sepal.Width), mean(iris$Sepal.Width)+0.5))) + Species, data=iris)
-make_centile_fan(irismod2, iris, "Sepal.Width", "Species", label_centiles = FALSE)
-
-irismod3 <-gamlss(Sepal.Length ~ ns(Sepal.Width, df=4) + Species, data=iris)
-make_centile_fan(irismod3, iris, "Sepal.Width", "Species", label_centiles = FALSE)
-```
-
-sex-mod model with ns() on log-scaled age and biologically-informed spline placement
-```{r}
-ages_yrs<-c(1, 3, 7, 16, 25, 45, 70)
-ages_logdays <- lapply(ages_yrs, function(x){log(x*365.25, base=10)}) %>% unlist
-
-mod3 <- gamlss(GMV ~ ns(logAge_days, knots=c(3.039711, 3.407688, 3.766710, 3.960530, 4.215803, 4.407688)) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(mod3, na.omit(df_global), "logAge_days", "sexMale", label_centiles = FALSE, show_points = FALSE)
-```
-
-non log-scaled
-```{r}
-knots_days <- lapply(ages_yrs, function(x){x*365.25+280}) %>% unlist
-
-mod3_nolog <- gamlss(GMV ~ ns(age_days, knots=c(645.25, 1375.75, 2836.75, 6124.00, 9411.25, 16716.25, 25847.50)) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(mod3_nolog, na.omit(df_global), "age_days", "sexMale", label_centiles = FALSE)
-```
-looks decent, trying to add more smooths
-```{r}
-ages_yrs_up <- c(ages_yrs, 0, 5) %>% sort()
-
-knots_days2 <- lapply(ages_yrs_up, function(x){x*365.25+280}) %>% unlist
-
-mod4_nolog <- gamlss(GMV ~ ns(age_days, knots=c(280.00, 645.25, 1375.75, 2106.25, 2836.75, 6124.00, 9411.25, 16716.25, 25847.50)) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(mod4_nolog, na.omit(df_global), "age_days", "sexMale", label_centiles = FALSE)
-```
-
-still kinda bumpy in early years, try with log-scale
-
-```{r}
-ages_logdays2 <- lapply(ages_yrs_up, function(x){log(x*365.25, base=10)}) %>% unlist
-
-mod4 <- gamlss(GMV ~ ns(logAge_days, knots=c(0, 2.562590, 3.039711, 3.407688, 3.766710, 3.960530, 4.215803, 4.407688)) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(mod4, na.omit(df_global), "logAge_days", "sexMale", label_centiles = FALSE)
-
-```
-similar overall
-
-ns() on log-scaled age
-```{r}
-mod5 <- gamlss(GMV ~ ns(logAge_days, df=30) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(mod5, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F, show_points = F)
-```
-
-ns() on un-scaled age
-```{r}
-mod5_nolog <- gamlss(GMV ~ ns(age_days, df=30) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(mod5_nolog, na.omit(df_global), "age_days", "sexMale", label_centiles = F, show_points = F)
-```
-
-def too wiggly, try fewer dfs
-```{r}
-mod6 <- gamlss(GMV ~ ns(logAge_days, df=10) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(mod6, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-```
-
-ns() on un-scaled age
-```{r}
-mod6_nolog <- gamlss(GMV ~ ns(age_days, df=10) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(mod6_nolog, na.omit(df_global), "age_days", "sexMale", label_centiles = F)
-```
-not good. think that best option will be log-scaled date with a low df
-
-```{r}
-GMV_mod_pb <- gamlss(GMV ~ pb(logAge_days) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(GMV_mod_pb, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-GMV_mod_df3 <- gamlss(GMV ~ ns(logAge_days, df=3) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(GMV_mod_df3, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-GMV_mod_df5 <- gamlss(GMV ~ ns(logAge_days, df=5) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(GMV_mod_df5, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-GMV_mod_df6 <- gamlss(GMV ~ ns(logAge_days, df=6) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(GMV_mod_df6, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-GMV_mod_df7 <- gamlss(GMV ~ ns(logAge_days, df=7) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(GMV_mod_df7, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-GMV_mod_df8 <- gamlss(GMV ~ ns(logAge_days, df=8) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(GMV_mod_df8, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-GMV_mod_df9 <- gamlss(GMV ~ ns(logAge_days, df=9) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(GMV_mod_df9, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-GMV_mod_df10 <- gamlss(GMV ~ ns(logAge_days, df=10) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(GMV_mod_df10, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
+df <- df_global %>% dplyr::select(GMV, logAge_days, sexMale_x_logAge, sexMale, fs_version, study_site) %>% na.omit()
 ```
 
 ```{r}
-WMV_mod_pb <- gamlss(WMV ~ pb(logAge_days) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_pb, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-WMV_mod_df3 <- gamlss(WMV ~ ns(logAge_days, df=3) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_df3, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-WMV_mod_df5 <- gamlss(WMV ~ ns(logAge_days, df=5) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_df5, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-WMV_mod_df6 <- gamlss(WMV ~ ns(logAge_days, df=6) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_df6, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-WMV_mod_df7 <- gamlss(WMV ~ ns(logAge_days, df=7) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_df7, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-WMV_mod_df8 <- gamlss(WMV ~ ns(logAge_days, df=8) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_df8, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-WMV_mod_df9 <- gamlss(WMV ~ ns(logAge_days, df=9) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_df9, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-WMV_mod_df10 <- gamlss(WMV ~ ns(logAge_days, df=10) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_df10, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-```
-penalized splines
-```{r}
-WMV_mod_pb <- gamlss(WMV ~ pb(logAge_days) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_pb, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-#play with lambda
-WMV_mod_pb5 <- gamlss(WMV ~ pb(logAge_days, lambda=5) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_pb5, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-WMV_mod_pb10 <- gamlss(WMV ~ pb(logAge_days, lambda=10) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_pb10, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-
-n <- nrow(na.omit(df_global))
-WMV_mod_pbgaic <- gamlss(WMV ~ pb(logAge_days, method="GAIC", k=log(n)) + sexMale + study, family = GG, data=na.omit(df_global))
-make_centile_fan(WMV_mod_pbgaic, na.omit(df_global), "logAge_days", "sexMale", label_centiles = F)
-```
-
-
-playing around with spacing splines based on epochs in [Kang et al, 2013](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3566780/#SD1).
-
-```{r}
-month_to_days <- function(x){
-  d <- (x*365.25)/12 + 280
-  return(d)
-}
-
-yr_to_days <- function(x){
-  d <- x*365.25 + 280
-  return(d)
-}
-
-#convert age windows to days
-kang_windows <- c(4*7, 8*7, 10*7, 13*7, 16*7, 19*7, 24*7, 0, 
-                  month_to_days(6),
-                  month_to_days(12),
-                  yr_to_days(6),
-                  yr_to_days(12),
-                  yr_to_days(20),
-                  yr_to_days(40),
-                  yr_to_days(60))
+test1 <- gamlss_sex_mod("GMV", knots_list$df6, knots_list$df6)
 ```

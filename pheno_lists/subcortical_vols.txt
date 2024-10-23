@@ -12,3 +12,7 @@ SUBC.Right.Pallidum
 SUBC.Right.Hippocampus
 SUBC.Right.Amygdala
 SUBC.Right.Accumbens.area
+SUBC.Left.Lentiform
+SUBC.Right.Lentiform
+SUBC.Left.Lentiform.Nucleus
+SUBC.Right.Lentiform.Nucleus
