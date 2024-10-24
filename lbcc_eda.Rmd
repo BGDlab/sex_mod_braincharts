@@ -80,6 +80,19 @@ names(df)[grepl("total", names(df), ignore.case=T)]
 names(df)[names(df) == 'EstimatedTotalIntraCranialVol'] <- 'eTIV'
 ```
 
+look at global SA and CT
+```{r}
+df %>% 
+  dplyr::select(starts_with("HEMI")) %>%
+  skim()
+
+#complete! sum across hemispheres
+df <- df %>%
+  mutate(total.CT = HEMI.lh.CT + HEMI.rh.CT,
+         total.SA = HEMI.lh.SA + HEMI.rh.SA) %>%
+  mutate(across(c(total.CT, total.SA), ~ na_if(., 0)))
+```
+
 then from synthseg scans
 ```{r}
 #add ID for merging scans
@@ -190,6 +203,16 @@ ggplot(df_glob) +
 
 CSF has some outliers but overall looks good, going to check with Lena but proceed for now
 
+```{r}
+ggplot(df_glob) + 
+  geom_point(aes(x=age_days, y=total.CT,color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280)
+
+ggplot(df_glob) + 
+  geom_point(aes(x=age_days, y=total.SA,color=fs_version), alpha=.4) +
+  geom_vline(xintercept = 280)
+```
+
 check for any more big groups of missing global volumes
 ```{r}
 df_glob %>%
@@ -214,12 +237,13 @@ df_filt <- df_glob_nosys %>%
   mutate(sexMale_x_logAge = sexMale * logAge_days) #add log-scaled ages
 ```
 
+
 write out lists of phenotypes by category
 ```{r}
 #names(df_filt)
 
 #global volumes
-glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF","eTIV")
+glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF","eTIV", "total.CT", "total.SA")
 write_lines(glob_vol_list, "./pheno_lists/global_vols.txt")
 saveRDS(glob_vol_list, "./pheno_lists/global_vols.rds")
 
@@ -260,6 +284,65 @@ df_select <- df_filt %>%
   dplyr::select(all_of(c(pheno_list, covar_list)))
 
 skim(df_select)
+```
+
+look at IDPs=0
+```{r}
+df_zeros <- df_select %>%
+  filter(if_any(any_of(pheno_list), ~ . == 0 & !is.na(.))) %>%
+  filter(if_any(all_of(pheno_list), ~ !is.na(.)))
+
+ggplot(df_zeros) +
+  geom_histogram(aes(x=age_days))
+
+df_zeros %>%
+  filter(age_days <2500) %>%
+  summarise(study = unique(study))
+
+df_zeros %>%
+  filter(age_days <2500) %>% nrow()
+```
+
+looks like dHCP-fetal has a lot of missing values and one IDP with many zeros (`lh.SA.cuneus`)
+looking if the rest of the IDPs seem to be in line with other studies of that age
+
+```{r}
+df_infant <- df_select %>%
+  filter(age_days < 365.25 + 280) %>%
+  droplevels()
+
+ggplot(df_infant) +
+  geom_point(aes(x=age_days, y=rh.SA.temporalpole, color=study))
+
+ggplot(df_infant) +
+  geom_point(aes(x=age_days, y=lh.SA.inferiorparietal, color=study))
+
+ggplot(df_infant) +
+  geom_point(aes(x=age_days, y=lh.GM.cuneus, color=study))
+
+ggplot(df_infant) +
+  geom_point(aes(x=age_days, y=lh.SA.parsorbitalis, color=study))
+
+ggplot(df_infant) +
+  geom_point(aes(x=age_days, y=lh.SA.cuneus, color=study))
+
+ggplot(df_infant) +
+  geom_point(aes(x=age_days, y=lh.CT.cuneus, color=study))
+```
+
+looks like `lh.SA.cuneus` is getting segmented as `lh.SA.parsorbitalis`. Going to remove both phenotypes from dHCP-fetal and remove all subjects from other studies with zero values
+```{r}
+zero_ppts <- df_zeros %>% 
+  dplyr::filter(study !="dHCP-fetal") %>%
+  select(INDEX.ID) %>%
+  as.list() %>%
+  unname() %>%
+  unlist()
+
+df_select_nozero <- df_select %>%
+  mutate(lh.SA.cuneus = ifelse(study=="dHCP-fetal", NA, lh.SA.cuneus),
+         lh.SA.parsorbitalis = ifelse(study=="dHCP-fetal", NA, lh.SA.parsorbitalis)) %>%
+  dplyr::filter(!(INDEX.ID %in% zero_ppts))
 ```
 
 ### Remove Psychosis Studies
@@ -331,6 +414,8 @@ df_nopsych %>%
 
 subjects missing diagnoses are not consistently infants
 
+###Final Filtering
+
 filter to just controls, single scan per subject, drop studies with fewer than 5 ppl
 
 ```{r}
@@ -343,8 +428,8 @@ df_clean <- df_nopsych %>%
   group_by(INDEX.ID) %>% #remove duplicate participants
   slice_sample() %>%
   ungroup() %>%
-  group_by(study) %>%
-  filter(n_distinct(INDEX.ID) >=5) %>%
+  group_by(study_site) %>%
+  filter(n_distinct(INDEX.ID) >=5) %>% #remove sites with < 5 ppl
   ungroup()
 
 #look at completeness for infant/toddler data
@@ -409,6 +494,26 @@ df_clean2 <- df_clean %>%
 subcort_list <- subcort_list[!(subcort_list %in% unique(restricted$pheno))]
 write_lines(subcort_list, "./pheno_lists/subcortical_vols.txt")
 saveRDS(subcort_list, "./pheno_lists/subcortical_vols.rds")
+```
+
+Look at demographics site-wise
+```{r}
+df_clean2 %>%
+  group_by(study_site) %>%
+  summarise(n_female = sum(sexMale == 0),
+            n_male = sum(sexMale == 1),
+            n=n())
+nrow(df_clean2)
+
+#if removing small sites
+sizes <- df_clean2 %>%
+  group_by(study_site) %>%
+  summarise(n_female = sum(sexMale == 0),
+            n_male = sum(sexMale == 1),
+            n = n())
+
+sizes %>% dplyr::filter(n >= 5) %>% summarise(n=sum(n)) #still left with pretty big sample
+sizes %>% dplyr::filter(n_female >= 5 & n_male >=5) %>% summarise(n=sum(n)) #still pretty big
 ```
 
 ###Subdivide by Missingness
@@ -596,6 +701,7 @@ devtools::install_github("BGDlab/gamlssTools")
 library(gamlssTools)
 
 df_global <- fread("./data/csvs_by_pheno/global_vols.csv")
+df_ct <- fread("./data/csvs_by_pheno/cortical_thickness.csv")
 knots_list <- readRDS("./code/knot_lists.RDS")
 ```
 
@@ -616,4 +722,12 @@ df <- df_global %>% dplyr::select(GMV, logAge_days, sexMale_x_logAge, sexMale, f
 
 ```{r}
 test1 <- gamlss_sex_mod("GMV", knots_list$df6, knots_list$df6)
+```
+
+```{r}
+df <- df_ct %>% dplyr::select(rh.CT.lateraloccipital, logAge_days, sexMale_x_logAge, sexMale, fs_version, study_site) %>% na.omit()
+```
+
+```{r}
+test2 <- gamlss_sex_mod("rh.CT.lateraloccipital", knots_list$df4, knots_list$df4)
 ```

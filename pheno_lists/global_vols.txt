@@ -3,3 +3,5 @@ GMV
 WMV
 CSF
 eTIV
+total.CT
+total.SA

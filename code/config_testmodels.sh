@@ -2,20 +2,20 @@
 #script to write config file that will be used to submit test models with varying smooths
 #run from outside code dir
 
-######################################
-#UPDATE HERE AS NEEDED
-######################################
-config_file=$config_path/testmodels_config_log.txt
-save_path=./test_sex_mod_log
-log_scale="TRUE"
-fs="TRUE"
-######################################
-
 #paths
 data_path=./data/csvs_by_pheno
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 knot_lists=./code/knot_lists.RDS
+
+######################################
+#UPDATE HERE AS NEEDED
+######################################
+config_file=$config_path/testmodels_config_nofs.txt
+save_path=./test_sex_mod_nofs
+log_scale="FALSE"
+fs="FALSE"
+######################################
 
 #get full paths
 save_path=$(realpath $save_path)

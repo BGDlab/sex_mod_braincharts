@@ -6,7 +6,7 @@ library(dplyr)
 library(gamlss)
 library(gamlssTools)
 
-source("gamlss_fit_funs.R")
+source("./code/gamlss_fit_funs.R")
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
@@ -25,9 +25,11 @@ df <- df %>%
 
 #log-scale pheno if necessary
 if (log_scale == TRUE){
+  pheno_sym <- sym(pheno)
+  
   df <- df %>%
-    mutate(pheno = ifelse(pheno==0, 1, pheno)) %>% #replace 0 with 1
-  mutate(across(c(pheno), \(x) log(x, base=10))) #transform
+    mutate(!!pheno_sym := ifelse(!!pheno_sym==0, 1, !!pheno_sym)) %>% #replace 0 with 1
+    mutate(!!pheno_sym := log(!!pheno_sym, base=10)) #transform
 }
 
 #define degrees of freedom to be tested

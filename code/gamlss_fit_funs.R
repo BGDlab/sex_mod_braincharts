@@ -1,7 +1,7 @@
 #functions to fit various gamlss models
 
 library(gamlss)
-library(gamlss2)
+#library(gamlss2)
 
 #gamlss_knots()
 #basic_ns_knots
