@@ -516,10 +516,9 @@ sizes %>% dplyr::filter(n >= 5) %>% summarise(n=sum(n)) #still left with pretty 
 sizes %>% dplyr::filter(n_female >= 5 & n_male >=5) %>% summarise(n=sum(n)) #still pretty big
 ```
 
-###Subdivide by Missingness
+###Subdivide by Feature Category
 
-Making separate CSVs with maximally complete data in order to ComBat features. For each feature (target feature to ComBat) keep as many other features as possible (as priors) without including any NAs
-write out separate csvs for each pheno category, further subdivide using `subjobs_datasplit.sh` and `split_data_for_combat.R`
+Write out separate csvs for each pheno category. These will be further subdivided into separate CSVs with maximally complete data in order to ComBat features (`subjobs_datasplit.sh` and `split_data_for_combat.R`), so for each feature (target feature to ComBat) keep as many other features as possible (as priors) without including any NAs.
 
 ```{r}
 #save out QC separately since these would only be used for sensitivity analyses
@@ -560,7 +559,7 @@ df_sub <- df_clean2 %>%
 fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 ```
 
-## Visualize Data
+# Visualize Data
 
 ### Global Phenotypes
 ```{r}
@@ -691,43 +690,4 @@ ggplot(df_sub) +
 ggplot(df_sub) + 
   geom_point(aes(x=age_days, y=SUBC.Right.Thalamus.Proper, color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = 280)
-```
-
-## some test models
-
-```{r}
-library(gamlss)
-devtools::install_github("BGDlab/gamlssTools")
-library(gamlssTools)
-
-df_global <- fread("./data/csvs_by_pheno/global_vols.csv")
-df_ct <- fread("./data/csvs_by_pheno/cortical_thickness.csv")
-knots_list <- readRDS("./code/knot_lists.RDS")
-```
-
-Function to try simple sex-mod gamlss model
-
-```{r}
-gamlss_sex_mod <- function(pheno, knots=NULL, sigma_knots=NULL){
-    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + ns(sexMale_x_logAge, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
-                             "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + ns(sexMale_x_logAge, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
-                             "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
-    
-    eval(parse(text = gamlss_RSformula))}
-```
-
-```{r}
-df <- df_global %>% dplyr::select(GMV, logAge_days, sexMale_x_logAge, sexMale, fs_version, study_site) %>% na.omit()
-```
-
-```{r}
-test1 <- gamlss_sex_mod("GMV", knots_list$df6, knots_list$df6)
-```
-
-```{r}
-df <- df_ct %>% dplyr::select(rh.CT.lateraloccipital, logAge_days, sexMale_x_logAge, sexMale, fs_version, study_site) %>% na.omit()
-```
-
-```{r}
-test2 <- gamlss_sex_mod("rh.CT.lateraloccipital", knots_list$df4, knots_list$df4)
 ```
