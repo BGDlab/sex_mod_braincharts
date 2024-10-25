@@ -9,12 +9,27 @@ pheno_lists=./pheno_lists
 knot_lists=./code/knot_lists.RDS
 
 ######################################
-#UPDATE HERE AS NEEDED
+#Configuration Options
 ######################################
-config_file=$config_path/testmodels_config_nofs.txt
-save_path=./test_sex_mod_nofs
-log_scale="FALSE"
-fs="FALSE"
+if [ $1 = "no_fs" ]
+then
+  config_file=$config_path/testmodels_config_nofs.txt
+  save_path=./test_sex_mod_nofs
+  log_scale="FALSE"
+  fs="FALSE"
+  elif [ $1 = "log" ]
+  then
+  config_file=$config_path/testmodels_config_log.txt
+  save_path=./test_sex_mod_log
+  log_scale="TRUE"
+  fs="TRUE"
+  elif [ $1 = "basic" ]
+  then
+  config_file=$config_path/testmodels_config.txt
+  save_path=./test_sex_mod
+  log_scale="FALSE"
+  fs="TRUE"
+fi
 ######################################
 
 #get full paths
