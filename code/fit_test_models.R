@@ -59,7 +59,7 @@ for (degree in degree_list){
     print(paste("fitting model with df = ", degree, "in mu and df =", sigma_degree, "in sigma"))
     
     #fit model with or without fs_version term
-    if (fs_covary==TRUE){
+    if (fs_covary==FALSE){
       model <- gamlss_mod_nofs(pheno, knots=knots_list, sigma_knots=s_knots_list)
     } else {
       model <- gamlss_mod_knots(pheno, knots=knots_list, sigma_knots=s_knots_list)
@@ -80,19 +80,19 @@ for (degree in degree_list){
     fan_plot <- centile_fan_resid(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
                                get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df,
-                               remove_cent_effect=c("fs_version", "study_site")) +
+                               remove_cent_effect=c("study_site")) +
     ggtitle(paste(pheno, "\nsmoothed w/ mu.df=", degree, ", sigma.df=", sigma_degree))
     
     ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_mu", degree, "sig", sigma_degree, ".png"), fan_plot)
     
     #save worm plot
     print("creating worm plot")
-    wp <- wp.taki(xvar=df$logAge_days, resid=resid(gamlssModel)) +
+    wp <- wp.taki(xvar=df$logAge_days, resid=resid(model)) +
       ggtitle(paste(pheno, "\nsmoothed w/ mu.df=", degree, ", sigma.df=", sigma_degree))
     ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_mu", degree, "sig", sigma_degree, ".png"), wp)
     
     #compile results
-    sub_df <- cent_cdf(gamlssModel, df, "sexMale")
+    sub_df <- cent_cdf(model, df, "sexMale")
     sub_df$degrees <- paste0("mu_", degree, "sig_", sigma_degree)
     
     results_df <- rbind(results_df, sub_df)
