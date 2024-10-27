@@ -10,7 +10,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr)
 ```
 
 load data
@@ -35,6 +35,8 @@ sum(is.na(df$study))
 sum(is.na(df$site))
 sum(is.na(df$dx))
 sum(is.na(df$session))
+
+hist(df$MAD.Euler)
 ```
 
 ```{r}
@@ -281,7 +283,7 @@ covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale
                 "age_days", "logAge_days", "sexMale_x_logAge", "site", "country", "study_site", "QC_Metric", "fs_version", "eTIV")
 
 df_select <- df_filt %>%
-  dplyr::select(all_of(c(pheno_list, covar_list)))
+  dplyr::select(all_of(c(pheno_list, covar_list, "QC.SS", "SurfaceHoles")))
 
 skim(df_select)
 ```
@@ -414,14 +416,39 @@ df_nopsych %>%
 
 subjects missing diagnoses are not consistently infants
 
-###Final Filtering
+### Scan QC filtering
+```{r}
+study_mad <- df_nopsych %>%
+  drop_na(SurfaceHoles) %>%
+  group_by(study) %>%
+  summarize(study_euler_mad = mad(SurfaceHoles),
+            study_euler_median = median(SurfaceHoles)) %>%
+  mutate(euler_threshold = study_euler_median+(4*study_euler_mad))
 
-filter to just controls, single scan per subject, drop studies with fewer than 5 ppl
+left_join(df_nopsych, study_mad) %>%
+  mutate(scan_pass = ifelse(SurfaceHoles <= euler_threshold, "yes", "no")) %>%
+  group_by(study) %>%
+  summarise(fail_percent = (sum(scan_pass == "no") / n())*100) %>%
+  na.omit() %>%
+  summarise(max_fail = max(fail_percent),
+            min_fail=min(fail_percent),
+            mean_fail=mean(fail_percent))
+
+df_qc_filt <- left_join(df_nopsych, study_mad) %>%
+  dplyr::filter(SurfaceHoles <= euler_threshold | QC.SS < 0.65 | is.na(QC_Metric)) #using SS recommended threshold
+
+nrow(df_nopsych) - nrow(df_qc_filt)
+```
+
+
+### Final Filtering
+
+filter to just controls, single scan per subject, drop sites with fewer than 5 ppl
 
 ```{r}
-unique(df_nopsych$dx)[grep("cn|control|none", unique(df_nopsych$dx), ignore.case=TRUE)]
+unique(df_qc_filt$dx)[grep("cn|control|none", unique(df_nopsych$dx), ignore.case=TRUE)]
 
-df_clean <- df_nopsych %>%
+df_clean <- df_qc_filt %>%
   tidyr::drop_na(dx) %>%
   dplyr::filter(age_days <= (101*365.25)) %>%
   dplyr::filter(dx == "CN") %>%
@@ -443,6 +470,9 @@ df_clean %>%
   dplyr::filter(age_days <= (365.25 + 280)) %>%
   skim()
 #some as low as 25%
+
+nrow(df_clean)
+
 ```
 
 determine equal knot placements 
@@ -496,25 +526,6 @@ write_lines(subcort_list, "./pheno_lists/subcortical_vols.txt")
 saveRDS(subcort_list, "./pheno_lists/subcortical_vols.rds")
 ```
 
-Look at demographics site-wise
-```{r}
-df_clean2 %>%
-  group_by(study_site) %>%
-  summarise(n_female = sum(sexMale == 0),
-            n_male = sum(sexMale == 1),
-            n=n())
-nrow(df_clean2)
-
-#if removing small sites
-sizes <- df_clean2 %>%
-  group_by(study_site) %>%
-  summarise(n_female = sum(sexMale == 0),
-            n_male = sum(sexMale == 1),
-            n = n())
-
-sizes %>% dplyr::filter(n >= 5) %>% summarise(n=sum(n)) #still left with pretty big sample
-sizes %>% dplyr::filter(n_female >= 5 & n_male >=5) %>% summarise(n=sum(n)) #still pretty big
-```
 
 ###Subdivide by Feature Category
 
@@ -560,6 +571,63 @@ fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 ```
 
 # Visualize Data
+
+### Euler QC
+looking at associations between Euler and demographics (in control sample and held-out psychosis sample)
+
+```{r}
+skim(df_clean2$QC_Metric)
+
+#see studies w/o QC
+no_eu <- df_clean2 %>%
+  filter(is.na(QC_Metric)) %>%
+  group_by(study) %>%
+  summarise(n=n()) %>%
+  arrange(desc(n))
+
+euler_df <- df_clean2 %>%
+  filter(fs_version != "synthseg-robust") %>%
+  mutate(sexMale = as.factor(sexMale))
+
+skim(euler_df$QC_Metric)
+
+euler_df %>%
+  ggplot(aes(x=sexMale, y=QC_Metric)) +
+  geom_boxplot() +
+  stat_compare_means()
+
+euler_df %>%
+  ggplot(aes(x=age_days, y=QC_Metric)) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method = "lm")
+```
+
+Look at psychosis sample
+```{r}
+psych_df_eu <- psychosis_df %>%
+  filter(fs_version != "synthseg-robust") %>%
+  mutate(sexMale = as.factor(sexMale))
+
+skim(psych_df_eu$QC_Metric)
+```
+
+```{r}
+unique(psych_df_eu$dx)
+#collapsing all non-CN diagnoses for now
+psych_df_eu <- psych_df_eu %>%
+  mutate(dx_sum = case_when(dx=="CN" ~ "CN",
+                            is.na(dx) ~ NA,
+                            TRUE ~ "PS"))
+psych_df_eu %>%
+  ggplot(aes(x=sexMale, y=QC_Metric, fill=dx_sum)) +
+  geom_boxplot() +
+  stat_compare_means()
+
+psych_df_eu %>%
+  ggplot(aes(x=age_days, y=QC_Metric, fill=dx_sum, color=dx_sum)) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method = "lm")
+```
 
 ### Global Phenotypes
 ```{r}

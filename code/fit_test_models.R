@@ -17,6 +17,7 @@ knot_lists <- readRDS(as.character(args[3]))
 save_path <- as.character(args[4])
 log_scale <- as.logical(args[5])
 fs_covary <- as.logical(args[6])
+fam <- as.character(args[7])
 
 #drop extra variables
 df <- df %>%
@@ -60,9 +61,9 @@ for (degree in degree_list){
     
     #fit model with or without fs_version term
     if (fs_covary==FALSE){
-      model <- gamlss_mod_nofs(pheno, knots=knots_list, sigma_knots=s_knots_list)
+      model <- gamlss_mod_nofs(pheno, knots=knots_list, sigma_knots=s_knots_list, fam=fam)
     } else {
-      model <- gamlss_mod_knots(pheno, knots=knots_list, sigma_knots=s_knots_list)
+      model <- gamlss_mod_knots(pheno, knots=knots_list, sigma_knots=s_knots_list, fam=fam)
     }
     
     loop_count <- loop_count+1

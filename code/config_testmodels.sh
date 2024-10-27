@@ -17,18 +17,28 @@ then
   save_path=./test_sex_mod_nofs
   log_scale="FALSE"
   fs="FALSE"
+  family="GG"
   elif [ $1 = "log" ]
   then
   config_file=$config_path/testmodels_config_log.txt
   save_path=./test_sex_mod_log
   log_scale="TRUE"
   fs="TRUE"
+  family="GG"
   elif [ $1 = "basic" ]
   then
   config_file=$config_path/testmodels_config.txt
   save_path=./test_sex_mod
   log_scale="FALSE"
   fs="TRUE"
+  family="GG"
+  elif [ $1 = "norm" ]
+  then
+  config_file=$config_path/testmodels_config_no.txt
+  save_path=./test_sex_mod_no
+  log_scale="FALSE"
+  fs="FALSE"
+  family="NO"
 fi
 ######################################
 
@@ -72,7 +82,7 @@ do
   do
 
   # Write the CSV file path and the formula to the output file (tab-delimited)
-  echo -e "$file\t$pheno_line\t$knot_lists\t$save_path\t$log_scale\t$fs" >> "$config_file"
+  echo -e "$file\t$pheno_line\t$knot_lists\t$save_path\t$log_scale\t$fs\t$family" >> "$config_file"
   done < "$pheno_list"
 done
 

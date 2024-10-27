@@ -5,11 +5,11 @@ library(gamlss)
 
 #gamlss_knots()
 #basic_ns_knots
-gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL){
+gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL, fam= "GG"){
   result <- tryCatch({
     gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
                              "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
-                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
+                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
     
@@ -22,7 +22,7 @@ gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL){
     tryCatch({
       gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
                                "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
-                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
+                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
       eval(parse(text = gamlss_CGformula))
       
       #if CG also fails, return NULL
@@ -38,11 +38,11 @@ gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL){
 
 #gamlss_mod_knots()
 #same as gamlss_knots() but with age*sex effects
-gamlss_mod_knots <- function(pheno, knots=NULL, sigma_knots=NULL){
+gamlss_mod_knots <- function(pheno, knots=NULL, sigma_knots=NULL, fam = "GG"){
   result <- tryCatch({
     gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + ns(sexMale_x_logAge, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
                              "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + ns(sexMale_x_logAge, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
-                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
+                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
     
@@ -55,7 +55,7 @@ gamlss_mod_knots <- function(pheno, knots=NULL, sigma_knots=NULL){
     tryCatch({
       gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + ns(sexMale_x_logAge, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
                                "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + ns(sexMale_x_logAge, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
-                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
+                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
       eval(parse(text = gamlss_CGformula))
       
       #if CG alos fails, return NULL
@@ -71,11 +71,11 @@ gamlss_mod_knots <- function(pheno, knots=NULL, sigma_knots=NULL){
 
 #gamlss_mod_nofs()
 #same as gamlss_mod_knots() but without fs_version term
-gamlss_mod_nofs <- function(pheno, knots=NULL, sigma_knots=NULL){
+gamlss_mod_nofs <- function(pheno, knots=NULL, sigma_knots=NULL, fam="GG"){
   result <- tryCatch({
     gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + ns(sexMale_x_logAge, knots = c(", knots, ")) + sexMale + study_site,",
                              "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + ns(sexMale_x_logAge, knots = c(", sigma_knots, ")) + sexMale + study_site,",
-                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
+                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
     
@@ -88,7 +88,7 @@ gamlss_mod_nofs <- function(pheno, knots=NULL, sigma_knots=NULL){
     tryCatch({
       gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + ns(sexMale_x_logAge, knots = c(", knots, ")) + sexMale + study_site,",
                                "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + ns(sexMale_x_logAge, knots = c(", sigma_knots, ")) + sexMale + study_site,",
-                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
+                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
       eval(parse(text = gamlss_CGformula))
       
       #if CG alos fails, return NULL
@@ -101,6 +101,7 @@ gamlss_mod_nofs <- function(pheno, knots=NULL, sigma_knots=NULL){
   } )
   return(result)
 }
+
 
 #gamlss2_mod_knots()
 #same as gamlss_mod_knots() but using gamlss2 - NOT READY YET

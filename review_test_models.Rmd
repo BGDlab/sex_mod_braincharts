@@ -28,6 +28,25 @@ global_list <- readRDS("./pheno_lists/global_vols.rds")
 sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
 ```
 
+## Test Models
+```{r}
+glob_df <- fread("./data/csvs_by_pheno/global_vols.csv")
+source("./code/gamlss_fit_funs.R")
+knots <- readRDS("./code/knot_lists.RDS")
+```
+
+```{r}
+df <- glob_df %>%
+  select(c("sGMV", "logAge_days", "sexMale", "fs_version", "study_site", "sexMale_x_logAge")) %>%
+  na.omit()
+
+mod1 <- gamlss_mod_knots("sGMV", knots$df3, knots$df3, fam="NO")
+
+wp.taki(mod1)
+
+list_predictors(mod1)
+```
+
 #
 read csvs
 ```{r}
