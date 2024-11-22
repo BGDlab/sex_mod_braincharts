@@ -1,0 +1,278 @@
+---
+title: "Puberty EDA"
+output: html_document
+date: "2024-11-01"
+---
+
+Collating puberty data for Aim 2 sample.
+
+##Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir="/mnt/isilon/bgdlab_processing")
+```
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, fuzzyjoin)
+```
+
+
+set paths
+```{r}
+my_path <- "./Margaret/sex_mod_braincharts"
+data_path <- "./Data/LBCC"
+```
+
+##Get Raw Demographics
+
+###Stanford NDAR2135
+
+```{r}
+path_2135 <- paste0(data_path, "/NDAR2135/data_dump")
+image_df <- fread(paste0(path_2135, "/image03.txt"))
+skim(image_df)
+names(image_df)
+
+table(image_df$scan_type)
+
+#drop subheader row
+image_df2 = image_df[-1,]
+
+image_df_filt <- image_df2 %>%
+  dplyr::select(subjectkey, src_subject_id, interview_date, interview_age, sex) %>%
+  mutate(age_yrs = as.numeric(interview_age)/12,
+         scan_date = as.Date(interview_date, "%m/%d/%y")) %>%
+  rename(scan_age = interview_age) %>%
+  select(!interview_date)
+
+image_df_filt %>%
+  filter(str_detect(subjectkey, "^N")) %>%
+  ggplot(aes(x=age_yrs, y=subjectkey, color=sex, group=subjectkey))+
+  geom_point() +
+  geom_line() +
+  theme(legend.position="none")
+
+n_unique(image_df_filt$subjectkey)
+```
+now adding corresponding puberty info
+```{r}
+pds_df <- fread(paste0(path_2135, "/pds01.txt")) %>% mutate_all(~na_if(., ''))
+#drop subheader row
+pds_df2 = pds_df[-1,]
+skim(pds_df2)
+
+#drop unused cols
+pdf_df_filt <- pds_df2 %>% 
+  select(where(~mean(is.na(.)) < .5)) %>%
+  mutate(interview_date = as.Date(interview_date, "%m/%d/%y"))
+```
+
+fuzzy inner join (https://stackoverflow.com/questions/58718287/fuzzyjoin-with-dates-in-r) with 30-day margin
+
+```{r}
+image_df_mrg <- image_df_filt %>%
+  mutate(scan_date_plus = scan_date + 30,
+         scan_date_minus = scan_date- 30)
+
+NDAR2135 <- fuzzy_inner_join(pdf_df_filt, image_df_mrg,
+                             by = c("subjectkey" = "subjectkey",
+                                    "sex" = "sex",
+                                    'interview_date' = "scan_date_minus",
+                                    'interview_date' = "scan_date_plus"),
+                                 match_fun = list(`==`, `==`, `>`, `<`)) %>%
+  dplyr::select(!c(scan_date_plus, scan_date_minus, subjectkey.y, src_subject_id.y, sex.y)) %>%
+  rename(subjectkey = subjectkey.x,
+         src_subject_id = src_subject_id.x,
+         sex = sex.x) %>%
+  mutate(pds_date_diff = scan_date - interview_date)
+
+n_unique(NDAR2135$subjectkey)
+```
+
+
+
+###TAG NDAR2315
+
+no scan info on NDAR, just using pds timepoints
+```{r}
+path_2315 <- paste0(data_path, "/NDAR2315/data_dump")
+pds_df <- fread(paste0(path_2315, "/pds01.txt")) %>% mutate_all(~na_if(., ''))
+#drop subheader row
+pds_df2 = pds_df[-1,]
+skim(pds_df2)
+
+#drop unused cols
+TAG <- pds_df2 %>% select(where(~mean(is.na(.)) < .5))
+```
+
+###Nebraska NDAR2714
+
+```{r}
+path_2714 <- paste0(data_path, "/NDAR2714/data_dump")
+image_df <- fread(paste0(path_2714, "/image03.txt"))
+skim(image_df)
+names(image_df)
+
+table(image_df$scan_type)
+
+#drop subheader row
+image_df2 = image_df[-1,]
+
+image_df_filt <- image_df2 %>%
+  dplyr::select(subjectkey, src_subject_id, interview_date, interview_age, sex) %>%
+  mutate(age_yrs = as.numeric(interview_age)/12,
+         scan_date = as.Date(interview_date, "%m/%d/%y")) %>%
+  rename(scan_age = interview_age) %>%
+  select(!interview_date)
+
+image_df_filt %>%
+  filter(str_detect(subjectkey, "^N")) %>%
+  ggplot(aes(x=age_yrs, y=subjectkey, color=sex, group=subjectkey))+
+  geom_point() +
+  geom_line() +
+  theme(legend.position="none")
+
+n_unique(image_df_filt$subjectkey)
+```
+now adding corresponding puberty info
+```{r}
+pds_df <- fread(paste0(path_2714, "/pds01.txt")) %>% mutate_all(~na_if(., ''))
+#drop subheader row
+pds_df2 = pds_df[-1,]
+skim(pds_df2)
+
+#drop unused cols
+pdf_df_filt <- pds_df2 %>% 
+  select(where(~mean(is.na(.)) < .5)) %>%
+  mutate(interview_date = as.Date(interview_date, "%m/%d/%y"))
+```
+
+fuzzy inner join
+```{r}
+image_df_mrg <- image_df_filt %>%
+  mutate(scan_date_plus = scan_date + 30,
+         scan_date_minus = scan_date- 30)
+
+NDAR2714 <- fuzzy_inner_join(pdf_df_filt, image_df_mrg,
+                             by = c("subjectkey" = "subjectkey",
+                                    "sex" = "sex",
+                                    'interview_date' = "scan_date_minus",
+                                    'interview_date' = "scan_date_plus"),
+                                 match_fun = list(`==`, `==`, `>`, `<`)) %>%
+  dplyr::select(!c(scan_date_plus, scan_date_minus, subjectkey.y, src_subject_id.y, sex.y)) %>%
+  rename(subjectkey = subjectkey.x,
+         src_subject_id = src_subject_id.x,
+         sex = sex.x) %>%
+  mutate(pds_date_diff = scan_date - interview_date)
+
+n_unique(NDAR2714$subjectkey)
+```
+
+
+###RDOC-Twin NDAR2105
+
+```{r}
+path_2105 <- paste0(data_path, "/NDAR-RDOCTwin/data_dump")
+image_df <- fread(paste0(path_2105, "/image03.txt"))
+skim(image_df)
+names(image_df)
+
+table(image_df$scan_type)
+
+#drop subheader row
+image_df2 = image_df[-1,]
+
+image_df_filt <- image_df2 %>%
+  dplyr::select(subjectkey, src_subject_id, interview_date, interview_age, sex) %>%
+  mutate(age_yrs = as.numeric(interview_age)/12,
+         scan_date = as.Date(interview_date, "%m/%d/%y")) %>%
+  rename(scan_age = interview_age) %>%
+  select(!interview_date)
+
+image_df_filt %>%
+  filter(str_detect(subjectkey, "^N")) %>%
+  ggplot(aes(x=age_yrs, y=subjectkey, color=sex, group=subjectkey))+
+  geom_point() +
+  geom_line() +
+  theme(legend.position="none")
+
+n_unique(image_df_filt$subjectkey)
+```
+now adding corresponding puberty info
+```{r}
+pds_df <- fread(paste0(path_2105, "/pds01.txt")) %>% mutate_all(~na_if(., ''))
+#drop subheader row
+pds_df2 = pds_df[-1,]
+skim(pds_df2)
+
+#drop unused cols
+pdf_df_filt <- pds_df2 %>% 
+  select(where(~mean(is.na(.)) < .5)) %>%
+  mutate(interview_date = as.Date(interview_date, "%m/%d/%y"))
+```
+
+fuzzy inner join
+```{r}
+image_df_mrg <- image_df_filt %>%
+  mutate(scan_date_plus = scan_date + 30,
+         scan_date_minus = scan_date- 30)
+
+NDAR2105 <- fuzzy_inner_join(pdf_df_filt, image_df_mrg,
+                             by = c("subjectkey" = "subjectkey",
+                                    "sex" = "sex",
+                                    'interview_date' = "scan_date_minus",
+                                    'interview_date' = "scan_date_plus"),
+                                 match_fun = list(`==`, `==`, `>`, `<`)) %>%
+  dplyr::select(!c(scan_date_plus, scan_date_minus, subjectkey.y, src_subject_id.y, sex.y)) %>%
+  rename(subjectkey = subjectkey.x,
+         src_subject_id = src_subject_id.x,
+         sex = sex.x) %>%
+  mutate(pds_date_diff = scan_date - interview_date)
+
+n_unique(NDAR2105$subjectkey)
+```
+
+###ABCD
+```{r}
+path_abcd <- "./Data/ABCD/release5/core"
+image_df <- fread(paste0(path_abcd, "/imaging/mri_y_adm_info.csv"))
+skim(image_df)
+
+image_df2 <- image_df %>%
+  mutate(scan_date = as.Date(as.character(mri_info_studydate), "%Y%m%d"))
+```
+now adding corresponding puberty info
+```{r}
+pds_df <- fread(paste0(path_abcd, "/physical-health/ph_y_pds.csv"))
+skim(pds_df)
+
+#drop unused cols
+pdf_df_filt <- pds_df %>% 
+  select(!contains("cat")) %>%
+  mutate(interview_date = as.Date(interview_date, "%m/%d/%y"))
+```
+
+fuzzy inner join
+```{r}
+image_df_mrg <- image_df_filt %>%
+  mutate(scan_date_plus = scan_date + 30,
+         scan_date_minus = scan_date- 30)
+
+NDAR2105 <- fuzzy_inner_join(pdf_df_filt, image_df_mrg,
+                             by = c("subjectkey" = "subjectkey",
+                                    "sex" = "sex",
+                                    'interview_date' = "scan_date_minus",
+                                    'interview_date' = "scan_date_plus"),
+                                 match_fun = list(`==`, `==`, `>`, `<`)) %>%
+  dplyr::select(!c(scan_date_plus, scan_date_minus, subjectkey.y, src_subject_id.y, sex.y)) %>%
+  rename(subjectkey = subjectkey.x,
+         src_subject_id = src_subject_id.x,
+         sex = sex.x) %>%
+  mutate(pds_date_diff = scan_date - interview_date)
+
+n_unique(NDAR2105$subjectkey)
+```
