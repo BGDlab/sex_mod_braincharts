@@ -27,7 +27,45 @@ my_path <- "./Margaret/sex_mod_braincharts"
 data_path <- "./Data/LBCC"
 ```
 
-##Get Raw Demographics
+##LBCC Demos
+just get basic demographics from puberty studies included in current LBCC
+
+```{r}
+lbcc_df <- fread(paste0(my_path, "/data/240820-L.R.LBCC.csv"))
+unique(lbcc_df$study) %>% sort()
+
+lbcc.puberty_studies <- c("ABCD", "PNC", "HCP-D", "HBN", "SYS-Adolescents", "PACCT")
+
+lbcc_puberty <- lbcc_df %>%
+  dplyr::filter(study %in% lbcc.puberty_studies) %>%
+  dplyr::filter(sex != "intersex") %>%
+  dplyr::select(c(INDEX.ID, age_days, sex, study, dx)) %>%
+  mutate(age_yrs = (age_days-280)/365.25) %>%
+  dplyr::filter(age_yrs <= 25 & age_yrs >= 5)
+
+#trying to rank by youngest age in study
+lbcc_puberty_rank <- lbcc_puberty%>%
+  group_by(INDEX.ID) %>%
+  arrange(age_days) %>%
+  slice_head() %>% 
+  ungroup() %>%
+  mutate(age_rank = rank(age_days, ties.method="random")) %>%
+  select(INDEX.ID, age_rank)
+
+lbcc_puberty_rank2 <- left_join(lbcc_puberty, lbcc_puberty_rank, by="INDEX.ID")
+
+lbcc_puberty_rank2 %>%
+  ggplot(aes(x=age_yrs, y=age_rank, color=sex, group=INDEX.ID), alpha=0.5)+
+  geom_point() +
+  geom_line() +
+  theme(legend.position="none")
+
+n_unique(lbcc_puberty_rank$INDEX.ID) == n_unique(lbcc_puberty_rank2$age_rank)
+```
+
+
+##Get Raw Data
+Rough, still need to go back later and filter to just CN
 
 ###Stanford NDAR2135
 
@@ -88,7 +126,8 @@ NDAR2135 <- fuzzy_inner_join(pdf_df_filt, image_df_mrg,
   rename(subjectkey = subjectkey.x,
          src_subject_id = src_subject_id.x,
          sex = sex.x) %>%
-  mutate(pds_date_diff = scan_date - interview_date)
+  mutate(pds_date_diff = scan_date - interview_date) %>%
+  unique()
 
 n_unique(NDAR2135$subjectkey)
 ```
@@ -106,7 +145,8 @@ pds_df2 = pds_df[-1,]
 skim(pds_df2)
 
 #drop unused cols
-TAG <- pds_df2 %>% select(where(~mean(is.na(.)) < .5))
+TAG <- pds_df2 %>% select(where(~mean(is.na(.)) < .5)) %>%
+  mutate(interview_date = as.Date(interview_date, "%m/%d/%y"))
 ```
 
 ###Nebraska NDAR2714
@@ -167,7 +207,8 @@ NDAR2714 <- fuzzy_inner_join(pdf_df_filt, image_df_mrg,
   rename(subjectkey = subjectkey.x,
          src_subject_id = src_subject_id.x,
          sex = sex.x) %>%
-  mutate(pds_date_diff = scan_date - interview_date)
+  mutate(pds_date_diff = scan_date - interview_date) %>%
+  unique()
 
 n_unique(NDAR2714$subjectkey)
 ```
@@ -231,7 +272,8 @@ NDAR2105 <- fuzzy_inner_join(pdf_df_filt, image_df_mrg,
   rename(subjectkey = subjectkey.x,
          src_subject_id = src_subject_id.x,
          sex = sex.x) %>%
-  mutate(pds_date_diff = scan_date - interview_date)
+  mutate(pds_date_diff = scan_date - interview_date) %>%
+  unique()
 
 n_unique(NDAR2105$subjectkey)
 ```
@@ -250,29 +292,83 @@ now adding corresponding puberty info
 pds_df <- fread(paste0(path_abcd, "/physical-health/ph_y_pds.csv"))
 skim(pds_df)
 
-#drop unused cols
-pdf_df_filt <- pds_df %>% 
-  select(!contains("cat")) %>%
-  mutate(interview_date = as.Date(interview_date, "%m/%d/%y"))
+#get ages
+demo_df <- fread(paste0(path_abcd, "/abcd-general/abcd_y_lt.csv"))
+skim(demo_df)
+demo_df2 <- demo_df %>%
+  mutate(interview_date = as.Date(interview_date, "%d/%m/%y"))
+
+#merge
+pds_demo <- left_join(pds_df, demo_df2)
 ```
 
-fuzzy inner join
+inner join - too big to use fuzzy join
 ```{r}
-image_df_mrg <- image_df_filt %>%
-  mutate(scan_date_plus = scan_date + 30,
-         scan_date_minus = scan_date- 30)
+abcd <- inner_join(pds_demo, image_df2,
+                             by = c("src_subject_id", "eventname")) %>%
+  mutate(pds_date_diff = scan_date - interview_date,
+         sex=case_when(pds_sex_y == 1 ~ "male",
+                       pds_sex_y == 2 ~ "female"))
 
-NDAR2105 <- fuzzy_inner_join(pdf_df_filt, image_df_mrg,
-                             by = c("subjectkey" = "subjectkey",
-                                    "sex" = "sex",
-                                    'interview_date' = "scan_date_minus",
-                                    'interview_date' = "scan_date_plus"),
-                                 match_fun = list(`==`, `==`, `>`, `<`)) %>%
-  dplyr::select(!c(scan_date_plus, scan_date_minus, subjectkey.y, src_subject_id.y, sex.y)) %>%
-  rename(subjectkey = subjectkey.x,
-         src_subject_id = src_subject_id.x,
-         sex = sex.x) %>%
-  mutate(pds_date_diff = scan_date - interview_date)
+n_unique(abcd$src_subject_id)
 
-n_unique(NDAR2105$subjectkey)
+abcd %>%
+  ggplot(aes(x=interview_age, y=src_subject_id, color=sex, group=src_subject_id))+
+  geom_point() +
+  geom_line() +
+  theme(legend.position="none")
+```
+
+keeping all for now, but unclear what date PDS was actually assessed and how close it was to scan date
+
+##NDAR Combine
+
+```{r}
+ndar_df <- Reduce(full_join, list(NDAR2135, TAG, NDAR2714, NDAR2105)) %>%
+  mutate(age_yrs = as.numeric((interview_age))/12)
+
+skim(ndar_df)
+
+#drop puberty data for now
+ndar_demos <- ndar_df %>%
+  select(subjectkey, interview_date, sex, age_yrs)
+```
+
+##All Demos
+add new NDAR demos into LBCC data
+
+```{r}
+full_demo <- full_join(lbcc_puberty, ndar_df, by=c("INDEX.ID"="subjectkey", "age_yrs" = "age_yrs", "sex"="sex"))%>%
+  dplyr::filter(age_yrs <= 25 & age_yrs >= 5) %>%
+  dplyr::filter(!(age_yrs > 17 & study=="ABCD")) %>%#drop 1 old ABCD ppt based on release 5 matching
+  mutate(sex = case_when(sex == "M" | sex =="male" ~ "Male",
+                         sex == "F" | sex =="female" ~ "Female",
+                         TRUE ~ NA))
+
+#trying to rank by youngest age in study
+full_demo_rank <- full_demo%>%
+  group_by(INDEX.ID) %>%
+  arrange(age_yrs) %>%
+  slice_head() %>% 
+  ungroup() %>%
+  group_by(sex) %>%
+  mutate(age_rank = rank(age_yrs, ties.method="random")) %>%
+  ungroup() %>%
+  select(INDEX.ID, age_rank)
+  
+
+full_demo_rank2 <- left_join(full_demo, full_demo_rank, by="INDEX.ID")
+
+demo_plt <- full_demo_rank2 %>%
+  ggplot(aes(x=age_yrs, y=age_rank, color=sex, group=INDEX.ID))+
+  geom_vline(xintercept=17, color='gray', linetype="dotted") +
+  geom_line(alpha=0.4, linewidth=.3) +
+  geom_point(size=1) +
+  theme(legend.position="none") +
+  theme_linedraw() +
+  labs(x="Age (Years)", y="N") +
+  facet_wrap(~sex) +
+  theme(legend.position="none")
+
+ggsave("./Margaret/sex_mod_braincharts/puberty_sample.png", demo_plt)
 ```
