@@ -34,7 +34,7 @@ if (log_scale == TRUE){
 }
 
 #define degrees of freedom to be tested
-degree_list <- seq(3,6)
+degree_list <- seq(2,5)
 
 results_df <- data.frame()
 

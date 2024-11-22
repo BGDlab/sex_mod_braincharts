@@ -323,13 +323,17 @@ ggplot(df_infant) +
   geom_point(aes(x=age_days, y=lh.GM.cuneus, color=study))
 
 ggplot(df_infant) +
-  geom_point(aes(x=age_days, y=lh.SA.parsorbitalis, color=study))
+  geom_point(aes(x=age_days, y=rh.CT.parsorbitalis, color=study))
 
 ggplot(df_infant) +
-  geom_point(aes(x=age_days, y=lh.SA.cuneus, color=study))
+  geom_point(aes(x=age_days, y=rh.CT.cuneus, color=study))
 
 ggplot(df_infant) +
-  geom_point(aes(x=age_days, y=lh.CT.cuneus, color=study))
+  geom_point(aes(x=age_days, y=rh.GM.cuneus, color=study))
+
+# df_infant %>%
+#   filter(study=="dHCP-fetal") %>%
+#   skim()
 ```
 
 looks like `lh.SA.cuneus` is getting segmented as `lh.SA.parsorbitalis`. Going to remove both phenotypes from dHCP-fetal and remove all subjects from other studies with zero values
@@ -343,7 +347,9 @@ zero_ppts <- df_zeros %>%
 
 df_select_nozero <- df_select %>%
   mutate(lh.SA.cuneus = ifelse(study=="dHCP-fetal", NA, lh.SA.cuneus),
-         lh.SA.parsorbitalis = ifelse(study=="dHCP-fetal", NA, lh.SA.parsorbitalis)) %>%
+         lh.SA.parsorbitalis = ifelse(study=="dHCP-fetal", NA, lh.SA.parsorbitalis),
+         rh.SA.cuneus = ifelse(study=="dHCP-fetal", NA, rh.SA.cuneus),
+         rh.SA.parsorbitalis = ifelse(study=="dHCP-fetal", NA, rh.SA.parsorbitalis)) %>%
   dplyr::filter(!(INDEX.ID %in% zero_ppts))
 ```
 
@@ -363,7 +369,7 @@ scz_study_list <- c("ALSPAC", "AMP-SCZ", "BHRCS", "COBRE_FS6_part1", "Dublin_FS6
                     "NDAR-SCZGlu", "NDAR-SocialBrainSchizoAutism", "NDAR_BSNIP", "NDAR_PARDIP", "NDAR_SCZIowa", "OpenNeuro_LA5c",
                     "SRPBS1600", "TOPSY", "NDAR_NIH-IRP") #NDAR_NIH-IRP = controls for Armin's COS dataset
 
-psychosis_df <- df_select %>%
+psychosis_df <- df_select_nozero %>%
   dplyr::filter(study %in% scz_study_list) %>%
   dplyr::filter(dx %in% psych_dx_list) %>%
   group_by(INDEX.ID) %>% #remove duplicate participants
@@ -387,7 +393,7 @@ FOR MORE SCZ STUDIES TO BE ADDED, SEE NDAR PROPOSAL GOOGLE DOC
 
 remove psychosis studies from main dataset so there's no data leakage
 ```{r}
-df_nopsych <- df_select %>%
+df_nopsych <- df_select_nozero %>%
   dplyr::filter(!(study %in% scz_study_list))
 ```
 
@@ -602,6 +608,30 @@ euler_df %>%
   geom_smooth(method = "lm")
 ```
 
+Try filtering more?
+```{r}
+names(euler_df)
+
+euler_df_strict <- euler_df %>%
+  mutate(euler_threshold = study_euler_median + (3.5*study_euler_mad)) %>%
+  dplyr::filter(SurfaceHoles <= euler_threshold)
+
+euler_df_strict %>%
+  ggplot(aes(x=age_days, y=QC_Metric)) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method = "lm")
+
+nrow(euler_df) - nrow(euler_df_strict)
+```
+loose a lot of subjects, doesn't seem to affect relationship
+
+```{r}
+euler_df_strict %>%
+  ggplot(aes(x=age_days, y=eTIV)) +
+  geom_point() +
+  geom_hline(yintercept=4553071)
+```
+
 Look at psychosis sample
 ```{r}
 psych_df_eu <- psychosis_df %>%
@@ -758,4 +788,15 @@ ggplot(df_sub) +
 ggplot(df_sub) + 
   geom_point(aes(x=age_days, y=SUBC.Right.Thalamus.Proper, color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = 280)
+```
+
+###ICV scaling
+```{r}
+df_clean2 %>%
+  filter(eTIV < 3e6) %>%
+  ggplot(aes(x=eTIV, y=SUBC.Left.Amygdala)) +
+  geom_point(alpha=0.6, color="gray") +
+  geom_smooth(method=lm, color="#264762") +
+  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x, bs = "cs", k=5)) +
+  theme_bw()
 ```
