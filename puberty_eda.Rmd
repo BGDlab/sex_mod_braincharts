@@ -17,7 +17,7 @@ knitr::opts_knit$set(root.dir="/mnt/isilon/bgdlab_processing")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, fuzzyjoin)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, fuzzyjoin, cowplot, ggpubr)
 ```
 
 
@@ -324,29 +324,33 @@ keeping all for now, but unclear what date PDS was actually assessed and how clo
 ##NDAR Combine
 
 ```{r}
-ndar_df <- Reduce(full_join, list(NDAR2135, TAG, NDAR2714, NDAR2105)) %>%
+ndar_df <- bind_rows(list(NDAR2135, TAG, NDAR2714, NDAR2105), .id="study") %>%
   mutate(age_yrs = as.numeric((interview_age))/12)
 
 skim(ndar_df)
 
 #drop puberty data for now
 ndar_demos <- ndar_df %>%
-  select(subjectkey, interview_date, sex, age_yrs)
+  select(subjectkey, interview_date, sex, age_yrs, study)
 ```
 
 ##All Demos
 add new NDAR demos into LBCC data
 
 ```{r}
-full_demo <- full_join(lbcc_puberty, ndar_df, by=c("INDEX.ID"="subjectkey", "age_yrs" = "age_yrs", "sex"="sex"))%>%
+full_demo <- full_join(lbcc_puberty, ndar_df, by=c("INDEX.ID"="subjectkey", "age_yrs" = "age_yrs", "sex"="sex", "study" = "study"))%>%
   dplyr::filter(age_yrs <= 25 & age_yrs >= 5) %>%
   dplyr::filter(!(age_yrs > 17 & study=="ABCD")) %>%#drop 1 old ABCD ppt based on release 5 matching
   mutate(sex = case_when(sex == "M" | sex =="male" ~ "Male",
                          sex == "F" | sex =="female" ~ "Female",
-                         TRUE ~ NA))
+                         TRUE ~ NA),
+         is.pnc = ifelse(study=="PNC", TRUE, FALSE))
+
+demo_nopnc <- full_demo %>%
+  dplyr::filter(is.pnc == FALSE)
 
 #trying to rank by youngest age in study
-full_demo_rank <- full_demo%>%
+full_demo_rank <- demo_nopnc%>%
   group_by(INDEX.ID) %>%
   arrange(age_yrs) %>%
   slice_head() %>% 
@@ -357,18 +361,41 @@ full_demo_rank <- full_demo%>%
   select(INDEX.ID, age_rank)
   
 
-full_demo_rank2 <- left_join(full_demo, full_demo_rank, by="INDEX.ID")
+full_demo_rank2 <- left_join(demo_nopnc, full_demo_rank, by="INDEX.ID")
 
 demo_plt <- full_demo_rank2 %>%
   ggplot(aes(x=age_yrs, y=age_rank, color=sex, group=INDEX.ID))+
   geom_vline(xintercept=17, color='gray', linetype="dotted") +
   geom_line(alpha=0.4, linewidth=.3) +
   geom_point(size=1) +
+  xlim(5,25)+
   theme(legend.position="none") +
-  theme_linedraw() +
-  labs(x="Age (Years)", y="N") +
+  theme_cowplot() +
+  labs(x=element_blank(), y="N") +
   facet_wrap(~sex) +
   theme(legend.position="none")
+```
 
-ggsave("./Margaret/sex_mod_braincharts/puberty_sample.png", demo_plt)
+```{r}
+pnc <- full_demo %>%
+  filter(is.pnc ==TRUE)
+
+pnc.plt <- pnc %>%
+  ggplot() +
+  geom_histogram(aes(x=age_yrs, fill=sex, color=sex), alpha=.7) +
+  facet_wrap(~sex) +
+  theme_cowplot() +
+  xlim(5,25) +
+  labs(x= "Age (years)", y="N") +
+  theme(strip.background = element_blank(),
+  strip.text.x = element_blank(),
+  legend.position="none")
+```
+
+```{r}
+pubert_plt <- ggarrange(demo_plt, pnc.plt,
+          ncol=1, nrow=2,
+          align = "v",
+          heights=c(4,1))
+ggsave("./Margaret/sex_mod_braincharts/puberty_sample.png", pubert_plt)
 ```
