@@ -378,7 +378,7 @@ demo_plt <- full_demo_rank2 %>%
 
 ```{r}
 pnc <- full_demo %>%
-  filter(is.pnc ==TRUE)
+  filter(is.pnc ==TRUE & age_yrs>=10)
 
 pnc.plt <- pnc %>%
   ggplot() +
@@ -390,6 +390,8 @@ pnc.plt <- pnc %>%
   theme(strip.background = element_blank(),
   strip.text.x = element_blank(),
   legend.position="none")
+
+nrow(pnc)
 ```
 
 ```{r}
