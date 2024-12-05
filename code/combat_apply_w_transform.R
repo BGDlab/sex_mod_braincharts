@@ -3,9 +3,9 @@
 
 #expects 4 - 6 arguments:
 ## 1. dataframe of data to be combatted
-## 2. name of column containing batch identifier, or path to a csv containing batch identifier
-## 3. path to save output csv
-## 4. combat config name to append to output csv's filename
+## 2. RDS listing phenotypes to look for in csv
+## 3. name of column containing batch identifier, or path to a csv containing batch identifier
+## 4. path to save output csv
 ## 5. list of columns to be included as covariates (OPTIONAL)
 ## 6. Additional comfam() arguments, including model, formula, ref.batch, ... (OPTIONAL)
 
@@ -20,15 +20,13 @@ library(mgcv)
 library(gamlss)
 library(ComBatFamily)
 
-source("/cbica/home/gardnerm/combat-biovar/cubic_scripts/R_scripts/gamlss_helper_funs.R")
-
 ##########################################################################
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 raw.df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "")
-
-batch.arg <- args[2]
+feature_list <- readRDS(args[2])
+batch.arg <- args[3]
 #if batch arg is csv, merge csv into raw.df and designate last col as batch ID
 if (endsWith(batch.arg, '.csv')){
   batch.df <- fread(batch.arg, stringsAsFactors = TRUE, na.strings = "")
@@ -40,30 +38,18 @@ if (endsWith(batch.arg, '.csv')){
   batch <- as.factor(raw.df[[batch.col]])
 }
 
-save_path <- as.character(args[3]) #path to save outputs
-config_name <- as.character(args[4])
-
-#GET FEATURE LISTS
-vol_list_global <- readRDS(file="R_scripts/vol_list_global.rds")
-vol_list_regions <- readRDS(file="R_scripts/Vol_list_regions.rds")
-sa_list <- readRDS(file="R_scripts/SA_list.rds")
-ct_list <- readRDS(file="R_scripts/CT_list.rds")
-#combine
-list_of_feature_lists <- list(vol_list_global, vol_list_regions, sa_list, ct_list)
-names(list_of_feature_lists) <- c("VolGlob", "VolReg", "SA", "CT")
+save_path <- as.character(args[4]) #path to save outputs
 
 #DEF COVARS
-
-if (!is.null(covar.list)){
+covar.list <- as.character(unlist(strsplit(args[5], ",")))
 covar.df <- raw.df %>%
   dplyr::select(all_of(covar.list))
 
 stopifnot(length(batch) == nrow(covar.df))
 #covar df only works with numeric variables (otherwise need to use matrix to dummy-code). sticking with just df for now, can update later
 stopifnot(all(sapply(covar.df, is.numeric)))
-} else {
-  stop("need list of covariates to preserve")
-}
+
+cf.args <- args[6]
 
 #extract csv name from input data
 csv_basename <- sub(pattern = "(.*)\\..*$", replacement = "\\1", basename(as.character(args[1])))
@@ -73,18 +59,8 @@ csv_basename <- gsub("_", "-", csv_basename)
 
 #COMBAT
 
-#initialize df for combat method
-cf <- data.frame(matrix(NA, ncol=1, nrow=(nrow(raw.df))))[-1] %>%
-  mutate(id = row_number())
-
-i=0
-
-#ITERATE ACROSS FEATURE LISTS
-for (l in list_of_feature_lists){
-  i=i+1
-  print(names(list_of_feature_lists[i]))
-  pheno.df <- raw.df %>%
-    dplyr::select(all_of(l))
+pheno.df <- raw.df %>%
+  dplyr::select(any_of(feature_list))
   #replace any 0s w/ 1 pre-log-transform
   pheno.df <- replace(pheno.df, pheno.df==0, 1)
   
@@ -96,7 +72,7 @@ for (l in list_of_feature_lists){
   stopifnot(nrow(pheno.df) == length(batch))
   
   #turn off empirical bayes if combatting global voluems
-  if (names(list_of_feature_lists[i]) == "VolGlob" ) {
+  if (grepl("global_vols", args[2]) == TRUE ) {
     eb_arg <- FALSE
   } else {
     eb_arg <- TRUE
@@ -116,55 +92,44 @@ for (l in list_of_feature_lists){
       message("done")
       } )
     }
-        cf.obj <- cf_gamlss_try(cf.args, eb_arg)
-      } else {
-        cf.obj <- eval(parse(text = paste("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", cf.args, ")")))
-      }
-    }
-  }
   
+  cf.obj <- cf_gamlss_try(cf.args, eb_arg)
+
   #un-log-transform vals
-   cf.obj$dat.combat <- cf.obj$dat.combat %>%
+  cf.obj$dat.combat <- cf.obj$dat.combat %>%
      mutate(across(c(l), \(x) un_log(x)))
   
   #save cf.obj
-  saveRDS(cf.obj, file=paste0(save_path, "/combat_objs/",csv_basename,"_", config_name,"_", names(list_of_feature_lists[i]), "_cf_obj.rds"))
+  saveRDS(cf.obj, file=paste0(save_path, "/combat_objs/", csv_basename, "_cf_obj.rds"))
   
   #row number
   cf.obj.df <- cf.obj$dat.combat %>%
-    mutate(id = row_number())
-  
-  #add in combatted values
-  cf <- base::merge(cf, cf.obj.df, 
-              by = "id")
-  
-}
+    mutate(id = row_number()) %>%
+    dplyr::select(!ends_wit("_X")) #drop non-target cols (used as priors)
 
 #check for negative (impossible) features
-total_negative_values <- sum(cf < 0)
+total_negative_values <- sum(cf.obj.df < 0)
 if (total_negative_values > 0) {
   print(paste("WARNING!", total_negative_values, "negative values found across the following features:"))
   #get names of features with neg. values
-  columns_with_negatives <- names(cf)[colSums(cf < 0) > 0]
+  columns_with_negatives <- names(cf.obj.df)[colSums(cf.obj.df < 0) > 0]
   print(columns_with_negatives)
 } else {
   print("ComBat successful")
 }
 
 #merge back into the rest of the raw dataset (demographics, etc.)
-pheno_list <- unname(unlist(list_of_feature_lists)) #features that were combatted
-
 nonpheno.df <- raw.df %>%
-  dplyr::select(!any_of(pheno_list)) %>%
+  dplyr::select(!any_of(feature_list)) %>%
   mutate(id = row_number())
 
-final.df <- base::merge(cf, nonpheno.df, by = "id")
+final.df <- base::merge(cf.obj.df, nonpheno.df, by = "id")
 
 ##########################################################################
 #WRITE OUT
 
 #append config name
-datafile <- paste0(save_path, "/", csv_basename, "_log-cf_", config_name, "_batch.", batch.col, "_data.csv")
+datafile <- paste0(save_path, "/", csv_basename, "_log-cf.gam_batch.", batch.col, "_data.csv")
 fwrite(final.df, file=datafile)
 
 print("DONE")
