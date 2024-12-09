@@ -530,6 +530,7 @@ df_clean2 <- df_clean %>%
 subcort_list <- subcort_list[!(subcort_list %in% unique(restricted$pheno))]
 write_lines(subcort_list, "./pheno_lists/subcortical_vols.txt")
 saveRDS(subcort_list, "./pheno_lists/subcortical_vols.rds")
+pheno_list <- pheno_list[!(pheno_list %in% unique(restricted$pheno))]
 ```
 
 
@@ -799,4 +800,29 @@ df_clean2 %>%
   geom_smooth(method=lm, color="#264762") +
   geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x, bs = "cs", k=5)) +
   theme_bw()
+```
+
+###Visualize Batch Effects
+
+using simple PCA
+```{r}
+df_phenos <- df_clean2 %>% dplyr::select(all_of(c("study_site", "study", pheno_list))) %>% na.omit()
+
+pc_phenos <- prcomp(df_phenos[,-(1:2)], center=TRUE, scale=TRUE)
+
+as.data.frame(pc_phenos$x) %>% 
+  mutate(site = df_phenos$study_site) %>%
+  ggplot(aes(x=PC1, y=PC2), alpha=0.4) +
+  geom_point(aes(color=site))+
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  theme(legend.position="none")
+
+as.data.frame(pc_phenos$x) %>% 
+  mutate(site = df_phenos$study) %>%
+  ggplot(aes(x=PC1, y=PC2), alpha=0.4) +
+  geom_point(aes(color=site))+
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  theme(legend.position="none")
 ```

@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=8G
-#SBATCH --array=
+#SBATCH --array=1-7 #global phenos
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combatls_%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combatls_%A_%a.err
 
@@ -18,16 +18,18 @@ echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
 DF=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
 PLIST=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
 BATCH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
-SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
-COVARS=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
-MODEL=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
+COVARS=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
+MMODEL=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
+SMODEL=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
+SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $8}' $CONFIGFN )
 
 echo "DF: $DF"
 echo "PHENO LIST: $PLIST"
 echo "BATCH: $BATCH"
-echo "SAVE_PATH: $SAVE_PATH"
 echo "COVARS: $COVARS"
-echo "MODEL: $MODEL"
+echo "MU MODEL: $MMODEL"
+echo "SIGMA MODEL: $SMODEL"
+echo "SAVE_PATH: $SAVE_PATH"
 
 
 #------------------
@@ -36,7 +38,7 @@ BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
 
 module load R/4.4.0
 
-Rscript $BASE/code/fit_test_models.R $DF $PLIST $BATCH $SAVE_PATH $COVARS $MODEL
+Rscript $BASE/code/combat_apply_w_transform.R $DF $PLIST $BATCH $COVARS $MMODEL $SMODEL $SAVE_PATH
 
 # Done!
 echo "Job finished running!"

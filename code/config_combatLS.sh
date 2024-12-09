@@ -5,18 +5,25 @@
 #list csvs to be harmonized
 data_path=./data/to_combat
 config_path=./code/config_files
+pheno_path=./pheno_lists
+save_path=./data/harmonized
 
 #batch
-batch="study"
+batch="study_site"
 
 #list covariate effects to preserve
 covar_list="logAge_days,sexMale,sexMale_x_logAge"
 
-#list desired combat configurations (formula for the above covars - keeping mu and sigma formulas identical for now)
-combat_list='"~pb(logAge_days, method='GAIC', k=log(nrow(df)) + sexMale + pb(sexMale_x_logAge, method='GAIC', k=log(nrow(df))" \
-"~ ns(logAge_days, df=30) + sexMale + ns(sexMale_x_logAge, df=10)" \
-"~ ns(logAge_days, df=20) + sexMale + ns(sexMale_x_logAge, df=5)" \
-"~ ns(logAge_days, knots=c(2.562590, 3.039711, 3.407688, 3.766710, 3.960530, 4.215803, 4.407688)) + sexMale + ns(sexMale_x_logAge, df=10)"'
+#combat configurations (formula for the above covars - keeping mu and sigma formulas identical for now)
+#knots from df4 - will need to update manually to change
+combat_mod="~ns(logAge_days,knots=c(2.7645,3.3654,3.966))+sexMale+ns(sexMale_x_logAge,knots=c(2.765,3.3654,3.966))"
+
+#make save path
+if ! [ -d $save_path ]
+	then
+	mkdir $save_path
+fi
+full_save=$(realpath $save_path)
 
 #make config file dir or remove old file if necessary
 if ! [ -d $config_path ]
@@ -30,14 +37,23 @@ fi
 # create the output file
 touch $config_path/combat_config.txt
 
+count=1
 
-#loop through each CSV of IDPs separated by phenotype category
-for file in $(find $(realpath $data_path)  -type f )
+#loop through each list of phenos
+for pheno_list in $(find $(realpath $pheno_path)  -type f -name "*.rds")
 do
-  echo "prepping: $file"
-  for combat_config in $combat_list
+
+  list_name=$(basename $pheno_list .rds)
+  echo "pheno_list: $list_name"
+
+  #find corresponding data csvs
+  for file in $(find $(realpath $data_path)  -type f -name $list_name*)
   do
+  
   # Write the CSV file path and the formula to the output file (tab-delimited)
-  echo -e "$file\t$covar_list\t$combat_config\t$combat_config" >> "$config_path/combat_config.txt"
+  echo -e "$count\t$file\t$pheno_list\t$batch\t$covar_list\t$combat_mod\t$combat_mod\t$full_save" >> "$config_path/combat_config.txt"
+
+  count=$(( count+1 ))
+  
   done
 done

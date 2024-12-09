@@ -359,7 +359,7 @@ full_demo_rank <- demo_nopnc%>%
   mutate(age_rank = rank(age_yrs, ties.method="random")) %>%
   ungroup() %>%
   select(INDEX.ID, age_rank)
-  
+n_unique(demo_nopnc$INDEX.ID)
 
 full_demo_rank2 <- left_join(demo_nopnc, full_demo_rank, by="INDEX.ID")
 

@@ -14,11 +14,10 @@ set.seed(12345)
 #LOAD PACKAGES
 library(data.table) 
 library(readr)
-library(ggplot2) 
-library(tidyverse) 
-library(mgcv) 
+library(dplyr) 
 library(gamlss)
 library(ComBatFamily)
+library(splines)
 
 ##########################################################################
 
@@ -26,6 +25,7 @@ library(ComBatFamily)
 args <- commandArgs(trailingOnly = TRUE)
 raw.df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "")
 feature_list <- readRDS(args[2])
+feature_list <- c(feature_list, paste0(feature_list, "_X"))
 batch.arg <- args[3]
 #if batch arg is csv, merge csv into raw.df and designate last col as batch ID
 if (endsWith(batch.arg, '.csv')){
@@ -38,10 +38,8 @@ if (endsWith(batch.arg, '.csv')){
   batch <- as.factor(raw.df[[batch.col]])
 }
 
-save_path <- as.character(args[4]) #path to save outputs
-
 #DEF COVARS
-covar.list <- as.character(unlist(strsplit(args[5], ",")))
+covar.list <- as.character(unlist(strsplit(args[4], ",")))
 covar.df <- raw.df %>%
   dplyr::select(all_of(covar.list))
 
@@ -49,7 +47,12 @@ stopifnot(length(batch) == nrow(covar.df))
 #covar df only works with numeric variables (otherwise need to use matrix to dummy-code). sticking with just df for now, can update later
 stopifnot(all(sapply(covar.df, is.numeric)))
 
-cf.args <- args[6]
+mu.form <- args[5]
+sig.form <- args[6]
+# print(mu.form)
+# print(sig.form)
+
+save_path <- as.character(args[7]) #path to save outputs
 
 #extract csv name from input data
 csv_basename <- sub(pattern = "(.*)\\..*$", replacement = "\\1", basename(as.character(args[1])))
@@ -61,39 +64,31 @@ csv_basename <- gsub("_", "-", csv_basename)
 
 pheno.df <- raw.df %>%
   dplyr::select(any_of(feature_list))
+stopifnot(all(sapply(pheno.df, is.numeric)))
+
   #replace any 0s w/ 1 pre-log-transform
   pheno.df <- replace(pheno.df, pheno.df==0, 1)
   
+  print(dim(pheno.df))
+  print(summary(pheno.df))
+  
   #log-transform ALL pheno vals
   pheno.df <- pheno.df %>%
-    mutate(across(c(l), \(x) log(x, base=10)))
+    mutate(across(any_of(feature_list), \(x) log(x, base=10)))
   
   #make sure batch, covars, and pheno dfs are all the same length
   stopifnot(nrow(pheno.df) == length(batch))
   
   #turn off empirical bayes if combatting global voluems
   if (grepl("global_vols", args[2]) == TRUE ) {
+    print("gobal volumes, no EB")
     eb_arg <- FALSE
   } else {
     eb_arg <- TRUE
   }
   
-  #def combatls fun - run CG if RS fails
-  cf_gamlss_try <- function(x, eb_arg){
-    result <- tryCatch({
-      eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, ")")))
-      } , warning = function(w) {
-      message("warning")
-      eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, ")")))
-      } , error = function(e) {
-      message("error, trying method=CG()")
-      eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, eb = ", eb_arg, ", ", x, ", method = CG())")))
-      } , finally = {
-      message("done")
-      } )
-    }
-  
-  cf.obj <- cf_gamlss_try(cf.args, eb_arg)
+  cf.obj <- eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, gamlss, formula= y",
+                                     mu.form, ", sigma.formula=", sig.form, ", eb = ", eb_arg, ")")))
 
   #un-log-transform vals
   cf.obj$dat.combat <- cf.obj$dat.combat %>%
