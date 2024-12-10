@@ -18,6 +18,7 @@ library(dplyr)
 library(gamlss)
 library(ComBatFamily)
 library(splines)
+library(gamlssTools)
 
 ##########################################################################
 
@@ -69,9 +70,6 @@ stopifnot(all(sapply(pheno.df, is.numeric)))
   #replace any 0s w/ 1 pre-log-transform
   pheno.df <- replace(pheno.df, pheno.df==0, 1)
   
-  print(dim(pheno.df))
-  print(summary(pheno.df))
-  
   #log-transform ALL pheno vals
   pheno.df <- pheno.df %>%
     mutate(across(any_of(feature_list), \(x) log(x, base=10)))
@@ -92,19 +90,27 @@ stopifnot(all(sapply(pheno.df, is.numeric)))
 
   #un-log-transform vals
   cf.obj$dat.combat <- cf.obj$dat.combat %>%
-     mutate(across(c(l), \(x) un_log(x)))
+    as.data.frame() %>%
+    mutate(across(any_of(feature_list), \(x) un_log(x)))
   
   #save cf.obj
   saveRDS(cf.obj, file=paste0(save_path, "/combat_objs/", csv_basename, "_cf_obj.rds"))
   
   #row number
   cf.obj.df <- cf.obj$dat.combat %>%
+    as.data.frame() %>%
     mutate(id = row_number()) %>%
-    dplyr::select(!ends_wit("_X")) #drop non-target cols (used as priors)
+    dplyr::select(!ends_with("_X")) #drop non-target cols (used as priors)
 
 #check for negative (impossible) features
 total_negative_values <- sum(cf.obj.df < 0)
-if (total_negative_values > 0) {
+total_missing_values <- sum(is.na(cf.obj.df))
+if (total_missing_values > 0) {
+  print(paste("ERROR!", total_missing_values, "NA values found across the following features:"))
+  #get names of features with neg. values
+  columns_with_na <- names(cf.obj.df)[colSums(is.na(cf.obj.df)) > 0]
+  print(columns_with_na)
+} else if (total_negative_values > 0) {
   print(paste("WARNING!", total_negative_values, "negative values found across the following features:"))
   #get names of features with neg. values
   columns_with_negatives <- names(cf.obj.df)[colSums(cf.obj.df < 0) > 0]
@@ -124,7 +130,7 @@ final.df <- base::merge(cf.obj.df, nonpheno.df, by = "id")
 #WRITE OUT
 
 #append config name
-datafile <- paste0(save_path, "/", csv_basename, "_log-cf.gam_batch.", batch.col, "_data.csv")
+datafile <- paste0(save_path, "/", csv_basename, "_log-scale_batch.", batch.col, "_data.csv")
 fwrite(final.df, file=datafile)
 
 print("DONE")

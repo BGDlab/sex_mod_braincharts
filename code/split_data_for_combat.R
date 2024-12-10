@@ -25,11 +25,17 @@ name_prefix <- as.character(args[4])
 #DEFINE FUNCTIONS
 
 #function to split out complete dataframes
-get_complete_df <- function(var, df){
+get_complete_df <- function(var, df, batch=NULL){
   #print(var)
   new_df <- df %>%
     dplyr::filter(!is.na(!!sym(var))) %>% #can't handle var name as string, fix this!
     select_if(~ !any(is.na(.)))
+  if (!is.null(batch)){
+    new_df <- new_df %>%
+      group_by(!!sym(batch)) %>%
+      filter(n() >=5) %>% #remove sites with < 5 ppl
+      ungroup()
+  }
   return(new_df)
 }
 
@@ -105,7 +111,7 @@ save_csv_list <- function(df_list, path = ".", name_prefix) {
 #PROCESS DATA
 
 #split out data
-df_list <- lapply(idp_list, get_complete_df, df_orig)
+df_list <- lapply(idp_list, get_complete_df, df_orig, batch="study_site")
 #name
 names(df_list) <- idp_list
 

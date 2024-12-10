@@ -22,6 +22,7 @@ combat_mod="~ns(logAge_days,knots=c(2.7645,3.3654,3.966))+sexMale+ns(sexMale_x_l
 if ! [ -d $save_path ]
 	then
 	mkdir $save_path
+	mkdir $save_path/combat_objs
 fi
 full_save=$(realpath $save_path)
 
