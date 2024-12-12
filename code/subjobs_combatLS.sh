@@ -4,8 +4,8 @@
 #SBATCH --time=168:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=38G
-#SBATCH --array=1-84
+#SBATCH --mem-per-cpu=50G
+#SBATCH --array=8,73,73,77,80,81,83#1-84
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combatls_%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combatls_%A_%a.err
 

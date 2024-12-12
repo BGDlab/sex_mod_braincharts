@@ -124,7 +124,8 @@ nonpheno.df <- raw.df %>%
   dplyr::select(!any_of(feature_list)) %>%
   mutate(id = row_number())
 
-final.df <- base::merge(cf.obj.df, nonpheno.df, by = "id")
+final.df <- base::merge(cf.obj.df, nonpheno.df, by = "id") %>%
+  select(!id) #drop id col post-merge
 
 ##########################################################################
 #WRITE OUT

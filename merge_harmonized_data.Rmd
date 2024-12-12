@@ -1,0 +1,145 @@
+---
+title: "merge_harmonized_data"
+output: html_document
+date: "2024-12-12"
+---
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(dplyr, data.table, ggplot2)
+```
+
+```{r}
+harmonized_csvs <- list.files(path="data/harmonized", pattern="global-vols", full.names=TRUE)
+og.data <- fread("data/csvs_by_pheno/global_vols.csv")
+```
+
+## R Markdown
+
+```{r}
+csv_list <- list()
+
+for (csv in harmonized_csvs){
+  df <- fread(csv) %>%
+    select(!any_of(c("id")))
+  csv_list <- c(csv_list, list(df))
+}
+
+stopifnot(length(harmonized_csvs) == length(csv_list))
+
+full_df <- Reduce(full_join, csv_list)
+```
+
+
+```{r}
+ggplot(og.data) +
+  geom_point(aes(x=age_days, y=sGMV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title="Raw")
+
+ggplot(full_df) +
+  geom_point(aes(x=age_days, y=sGMV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title="Harmonized")
+
+full_df %>%
+  dplyr::filter(sGMV < 1e5) %>% 
+ggplot() +
+  geom_point(aes(x=age_days, y=sGMV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  geom_hline(yintercept=max(og.data$sGMV, na.rm = T))+
+  labs(title="Harmonized Filt")
+```
+
+```{r}
+ggplot(og.data) +
+  geom_point(aes(x=age_days, y=GMV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title="Raw")
+
+ggplot(full_df) +
+  geom_point(aes(x=age_days, y=GMV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title="Harmonized")
+
+full_df %>%
+  dplyr::filter(GMV < 1e8) %>% 
+ggplot() +
+  geom_point(aes(x=age_days, y=GMV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  geom_hline(yintercept=max(og.data$GMV, na.rm = T))+
+  labs(title="Harmonized Filt")
+```
+
+
+```{r}
+ggplot(og.data) +
+  geom_point(aes(x=age_days, y=WMV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title="Raw")
+
+ggplot(full_df) +
+  geom_point(aes(x=age_days, y=WMV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  geom_hline(yintercept=max(og.data$WMV, na.rm = T))+
+  labs(title="Harmonized")
+```
+
+```{r}
+ggplot(og.data) +
+  geom_point(aes(x=age_days, y=CSF, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title="Raw")
+
+ggplot(full_df) +
+  geom_point(aes(x=age_days, y=CSF, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  geom_hline(yintercept=max(og.data$CSF, na.rm = T))+
+  labs(title="Harmonized")
+```
+
+```{r}
+ggplot(og.data) +
+  geom_point(aes(x=age_days, y=total.CT, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title="Raw")
+
+ggplot(full_df) +
+  geom_point(aes(x=age_days, y=total.CT, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  geom_hline(yintercept=max(og.data$total.CT, na.rm = T))+
+  labs(title="Harmonized")
+```
+
+```{r}
+ggplot(og.data) +
+  geom_point(aes(x=age_days, y=total.SA, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title="Raw")
+
+ggplot(full_df) +
+  geom_point(aes(x=age_days, y=total.SA, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  geom_hline(yintercept=max(og.data$total.SA, na.rm = T))+
+  labs(title="Harmonized")
+```
+
+```{r}
+ggplot(og.data) +
+  geom_point(aes(x=age_days, y=eTIV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title="Raw")
+
+ggplot(full_df) +
+  geom_point(aes(x=age_days, y=eTIV, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  geom_hline(yintercept=max(og.data$eTIV, na.rm = T))+
+  labs(title="Harmonized")
+```
