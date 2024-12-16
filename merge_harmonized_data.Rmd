@@ -35,6 +35,7 @@ for (csv in harmonized_csvs){
 stopifnot(length(harmonized_csvs) == length(csv_list))
 
 full_df <- Reduce(full_join, csv_list)
+fwrite(full_df, "data/harmonized/harmonized_data.csv")
 ```
 
 ##Global Phenos
@@ -228,11 +229,62 @@ ggplot(full_df) +
 ct_list <- readRDS("pheno_lists/cortical_thickness.rds")
 
 for (pheno in ct_list){
-  plt <- ggplot(full_df) +
-  geom_point(aes(x=age_days, y=pheno, color=study), alpha=.6) +
+  plt <- ggplot() +
+  geom_point(aes(x=full_df$age_days, y=full_df[[pheno]], color=full_df$study), alpha=.6) +
   theme(legend.position="none") +
   labs(title=pheno)
   
   print(plt)
 }
 ```
+
+
+##Cortical SA
+
+```{r}
+sa_list <- readRDS("pheno_lists/cortical_surf.rds")
+
+for (pheno in sa_list){
+  plt <- ggplot() +
+  geom_point(aes(x=full_df$age_days, y=full_df[[pheno]], color=full_df$study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title=pheno)
+  
+  print(plt)
+}
+```
+
+##Cortical Vols
+
+```{r}
+vol_list <- readRDS("pheno_lists/cortical_vols.rds")
+
+for (pheno in vol_list){
+  plt <- ggplot() +
+  geom_point(aes(x=full_df$logAge_days, y=full_df[[pheno]], color=full_df$study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title=pheno)
+  
+  print(plt)
+}
+```
+
+
+##Subcortical Vols
+
+```{r}
+sub_list <- readRDS("pheno_lists/subcortical_vols.rds")
+sub_list2 <- sub_list[sub_list %in% names(full_df)]
+
+#drop phenos that havent converged yet
+for (pheno in sub_list2){
+  plt <- ggplot() +
+  geom_point(aes(x=full_df$age_days, y=full_df[[pheno]], color=full_df$study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title=pheno)
+  
+  print(plt)
+}
+```
+
+
