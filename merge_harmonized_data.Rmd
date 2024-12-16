@@ -17,11 +17,11 @@ pacman::p_load(dplyr, data.table, ggplot2)
 ```
 
 ```{r}
-harmonized_csvs <- list.files(path="data/harmonized", pattern="global-vols", full.names=TRUE)
+harmonized_csvs <- list.files(path="data/harmonized", pattern="csv", full.names=TRUE)
 og.data <- fread("data/csvs_by_pheno/global_vols.csv")
 ```
 
-## R Markdown
+## Merge Data
 
 ```{r}
 csv_list <- list()
@@ -37,6 +37,7 @@ stopifnot(length(harmonized_csvs) == length(csv_list))
 full_df <- Reduce(full_join, csv_list)
 ```
 
+##Global Phenos
 
 ```{r}
 ggplot(og.data) +
@@ -58,9 +59,31 @@ ggplot() +
   labs(title="Harmonized Filt")
 ```
 
+looking into outlier subjects
+
+```{r}
+outlier_scans <- full_df %>%
+  dplyr::filter(sGMV >= max(og.data$sGMV, na.rm = T))
+
+table(outlier_scans$sexMale, outlier_scans$study_site)
+range(outlier_scans$age_days)
+range(full_df$age_days)
+
+og.data %>%
+  dplyr::filter(INDEX.ID %in% unique(outlier_scans$INDEX.ID))
+
+infant_data <- og.data %>%
+  dplyr::filter(study %in% unique(outlier_scans$study)) %>%
+  mutate(sGMV_outlier = ifelse(INDEX.ID %in% unique(outlier_scans$INDEX.ID), "yes", "no"))
+
+ggplot(infant_data) +
+  geom_point(aes(x=age_days, y=sGMV, shape=study_site, color=sGMV_outlier)) + 
+  facet_wrap(~as.factor(sexMale))
+```
+
 ```{r}
 ggplot(og.data) +
-  geom_point(aes(x=age_days, y=GMV, color=study), alpha=.6) +
+  geom_point(aes(x=age_days, y=GMV, color=study_site), alpha=.6) +
   theme(legend.position="none") +
   labs(title="Raw")
 
@@ -78,6 +101,61 @@ ggplot() +
   labs(title="Harmonized Filt")
 ```
 
+
+```{r}
+gmv_outlier_scans <- full_df %>%
+  dplyr::filter(GMV >= max(og.data$GMV, na.rm = T))
+
+table(gmv_outlier_scans$sexMale, gmv_outlier_scans$study_site)
+range(gmv_outlier_scans$age_days)
+range(full_df$age_days)
+
+og.data %>%
+  dplyr::filter(INDEX.ID %in% unique(gmv_outlier_scans$INDEX.ID))
+
+infant_data <- og.data %>%
+  dplyr::filter(study %in% unique(gmv_outlier_scans$study)) %>%
+  mutate(GMV_outlier = ifelse(INDEX.ID %in% unique(gmv_outlier_scans$INDEX.ID), "yes", "no"))
+
+ggplot(infant_data) +
+  geom_point(aes(x=age_days, y=GMV, shape=study_site, color=GMV_outlier)) + 
+  facet_wrap(~as.factor(sexMale))
+
+```
+
+looking into very young female subjs with outlier ComBat outputs
+
+```{r}
+og.data %>%
+  dplyr::filter(age_days < 350) %>%
+  mutate(study_site = as.factor(study_site)) %>%
+  ggplot()+
+  geom_point(aes(x=age_days, y=GMV, color=study_site))
+
+og.data %>%
+  dplyr::filter(age_days < 350) %>%
+  mutate(study_site = as.factor(study_site)) %>%
+  ggplot()+
+  geom_point(aes(x=age_days, y=sGMV, color=study_site))
+
+og.data %>%
+  dplyr::filter(age_days < 350) %>%
+  mutate(study_site = as.factor(study_site)) %>%
+  ggplot()+
+  geom_point(aes(x=age_days, y=WMV, color=study_site))
+
+og.data %>%
+  dplyr::filter(age_days < 350) %>%
+  mutate(study_site = as.factor(study_site)) %>%
+  ggplot()+
+  geom_point(aes(x=age_days, y=CSF, color=study_site))
+
+og.data %>%
+  dplyr::filter(age_days < 350) %>%
+  mutate(study_site = as.factor(study_site)) %>%
+  ggplot()+
+  geom_point(aes(x=age_days, y=eTIV, color=study_site))
+```
 
 ```{r}
 ggplot(og.data) +
@@ -112,7 +190,7 @@ ggplot(og.data) +
   labs(title="Raw")
 
 ggplot(full_df) +
-  geom_point(aes(x=age_days, y=total.CT, color=study), alpha=.6) +
+  geom_point(aes(x=logAge_days, y=total.CT, color=study), alpha=.6) +
   theme(legend.position="none") +
   geom_hline(yintercept=max(og.data$total.CT, na.rm = T))+
   labs(title="Harmonized")
@@ -142,4 +220,19 @@ ggplot(full_df) +
   theme(legend.position="none") +
   geom_hline(yintercept=max(og.data$eTIV, na.rm = T))+
   labs(title="Harmonized")
+```
+
+##Cortical Thickness
+
+```{r}
+ct_list <- readRDS("pheno_lists/cortical_thickness.rds")
+
+for (pheno in ct_list){
+  plt <- ggplot(full_df) +
+  geom_point(aes(x=age_days, y=pheno, color=study), alpha=.6) +
+  theme(legend.position="none") +
+  labs(title=pheno)
+  
+  print(plt)
+}
 ```
