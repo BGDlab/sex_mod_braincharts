@@ -14,11 +14,9 @@ print(args)
 df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 pheno <- as.character(args[2])
 knot_lists <- readRDS(as.character(args[3]))
-knot_lists <- knot_lists[1:3]
 save_path <- as.character(args[4])
 log_scale <- as.logical(args[5])
-fs_covary <- as.logical(args[6])
-fam <- as.character(args[7])
+fam <- as.character(args[6])
 
 #drop extra variables
 df <- df %>%
@@ -35,7 +33,7 @@ if (log_scale == TRUE){
 }
 
 #define degrees of freedom to be tested
-degree_list <- seq(2,5)
+degree_list <- seq(2,20)
 
 results_df <- data.frame()
 
@@ -59,13 +57,8 @@ for (degree in degree_list){
     s_knots_list <- paste(knot_lists[[s_knot_index]], collapse=", ")
     
     print(paste("fitting model with df = ", degree, "in mu and df =", sigma_degree, "in sigma"))
-    
-    #fit model with or without fs_version term
-    if (fs_covary==FALSE){
-      model <- gamlss_mod_nofs(pheno, knots=knots_list, sigma_knots=s_knots_list, fam=fam)
-    } else {
-      model <- gamlss_mod_knots(pheno, knots=knots_list, sigma_knots=s_knots_list, fam=fam)
-    }
+
+    model <- gamlss_nu(pheno, knots=knots_list, sigma_knots=s_knots_list, fam=fam)
     
     loop_count <- loop_count+1
     
@@ -89,7 +82,7 @@ for (degree in degree_list){
     
     #save worm plot
     print("creating worm plot")
-    wp <- wp.taki(xvar=df$logAge_days, resid=resid(model)) +
+    wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=8) +
       ggtitle(paste(pheno, "\nsmoothed w/ mu.df=", degree, ", sigma.df=", sigma_degree))
     ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_mu", degree, "sig", sigma_degree, ".png"), wp)
     
