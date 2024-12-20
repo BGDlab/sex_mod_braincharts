@@ -35,7 +35,7 @@ for (csv in harmonized_csvs){
 stopifnot(length(harmonized_csvs) == length(csv_list))
 
 full_df <- Reduce(full_join, csv_list)
-fwrite(full_df, "data/harmonized/harmonized_data.csv")
+fwrite(full_df, "data/harmonized_data.csv")
 ```
 
 ##Global Phenos

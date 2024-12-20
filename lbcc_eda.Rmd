@@ -492,6 +492,21 @@ for (degree in seq(2, 24)){
                                              fun="ns",
                                              df= degree)
 }
+
+#also get quantiles
+quant_knots <- quantile(df_clean$logAge_days, names=FALSE)
+dec_knots <- quantile(df_clean$logAge_days, probs=seq(0,1, 0.1), names=FALSE)
+
+quant_knot_lists <- c()
+dec_knot_lists <-c()
+for (name in names(knot_lists)){
+  quant_knot_lists[[name]] <- c(knot_lists[[name]], quant_knots) %>% sort()
+  dec_knot_lists[[name]] <- c(knot_lists[[name]], dec_knots) %>% sort()
+}
+
+saveRDS(knot_lists, "code/knot_lists.RDS")
+saveRDS(quant_knot_lists, "code/quant_knot_lists.RDS")
+saveRDS(dec_knot_lists, "code/dec_knot_lists.RDS")
 ```
 
 some phenotypes seem to only have younger data - looking into this
