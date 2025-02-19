@@ -1,0 +1,129 @@
+---
+title: "CV Model Testing"
+output: html_document
+date: "2025-01-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, splitstackshape, gamlss, gamlssTools)
+```
+
+Testing CV models
+
+##Split Samples
+
+```{r}
+df <- fread("./data/SBC_LBCC_CN_cleaned.csv")
+```
+
+Splitting data into 50-50 train and testing, stratified by site and sex. Using this [reference](https://stackoverflow.com/questions/74573270/stratified-data-splitting-in-r).
+
+```{r}
+table(df$study_site, df$sexMale)
+```
+
+going to drop small sites (<10 subjects per sex) for now, but alternatives could be grouping small sitest together? (go back and include sites with <5 total subjs)
+
+```{r}
+valid_sites <- df %>%
+  mutate(sex=as.factor(sexMale)) %>%
+  group_by(study_site, sex) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(study_site) %>%
+  summarise(
+    valid = all(c("0", "1") %in% sex) && all(n[match(c("0", "1"), sex, nomatch = 0)] >= 10),
+    .groups = "drop"
+  ) %>%
+  filter(valid) %>%
+  pull(study_site)
+
+df_filt <- df %>%
+  filter(study_site %in% valid_sites)
+
+nrow(df) - nrow(df_filt)
+
+ggplot(df) +
+  geom_histogram(aes(x=age_days, fill=as.factor(sexMale)))
+ggplot(df_filt) +
+  geom_histogram(aes(x=age_days, fill=as.factor(sexMale)))
+
+#table(df_filt$study_site, df_filt$sexMale)
+```
+
+Still have almost 100k subjects, proceeding to divide into A and B samples
+
+```{r}
+#add sex factor var
+df_filt <- df_filt %>% mutate(sex=as.factor(sexMale))
+
+split_samples <- splitstackshape::stratified(df_filt, group=c("study_site", "sex"), size=0.5, bothSets = TRUE)
+
+samp_A <- split_samples$SAMP1
+samp_B <- split_samples$SAMP2
+
+ggplot(samp_A) +
+  geom_histogram(aes(x=age_days, fill=sex))
+ggplot(samp_B) +
+  geom_histogram(aes(x=age_days, fill=sex))
+```
+
+##Fit Model
+Fit a test model on one brain phenotype using `samp_A` as training data.
+Going to fit site as a random effect, but alternative would be ComBatLS (separately w/in each sample). Also ignoring euler for now
+
+```{r}
+mod_samp_A <- samp_A %>% 
+  dplyr::select(INDEX.ID, lh.SA.middletemporal, sexMale, sexMale_x_logAge, logAge_days, study, study_site, fs_version) %>%
+  mutate(study_site = as.factor(study_site)) %>%
+  na.omit()
+```
+
+Fit full model
+
+```{r}
+m1 <- gamlss(lh.SA.middletemporal ~ sexMale + pb(sexMale_x_logAge, control=pb.control(order=5)) + pb(logAge_days, control=pb.control(order=5)) + random(study_site) + fs_version,
+             sigma.formula = ~ sexMale + pb(sexMale_x_logAge, control=pb.control(order=5)) + pb(logAge_days, control=pb.control(order=5)) + random(study_site) + fs_version,
+             family=GG(),
+             data=mod_samp_A,
+             control=gamlss.control(n.cyc=200))
+```
+
+```{r}
+make_centile_fan(m1, mod_samp_A, "logAge_days", color_var="sexMale", x_axis="log_lifespan_fetal")
+```
+
+testing higher penalty
+```{r}
+m2 <- gamlss(lh.SA.middletemporal ~ sexMale + pb(sexMale_x_logAge, control=pb.control(order=4)) + pb(logAge_days, control=pb.control(order=4)) + random(study_site) + fs_version,
+             sigma.formula = ~ sexMale + pb(sexMale_x_logAge, control=pb.control(order=4)) + pb(logAge_days, control=pb.control(order=4)) + random(study_site) + fs_version,
+             family=GG(),
+             data=mod_samp_A,
+             control=gamlss.control(n.cyc=200))
+```
+
+```{r}
+make_centile_fan(m2, mod_samp_A, "logAge_days", color_var="sexMale", x_axis="log_lifespan_fetal")
+```
+
+```{r}
+m3 <- gamlss(lh.SA.middletemporal ~ sexMale + pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version,
+             sigma.formula = ~ sexMale + pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version,
+             family=GG(),
+             data=mod_samp_A,
+             control=gamlss.control(n.cyc=200))
+```
+
+```{r}
+make_centile_fan(m3, mod_samp_A, "logAge_days", color_var="sexMale", x_axis="log_lifespan_fetal")
+```

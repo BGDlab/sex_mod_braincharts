@@ -1,0 +1,30 @@
+---
+title: "Spline Testing"
+output: html_document
+date: "2024-12-18"
+---
+
+Playing around with different spline configurations to see how they effect worm plots. Sticking to sex-stratified models in unharmonized global phenos (using study_site as fixed effect)
+
+```{r warning=FALSE}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, gamlss, gamlssTools)
+
+source("code/gamlss_fit_funs.R")
+```
+
+load data
+```{r}
+df_full <- fread("data/csvs_by_pheno/global_vols.csv")
+knot_list <- readRDS("code/knot_lists.RDS") #knots evenly spaced along log(age)
+```
+
+```{r}
+gmv_df <- df_full %>%
+  select(c(sexMale, logAge_days, age_days, study_site, GMV)) %>%
+  na.omit()
+
+test1 <- gamlss(formula=GMV ~ pb(logAge_days, k=10) + sexMale + study_site, sigma.formula = ~pb(logAge_days, k=10) + sexMale + study_site, family=GG, data=gmv_df)
+```

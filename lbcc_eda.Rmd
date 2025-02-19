@@ -546,6 +546,8 @@ subcort_list <- subcort_list[!(subcort_list %in% unique(restricted$pheno))]
 write_lines(subcort_list, "./pheno_lists/subcortical_vols.txt")
 saveRDS(subcort_list, "./pheno_lists/subcortical_vols.rds")
 pheno_list <- pheno_list[!(pheno_list %in% unique(restricted$pheno))]
+
+fwrite(df_clean2, "./data/SBC_LBCC_CN_cleaned.csv")
 ```
 
 
@@ -807,6 +809,7 @@ ggplot(df_sub) +
 ```
 
 ###ICV scaling
+
 ```{r}
 df_clean2 %>%
   filter(eTIV < 3e6) %>%

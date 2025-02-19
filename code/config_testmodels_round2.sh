@@ -12,7 +12,7 @@ pheno_lists=./pheno_lists
 ######################################
 if [ $1 = "basic" ]
 then
-  config_file=$config_path/testmodels_config__r2.txt
+  config_file=$config_path/testmodels_config_r2.txt
   save_path=./test_sex_r2
   log_scale="FALSE"
   family="GG"
