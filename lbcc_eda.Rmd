@@ -550,6 +550,74 @@ pheno_list <- pheno_list[!(pheno_list %in% unique(restricted$pheno))]
 fwrite(df_clean2, "./data/SBC_LBCC_CN_cleaned.csv")
 ```
 
+###Split for CV Modeling
+
+Splitting data into 50-50 train and testing, stratified by site and sex. Using this [reference](https://stackoverflow.com/questions/74573270/stratified-data-splitting-in-r).
+
+```{r}
+table(df_clean2$study_site, df_clean2$sexMale)
+```
+
+going to drop small sites (<10 subjects per sex) for now, but alternatives could be grouping small sitest together? (go back and include sites with <5 total subjs)
+
+```{r}
+valid_sites <- df_clean2 %>%
+  mutate(sex=as.factor(sexMale)) %>%
+  group_by(study_site, sex) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(study_site) %>%
+  summarise(
+    valid = all(c("0", "1") %in% sex) && all(n[match(c("0", "1"), sex, nomatch = 0)] >= 10),
+    .groups = "drop"
+  ) %>%
+  filter(valid) %>%
+  pull(study_site)
+
+df_clean2_sites <- df_clean2 %>%
+  filter(study_site %in% valid_sites)
+
+nrow(df_clean2) - nrow(df_clean2_sites)
+
+ggplot(df_clean2) +
+  geom_histogram(aes(x=age_days, fill=as.factor(sexMale)))
+ggplot(df_clean2_sites) +
+  geom_histogram(aes(x=age_days, fill=as.factor(sexMale)))
+
+#table(df_filt$study_site, df_filt$sexMale)
+```
+
+Still have almost 100k subjects, proceeding to divide into A and B samples
+
+```{r}
+set.seed(5678)
+#add sex factor var
+df_clean2_sites <- df_clean2_sites %>% mutate(sex=as.factor(sexMale))
+
+split_samples <- splitstackshape::stratified(df_clean2_sites, group=c("study_site", "sex"), size=0.5, bothSets = TRUE)
+
+samp_A <- split_samples$SAMP1
+samp_B <- split_samples$SAMP2
+
+ggplot(samp_A) +
+  geom_histogram(aes(x=age_days, fill=sex))
+ggplot(samp_B) +
+  geom_histogram(aes(x=age_days, fill=sex))
+
+samp_A$sample <- "A"
+samp_B$sample <- "B"
+full_df <- rbind(samp_A, samp_B) %>%
+  unite(sample_sex, c(sex, sample))
+kruskal.test(age_days ~ sample_sex, full_df)
+ggplot(full_df)+
+  geom_violin(aes(x=sample_sex, y=age_days))
+```
+pretty good distributions of ages
+
+save
+```{r}
+fwrite(split_samples$SAMP1, "./data/cv_sample_A.csv")
+fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
+```
 
 ###Subdivide by Feature Category
 
