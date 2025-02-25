@@ -38,11 +38,11 @@ gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL, fam= "GG"){
 
 #gamlss_3lambda
 #penalty lambda on order 3
-gamlss_3lambda <- function(pheno, lambda=NULL, fam="GG"){
+gamlss_3lambda <- function(pheno, lambda=NULL, fs_ver, fam="GG"){
   result <- tryCatch({
-    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site) + fs_version,",
-                             "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site) + fs_version,",
-                             "nu.formula = ~ logAge_days + sexMale, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site) +", fs_ver, ",",
+                             "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site) +", fs_ver, ",",
+                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
     
@@ -53,9 +53,9 @@ gamlss_3lambda <- function(pheno, lambda=NULL, fam="GG"){
   } , error = function(e) {
     message(e$message, ", trying method=CG()")
     tryCatch({
-      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site) + fs_version,",
-                               "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site) + fs_version,",
-                               "nu.formula = ~ logAge_days + sexMale, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site) +", fs_ver, ",",
+                               "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site) +", fs_ver, ",",
+                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
       eval(parse(text = gamlss_CGformula))
       
       #if CG alos fails, return NULL
@@ -71,11 +71,11 @@ gamlss_3lambda <- function(pheno, lambda=NULL, fam="GG"){
 
 #gamlss_3pb
 #penalized splines with order=3
-gamlss_3pb <- function(pheno, fam="GG"){
+gamlss_3pb <- function(pheno, fs_ver, fam="GG"){
   result <- tryCatch({
-    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version,",
-                             "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version,",
-                             "nu.formula = ~ logAge_days + sexMale, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) +", fs_ver, ",",
+                             "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) +", fs_ver, ",",
+                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
     
@@ -86,9 +86,9 @@ gamlss_3pb <- function(pheno, fam="GG"){
   } , error = function(e) {
     message(e$message, ", trying method=CG()")
     tryCatch({
-      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version,",
-                               "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version,",
-                               "nu.formula = ~ logAge_days + sexMale, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) +", fs_ver, ",",
+                               "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) +", fs_ver, ",",
+                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
       eval(parse(text = gamlss_CGformula))
       
       #if CG alos fails, return NULL
@@ -104,11 +104,11 @@ gamlss_3pb <- function(pheno, fam="GG"){
 
 #gamlss_3pb_etiv
 #penalized splines with order=3
-gamlss_3pb_etiv <- function(pheno, fam="GG"){
+gamlss_3pb_etiv <- function(pheno, fs_ver, fam="GG"){
   result <- tryCatch({
-    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version + eTIV,",
-                             "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version + eTIV,",
-                             "nu.formula = ~ logAge_days + sexMale, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+    gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + eTIV +", fs_ver, ",",
+                             "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + eTIV +", fs_ver, ",",
+                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
     
@@ -119,9 +119,9 @@ gamlss_3pb_etiv <- function(pheno, fam="GG"){
   } , error = function(e) {
     message(e$message, ", trying method=CG()")
     tryCatch({
-      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version + eTIV,",
-                               "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + fs_version + eTIV,",
-                               "nu.formula = ~ logAge_days + sexMale, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+      gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + eTIV +", fs_ver, ",",
+                               "sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3)) + pb(logAge_days, control=pb.control(order=3)) + random(study_site) + eTIV +", fs_ver, ",",
+                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
       eval(parse(text = gamlss_CGformula))
       
       #if CG alos fails, return NULL
@@ -134,36 +134,3 @@ gamlss_3pb_etiv <- function(pheno, fam="GG"){
   } )
   return(result)
 }
-
-#gamlss2_mod_knots()
-#same as gamlss_mod_knots() but using gamlss2 - NOT READY YET
-# gamlss2_mod_knots <- function(pheno, knots=NULL, sigma_knots=NULL){
-#   result <- tryCatch({
-#     gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + ns(sexMale_x_logAge, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
-#                              "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + ns(sexMale_x_logAge, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
-#                              "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
-#     
-#     eval(parse(text = gamlss_RSformula))
-#     
-#   } , warning = function(w) {
-#     message("warning")
-#     eval(parse(text = gamlss_RSformula))
-#     
-#   } , error = function(e) {
-#     message(e$message, ", trying method=CG()")
-#     tryCatch({
-#       gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + ns(sexMale_x_logAge, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
-#                                "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + ns(sexMale_x_logAge, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
-#                                "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family = GG, data= df, trace = FALSE)")
-#       eval(parse(text = gamlss_CGformula))
-#       
-#       #if CG alos fails, return NULL
-#     }, error = function(e2) {
-#       message(e2$message, ", returning NULL")
-#       return(NULL)
-#     })
-#   } , finally = {
-#     message("done")
-#   } )
-#   return(result)
-# }
