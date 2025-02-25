@@ -607,11 +607,15 @@ samp_A$sample <- "A"
 samp_B$sample <- "B"
 full_df <- rbind(samp_A, samp_B) %>%
   unite(sample_sex, c(sex, sample))
-kruskal.test(age_days ~ sample_sex, full_df)
+
 ggplot(full_df)+
   geom_violin(aes(x=sample_sex, y=age_days))
+pairwise.wilcox.test(full_df$age_days, full_df$sample_sex, p.adjust.method = "none")
+ggplot(full_df)+
+  geom_violin(aes(x=sample_sex, y=SurfaceHoles))
+pairwise.wilcox.test(full_df$SurfaceHoles, full_df$sample_sex, p.adjust.method = "none")
 ```
-pretty good distributions of ages
+pretty good distributions of ages and Euler within sex
 
 save
 ```{r}
