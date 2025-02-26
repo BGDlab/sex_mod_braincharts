@@ -46,10 +46,10 @@ loop_count <- 0
 #FIT MODELS WITH VARYING LAMBDAS
 for (l in lambda_list){
     
-    print(paste("fitting model with lambda =", l, "and fs =", fs_include))
+    print(paste("fitting model with lambda =", l, "and fs in", fs_include))
   
   #FIT BASIC MODEL
-    model <- gamlss_3lambda(pheno, lambda=l, fs_ver=fs, fs_in= fs_include, fam="GG")
+    model <- gamlss_3lambda(pheno, lambda=l, fs_ver=fs, fs_in=fs_include, fam="GG")
     
     loop_count <- loop_count+1
     
