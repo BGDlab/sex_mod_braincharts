@@ -56,7 +56,6 @@ do
       mkdir $save_path/worm_plots
       mkdir $save_path/cent_csvs
       mkdir $save_path/model_sums #NEED TO IMPLEMENT
-      mkdir $save_path/z_csvs #NEED TO IMPLEMENT
     fi
   
   #LOOP THROUGH PHENO CATEGORIES

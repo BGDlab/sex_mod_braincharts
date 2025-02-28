@@ -36,6 +36,7 @@ if (log_scale == TRUE){
 lambda_list <- seq(100, 1000, by=50)
 
 results_df <- data.frame()
+summary_df <- data.frame()
 
 #sim data ONCE for centile fan plotting
 print("simulate data for plotting")
@@ -86,8 +87,17 @@ for (l in lambda_list){
     results_df <- rbind(results_df, sub_df)
     
     #BIC & AIC
+    sum_df <- data.frame(
+      "AIC" = model$aic,
+      "BIC" = model$sbc,
+      "lambda" = l,
+      "pheno" = pheno
+    )
     
-    #z-score normality
+    summary_df <- rbind(summary_df, sum_df)
+    
+    #z-score normality - NEED TO FIGURE THIS OUT
+    Q.stats(model, xvar=logAge_days, n.inter=5, plot=FALSE)
 
 }
 
