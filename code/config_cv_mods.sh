@@ -56,7 +56,7 @@ do
       mkdir $save_path/centile_plots
       mkdir $save_path/worm_plots
       mkdir $save_path/cent_csvs
-      mkdir $save_path/model_sums #NEED TO IMPLEMENT
+      mkdir $save_path/model_sums
     fi
   
   #LOOP THROUGH PHENO CATEGORIES
@@ -78,12 +78,18 @@ do
       echo "can't find appropriate fs version"
     fi
     
-    #LOOP THROUGH PHENOS
-    while read -r pheno_line
+    #LOOP THROUGH LAMBDAS
+    for lambda in NULL $(seq 100 100 1000)
     do
-    # Write the CSV file path and the formula to the output file (tab-delimited)
-      echo -e "$file\t$pheno_line\t$fs\t$1\t$save_path\t$log_scale" >> "$config_file"
-    done < "$pheno_list"
+    
+      #LOOP THROUGH PHENOS
+      while read -r pheno_line
+      do
+      # Write the CSV file path and the formula to the output file (tab-delimited)
+        echo -e "$file\t$pheno_line\t$lambda\t$fs\t$1\t$save_path\t$log_scale" >> "$config_file"
+      done < "$pheno_list"
+      
+    done
   done
   
   #add numbering
