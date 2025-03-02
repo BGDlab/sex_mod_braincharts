@@ -64,10 +64,9 @@ print(paste("fitting model with lambda =", l, "and fs in", fs_include))
     
   #CENTILE FAN PLOT
     print("creating centile fan plot")
-    fan_plot <- centile_fan_resid(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
+    fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
                                get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
-                               sim_data_list = sim_df,
-                               remove_cent_effect=c("study_site")) +
+                               sim_data_list = sim_df) +
     ggtitle(paste(pheno, "\nsmoothed w/ lamda=", l))
     
     ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_lambda", l.name, "_", fs_include, ".png"), fan_plot)
