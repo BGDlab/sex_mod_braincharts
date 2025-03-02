@@ -67,14 +67,14 @@ print(paste("fitting model with lambda =", l, "and fs in", fs_include))
     fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
                                get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df) +
-    ggtitle(paste(pheno, "\nsmoothed w/ lamda=", l))
+    ggtitle(paste(pheno, "\nsmoothed w/ lamda=", l.name))
     
     ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_lambda", l.name, "_", fs_include, ".png"), fan_plot)
     
   #WORM PLOT
     print("creating worm plot")
     wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=8) +
-      ggtitle(paste(pheno, "\nsmoothed w/ lambda=", l))
+      ggtitle(paste(pheno, "\nsmoothed w/ lambda=", l.name))
     ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_lambda", l.name, "_", fs_include, ".png"), wp)
     
   #COMPILE
