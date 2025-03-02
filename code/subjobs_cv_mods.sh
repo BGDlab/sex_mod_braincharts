@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#SBATCH --job-name=testmodels
+#SBATCH --job-name=cv_mods
 #SBATCH --time=168:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
@@ -10,6 +10,7 @@
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_models_%A_%a.err
 
 CONFIGFN=$1
+#CONFIGFN=$(realpath $CONFIGFN)
 
 echo "Config file: $CONFIGFN"
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"

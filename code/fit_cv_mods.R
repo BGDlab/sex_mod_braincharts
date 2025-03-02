@@ -47,15 +47,16 @@ summary_df <- data.frame()
 print("simulate data for plotting")
 sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
 
-#FIT MODELprint(paste("fitting model with lambda =", l, "and fs in", fs_include))
+#FIT MODEL
+print(paste("fitting model with lambda =", l, "and fs in", fs_include))
   
 #FIT BASIC MODEL
-  model <- gamlss_3lambda(pheno, lambda=l, fs_ver=fs, fs_in=fs_include, fam="GG")
+  model <- gamlss_3lambda(pheno, lambda=l, fs_ver=fs, fs_moment=fs_include, fam="GG")
     
 
   #if model isn't fit, skip to next loop
   if (is.null(model)) {
-    message("model fitting failed, skipping to next iteration")
+    message("model fitting failed")
     stop()
   }
    

@@ -69,11 +69,11 @@ do
     pheno_cat="${pheno_cat%.*}"
     
     if [[ $pheno_cat == *"vols"* ]]; then
-      fs="freesurfer_version_GM"
+      fs="fs_version_GM"
     elif [[ $pheno_cat == *"thickness"* ]]; then
-      fs="freesurfer_version_CT"
+      fs="fs_version_CT"
     elif [[ $pheno_cat == *"surf"* ]]; then
-      fs="freesurfer_version_SA"
+      fs="fs_version_SA"
     else
       echo "can't find appropriate fs version"
     fi
