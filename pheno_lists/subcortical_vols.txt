@@ -2,6 +2,7 @@ SUBC.Left.Thalamus.Proper
 SUBC.Left.Caudate
 SUBC.Left.Putamen
 SUBC.Left.Pallidum
+SUBC.Brain.Stem
 SUBC.Left.Hippocampus
 SUBC.Left.Amygdala
 SUBC.Left.Accumbens.area
@@ -12,3 +13,4 @@ SUBC.Right.Pallidum
 SUBC.Right.Hippocampus
 SUBC.Right.Amygdala
 SUBC.Right.Accumbens.area
+SUBC.Optic.Chiasm

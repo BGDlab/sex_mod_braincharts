@@ -34,9 +34,8 @@ do
   filename="${filename%.*}"
   
   #CREATE OUTPUT DIRS
-  touch $config_file
   #make config file dir or remove old file if necessary
-  config_file=$config_path/$filename_$1_config.txt
+  config_file=$config_path/${filename}_${1}_config.txt
   if ! [ -d $config_path ]
   then
     mkdir $config_path
@@ -45,8 +44,10 @@ do
     rm -rf $config_file
   fi
   
+  touch $config_file
+  
   #make output dir
-    save_path=./$filename_$1_mods
+    save_path=./${filename}_${1}_mods
     save_path=$(realpath $save_path) #get full paths
     if ! [ -d $save_path ]
     then
@@ -59,7 +60,7 @@ do
     fi
   
   #LOOP THROUGH PHENO CATEGORIES
-  for pheno_list in $(find $(realpath $data_path) -type f -name "*.txt")
+  for pheno_list in $(find $(realpath $pheno_lists) -type f -name "*.txt")
   do
     echo "pheno list: $pheno_list"
     

@@ -33,7 +33,7 @@ if (log_scale == TRUE){
 }
 
 #define lambdas to be tested
-lambda_list <- seq(100, 1000, by=50)
+lambda_list <- seq(100, 10000, by=100)
 
 results_df <- data.frame()
 summary_df <- data.frame()
@@ -97,7 +97,7 @@ for (l in lambda_list){
     summary_df <- rbind(summary_df, sum_df)
     
     #z-score normality - NEED TO FIGURE THIS OUT
-    Q.stats(model, xvar=logAge_days, n.inter=5, plot=FALSE)
+    #Q.stats(model, xvar=logAge_days, n.inter=5, plot=FALSE)
 
 }
 
@@ -108,6 +108,7 @@ print("saving csvs")
 fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_", fs_include, "_results.csv"))
 
 #BIC & AIC
+fwrite(summary_df, file=paste0(save_path, "/model_sums/", pheno, "_", fs_include, "_summary.csv"))
 
 #z-score normality
 
