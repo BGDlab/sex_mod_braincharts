@@ -90,8 +90,8 @@ do
         done < "$pheno_list"
         
       done
-  done
-  
-  #add numbering
+      
+   #add numbering
   nl "$config_file" > temp.txt && mv temp.txt "$config_file"
+  done
 done

@@ -44,7 +44,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL, fs_ver, fs_moment=c("both", "mu",
   
   #define formulas for each moment
   
-  mu_base <- paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site)")
+  mu_base <- paste("gamlss(formula =", pheno, "~ pb(sexMale_x_logAge, lambda=", lambda, ", control=pb.control(order=3)) + pb(logAge_days, lambda=", lambda, ", control=pb.control(order=3)) + random(study_site)")
   
   if (fs_moment == "both" | fs_moment == "mu"){
     mu_form <- paste(mu_base, "+", fs_ver, ",") #add fs_version term if needed
@@ -52,7 +52,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL, fs_ver, fs_moment=c("both", "mu",
     mu_form <- paste(mu_base, ",") #or just comma
   }
   
-  sig_base <- paste("sigma.formula = ~ pb(sexMale_x_logAge, control=pb.control(order=3, lambda=", lambda, ")) + pb(logAge_days, control=pb.control(order=3, lambda=", lambda, ")) + random(study_site)")
+  sig_base <- paste("sigma.formula = ~ pb(sexMale_x_logAge, lambda=", lambda, ", control=pb.control(order=3)) + pb(logAge_days, lambda=", lambda, ", control=pb.control(order=3)) + random(study_site)")
   
   if (fs_moment == "both") {
     sig_form <- paste(sig_base, "+", fs_ver, ",")
