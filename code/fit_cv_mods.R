@@ -90,7 +90,8 @@ print(paste("fitting model with lambda =", l, "and fs in", fs_include))
       "AIC" = model$aic,
       "BIC" = model$sbc,
       "lambda" = l.name,
-      "pheno" = pheno
+      "pheno" = pheno,
+      "fs_moment" = fs_include
     )
     
     #summary_df <- rbind(summary_df, sum_df)
