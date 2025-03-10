@@ -36,6 +36,7 @@ sum(is.na(df$study))
 sum(is.na(df$site))
 sum(is.na(df$dx))
 sum(is.na(df$session))
+sum(is.na(df$study_session))
 
 hist(df$MAD.Euler)
 ```
@@ -90,7 +91,9 @@ df_filt <- df %>%
   mutate(logAge_days = ifelse(is.infinite(logAge_days),0.001, logAge_days)) %>% #make sure no inf values
   mutate(sexMale_x_logAge = sexMale * logAge_days, #add log-scaled ages
          total.CT = rowSums(across(all_of(ct_list)), na.rm=FALSE),
-         total.SA = rowSums(across(all_of(sa_list)), na.rm=FALSE))
+         total.SA = rowSums(across(all_of(sa_list)), na.rm=FALSE),
+         study = as.factor(study),
+         study_site = as.factor(study_site))
 ```
 
 keep only columns we need (phenotypes to model, covariates)

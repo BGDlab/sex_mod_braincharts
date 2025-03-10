@@ -105,3 +105,48 @@ for (fname in subcort_lowest$fname) {
 # Close PDF
 dev.off()
 ```
+
+look at all lambda=40000s just to see
+```{r}
+pdf("subcortical_lambda40000.pdf", width = 8.5, height = 11)  # Open PDF device
+
+l400_list <- paste(subcortical_vols, "lambda40000", sep="_")
+
+for (fname in l400_list) {
+  # Get file names
+  cent_png_file <- list.files(paste0(subcort_path, "centile_plots"), pattern = fname, full.names = TRUE)
+  wp_png_file <- list.files(paste0(subcort_path, "worm_plots"), pattern = fname, full.names = TRUE)
+  cent_csv_file <- list.files(paste0(subcort_path, "cent_csvs"), pattern = fname, full.names = TRUE)
+  
+  if((length(cent_png_file) & length(wp_png_file) & length(cent_csv_file)) != 1){
+    warning(paste("ERROR in", fname, ": found", 
+               length(cent_png_file), "fan plots,", 
+               length(wp_png_file), "worm plots, and", 
+               length(cent_csv_file), "centile csvs"))
+    next
+  }
+           
+  img_list <- list()
+  
+  #plot pngs
+  img_list[[1]] <- rasterGrob(as.raster(png::readPNG(cent_png_file)), interpolate = TRUE)
+  img_list[[2]] <- rasterGrob(as.raster(png::readPNG(wp_png_file)), interpolate = TRUE)
+  
+  # Read and print CSV file
+  csv_data <- read.csv(cent_csv_file)
+  csv_table <- tableGrob(csv_data)
+  
+  #add section title
+  title <- textGrob(paste("Phenotype:", fname), gp = gpar(fontsize = 16, fontface = "bold"))
+  grid.arrange(
+    title, 
+    img_list[[1]], 
+    img_list[[2]],
+    csv_table,
+    heights = c(1, 4, 5, 1)  # Adjust heights for better layout
+  )
+}
+
+# Close PDF
+dev.off()
+```
