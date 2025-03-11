@@ -74,7 +74,8 @@ for (nu in nu_list){
     next
   }
   
-  mod_list <- c(mod_list, nu_name = model)
+  mod_list[[nu_name]] <- model
+  
   saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_lambda", l.name, "_", fs_include, "_", nu_name, "_mod.rds"))
  
   #COMPILE
@@ -101,7 +102,7 @@ best_bic <- summary_df %>%
   arrange(BIC) %>%
   slice_head(n=1)
 
-best_mod <- mod_list[[best_bic$nu]]
+best_mod <- mod_list[[best_bic$nu]][[1]]
 
 print("compiling stats")
 
