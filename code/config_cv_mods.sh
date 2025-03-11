@@ -29,7 +29,7 @@ do
   
     #CREATE OUTPUT DIRS
     #make config file dir or remove old file if necessary
-    config_file=$config_path/${filename}_${pheno_cat}_${1}_config.txt
+    config_file=$config_path/${filename}_${pheno_cat}_config.txt
     if ! [ -d $config_path ]
     then
       mkdir $config_path

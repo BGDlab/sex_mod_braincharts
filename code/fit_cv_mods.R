@@ -73,7 +73,7 @@ for (fs_include in fs_moment_list){
                           fs_ver=fs, fs_moment=fs_include, 
                           fam="GG", 
                           nu_form=nu,
-                          start.from = unname(mod_list[1])) #use first model as starting point
+                          start.from = mod_list[1][[1]]) #use first model as starting point
 
   #if model isn't fit, skip to next loop
   if (is.null(model)) {
