@@ -47,69 +47,86 @@ summary_df <- data.frame()
 print("simulate data for plotting")
 sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
 
+#loop over nu terms #NEED TO ADD START FROM 
+nu_list <- list(int = "1", 
+                site = "study_site", 
+                sex = "sexMale",
+                age = "logAge_days",
+                sexAge = "sexMale + logAge_days",
+                siteAge = "study_site + logAge_days", 
+                siteSex = "study_site + sexMale", 
+                siteAgeSex = "study_site + logAge_days + sexMale")
+
+mod_list <- c()
+
 #FIT MODEL
-print(paste("fitting model with lambda =", l, "and fs in", fs_include))
+for (nu in nu_list){
+  nu_name <- names(nu_list)[nu_list==nu]
+  print(paste("fitting model with lambda =", l, ", fs in", fs_include, "and nu = ", nu_name))
   
-#FIT BASIC MODEL
-  model <- gamlss_3lambda(pheno, lambda=l, fs_ver=fs, fs_moment=fs_include, fam="GG")
-    
+  #FIT BASIC MODEL
+  model <- gamlss_3lambda(pheno, lambda=l, fs_ver=fs, fs_moment=fs_include, fam="GG", nu_form=nu)
+
 
   #if model isn't fit, skip to next loop
   if (is.null(model)) {
     message("model fitting failed")
-    stop()
+    next
   }
-   
-  saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_lambda", l.name, "_", fs_include, "_mod.rds"))
-    
-  #CENTILE FAN PLOT
-    print("creating centile fan plot")
-    fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
-                               get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
-                               sim_data_list = sim_df) +
-    ggtitle(paste(pheno, "\nsmoothed w/ lamda=", l.name))
-    
-    ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_lambda", l.name, "_", fs_include, ".png"), fan_plot)
-    
-  #WORM PLOT
-    print("creating worm plot")
-    wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=8) +
-      ggtitle(paste(pheno, "\nsmoothed w/ lambda=", l.name))
-    ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_lambda", l.name, "_", fs_include, ".png"), wp)
-    
+  
+  mod_list <- c(mod_list, nu_name = model)
+  saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_lambda", l.name, "_", fs_include, "_", nu_name, "_mod.rds"))
+ 
   #COMPILE
-    print("compiling stats")
-    #centiles
-    results_df <- cent_cdf(model, df, "sexMale")
-    results_df$lambda <- l.name
-    
-    #results_df <- rbind(results_df, sub_df)
-    
     #BIC & AIC
     summary_df <- data.frame(
       "AIC" = model$aic,
       "BIC" = model$sbc,
       "lambda" = l.name,
       "pheno" = pheno,
-      "fs_moment" = fs_include
+      "fs_moment" = fs_include,
+      "nu" = nu_name
     )
-    
-    #summary_df <- rbind(summary_df, sum_df)
-    
-    #z-score normality - NEED TO FIGURE THIS OUT
-    #Q.stats(model, xvar=logAge_days, n.inter=5, plot=FALSE)
 
+}
+
+print(paste(length(mod_list), "of", length(nu_list), "models fit"))
 
 #SAVE CSVs
 print("saving csvs")
-
-#centiles
-fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_lambda", l.name, "_", fs_include, "_results.csv"))
-
-#BIC & AIC
 fwrite(summary_df, file=paste0(save_path, "/model_sums/", pheno, "_lambda", l.name, "_", fs_include, "_summary.csv"))
 
-#z-score normality
+print("finding lowest BIC")
+best_bic <- summary_df %>%
+  arrange(BIC) %>%
+  slice_head(n=1)
+
+best_mod <- mod_list[[best_bic$nu]]
+
+print("compiling stats")
+
+#CENTILE FAN PLOT
+print("creating centile fan plot")
+fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="logAge_days", color_var="sexMale",
+                             get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
+                             sim_data_list = sim_df) +
+  ggtitle(paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, " & nu=", best_bic$nu))
+
+ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_lambda", best_bic$lambda, "_", fs_include, "_", best_bic$nu, ".png"), fan_plot)
+
+#WORM PLOT
+print("creating worm plot")
+wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=8) +
+  ggtitle(paste(pheno, "\nsmoothed w/ lambda=", l.name))
+ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_lambda", best_bic$lambda, "_", fs_include, "_", best_bic$nu, ".png"), wp)
+
+#centiles
+results_df <- cent_cdf(best_mod, df, plot=FALSE, group="sexMale")
+results_df$lambda <- best_bic$lambda
+results_df$nu <- best_bic$nu
+
+#centiles
+fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_lambda", best_bic$lambda, "_", fs_include, "_", best_bic$nu, "_results.csv"))
 
 ###################
 #print(paste(sum(unique(results_df$lambda)), "of", loop_count, pheno, fs_include, "models successful"))

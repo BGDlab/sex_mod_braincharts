@@ -79,7 +79,7 @@ do
       fi
     
       #LOOP THROUGH LAMBDAS
-      for lambda in NULL $(seq 100 100 50000)
+      for lambda in NULL #$(seq 100 100 50000)
       do
       
         #LOOP THROUGH PHENOS
