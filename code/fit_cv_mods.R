@@ -15,9 +15,8 @@ df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 pheno <- as.character(args[2])
 l.name <- as.character(args[3])
 fs <- as.character(args[4])
-fs_include <- as.character(args[5])
-save_path <- as.character(args[6])
-log_scale <- as.logical(args[7])
+save_path <- as.character(args[5])
+log_scale <- as.logical(args[6])
 
 #drop extra variables
 df <- df %>%
@@ -33,15 +32,12 @@ if (log_scale == TRUE){
     mutate(!!pheno_sym := log(!!pheno_sym, base=10)) #transform
 }
 
-#define lambdas to be tested
+#define lambdas to be tested - FROM CONFIG FILE
 if (l.name == "NULL"){
   l <- NULL
 } else {
   l <- as.numeric(l.name)
 }
-
-results_df <- data.frame()
-summary_df <- data.frame()
 
 #sim data ONCE for centile fan plotting
 print("simulate data for plotting")
@@ -57,25 +53,37 @@ nu_list <- list(int = "1",
                 siteSex = "study_site + sexMale", 
                 siteAgeSex = "study_site + logAge_days + sexMale")
 
+#loop over fs moments
+fs_moment_list <- c("none", "mu", "both", "all")
+
+#initialize empty lists
 mod_list <- c()
+results_df <- data.frame()
+summary_df <- data.frame()
 
 #FIT MODEL
-for (nu in nu_list){
+for (fs_include in fs_moment_list){
+
+  for (nu in nu_list){
   nu_name <- names(nu_list)[nu_list==nu]
   print(paste("fitting model with lambda =", l, ", fs in", fs_include, "and nu = ", nu_name))
   
   #FIT BASIC MODEL
-  model <- gamlss_3lambda(pheno, lambda=l, fs_ver=fs, fs_moment=fs_include, fam="GG", nu_form=nu)
-
+  model <- gamlss_3lambda(pheno, lambda=l, 
+                          fs_ver=fs, fs_moment=fs_include, 
+                          fam="GG", 
+                          nu_form=nu,
+                          start.from = unname(mod_list[1])) #use first model as starting point
 
   #if model isn't fit, skip to next loop
   if (is.null(model)) {
     message("model fitting failed")
     next
   }
+  m_name <- paste(fs_include, nu_name, sep="_")
+  mod_list <- c(mod_list, m_name = model)
   
-  mod_list <- c(mod_list, nu_name = model)
-  saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_lambda", l.name, "_", fs_include, "_", nu_name, "_mod.rds"))
+  saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_lambda", l.name, "_", m_name, "_mod.rds"))
  
   #COMPILE
     #BIC & AIC
@@ -87,21 +95,24 @@ for (nu in nu_list){
       "fs_moment" = fs_include,
       "nu" = nu_name
     )
-
+  }
 }
-
-print(paste(length(mod_list), "of", length(nu_list), "models fit"))
+expected <- length(nu_list)*length(fs_moment_list)
+print(paste(length(mod_list), "of", expected, "models fit"))
 
 #SAVE CSVs
 print("saving csvs")
-fwrite(summary_df, file=paste0(save_path, "/model_sums/", pheno, "_lambda", l.name, "_", fs_include, "_summary.csv"))
+fwrite(summary_df, file=paste0(save_path, "/model_sums/", pheno, "_lambda", l.name, "_summary.csv"))
 
 print("finding lowest BIC")
 best_bic <- summary_df %>%
   arrange(BIC) %>%
-  slice_head(n=1)
+  slice_head(n=1) %>%
+  tidyr::unite(m_name, c(fs_moment, nu))
 
-best_mod <- mod_list[[best_bic$nu]]
+print(best_bic$m_name)
+
+best_mod <- mod_list[[best_bic$m_name]]
 
 print("compiling stats")
 
@@ -110,23 +121,24 @@ print("creating centile fan plot")
 fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="logAge_days", color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df) +
-  ggtitle(paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, " & nu=", best_bic$nu))
+  ggtitle(paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, ",", best_bic$m_name))
 
-ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_lambda", best_bic$lambda, "_", fs_include, "_", best_bic$nu, ".png"), fan_plot)
+ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_lambda", best_bic$lambda, "_", best_bic$m_name, ".png"), fan_plot)
 
 #WORM PLOT
 print("creating worm plot")
 wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=8) +
   ggtitle(paste(pheno, "\nsmoothed w/ lambda=", l.name))
-ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_lambda", best_bic$lambda, "_", fs_include, "_", best_bic$nu, ".png"), wp)
+ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_lambda", best_bic$lambda, "_", best_bic$m_name, ".png"), wp)
 
 #centiles
 results_df <- cent_cdf(best_mod, df, plot=FALSE, group="sexMale")
 results_df$lambda <- best_bic$lambda
+results_df$fs <- best_bic$fs_moment
 results_df$nu <- best_bic$nu
 
 #centiles
-fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_lambda", best_bic$lambda, "_", fs_include, "_", best_bic$nu, "_results.csv"))
+fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_results.csv"))
 
 ###################
 #print(paste(sum(unique(results_df$lambda)), "of", loop_count, pheno, fs_include, "models successful"))

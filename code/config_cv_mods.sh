@@ -2,21 +2,6 @@
 #script to write config file that will be used to models on 1/2 dataframe
 #run from outside code dir
 
-#CHECK ARG
-if [[ $# -ne 1 ]]; then
-    echo 'pass arg for moments to include fs covariate: "both", "mu", or "none"' >&2
-    exit 1
-fi
-
-case $1 in
-    both|mu|none)  # Ok
-        ;;
-    *)
-        # The wrong first argument.
-        echo 'pass arg for moments to include fs covariate: "both", "mu", or "none"' >&2
-        exit 1
-esac
-
 #PATHS
 data_path=./data
 config_path=./code/config_files
@@ -86,7 +71,7 @@ do
         while read -r pheno_line
         do
         # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$pheno_line\t$lambda\t$fs\t$1\t$save_path\t$log_scale" >> "$config_file"
+          echo -e "$file\t$pheno_line\t$lambda\t$fs\t$save_path\t$log_scale" >> "$config_file"
         done < "$pheno_list"
         
       done

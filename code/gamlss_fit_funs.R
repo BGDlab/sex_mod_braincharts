@@ -39,7 +39,7 @@ gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL, fam= "GG"){
 #gamlss_3lambda
 #penalty lambda on order 3 - using with default lambda=NULL -> model will select
 gamlss_3lambda <- function(pheno, lambda=NULL, 
-                           fs_ver, fs_moment=c("both", "mu", "none"), 
+                           fs_ver, fs_moment=c("both", "mu", "none", "all"), 
                            fam="GG",
                            nu_form="1",
                            start.from=NULL){
@@ -71,7 +71,11 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
     sig_form <- paste(",")
   }
   
-  nu_form <- paste("nu.formula = ~", nu_form,",")
+  if (fs_moment == "all") {
+    nu_form <- paste("nu.formula = ~", nu_form," + ", fs_ver, ",")
+  } else {
+    nu_form <- paste("nu.formula = ~", nu_form,",")
+  }
   
   if (is.null(start.from)) {
     control <- paste("control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
