@@ -38,7 +38,8 @@ gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL, fam= "GG"){
 
 #gamlss_3lambda
 #penalty lambda on order 3 - using with default lambda=NULL -> model will select
-gamlss_3lambda <- function(pheno, lambda=NULL, 
+gamlss_3lambda <- function(pheno, df,
+                           lambda=NULL, 
                            fs_ver, fs_moment=c("both", "mu", "none", "all"), 
                            fam="GG",
                            nu_form="1",
@@ -54,9 +55,9 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   )
   
   if (fs_moment != "none"){
-    mu_form <- paste(mu_base, "+", fs_ver) #add fs_version term if needed
+    mu_form <- as.formula(paste(mu_base, "+", fs_ver)) #add fs_version term if needed
   } else {
-    mu_form <- mu_base #or just rename
+    mu_form <- as.formula(mu_base) #or just convert to formula
   }
   
   sig_base <- paste0(
@@ -66,53 +67,51 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   )
   
   if (fs_moment == "both" | fs_moment == "all") {
-    sig_form <- paste(sig_base, "+", fs_ver)
+    sig_form <- as.formula(paste(sig_base, "+", fs_ver))
   } else {
-    sig_form <- sig_base
+    sig_form <- as.formula(sig_base)
   }
   
   if (fs_moment == "all") {
-    nu_form <- paste("nu.formula = ~", nu_form," + ", fs_ver)
+    nu_form <- as.formula(paste("nu.formula = ~", nu_form," + ", fs_ver))
   } else {
-    nu_form <- paste("nu.formula = ~", nu_form)
+    nu_form <- as.formula(paste("nu.formula = ~", nu_form))
   }
   
-  if (is.null(start.from)) {
-    control <- paste0("control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
-  } else if (is.gamlss(start.from)) {
-    control <- paste0("start.from = ", start.from,
-                      ", control = gamlss.control(n.cyc = 200), family =", fam,
-                      ", data= df, trace = FALSE)")
-  } else {
-    stop("start.from arg must be gamlss model")
+  args <- list(
+    formula = mu_formula,
+    sigma.formula = sigma_formula,
+    nu.formula = nu_formula,
+    family = fam,
+    data = df,
+    control = gamlss.control(n.cyc = 200),
+    trace = FALSE
+  )
+  
+  if (!is.null(start.from)) {
+    if (!is.gamlss(start.from)) stop("start.from arg must be gamlss model")
+    args$start.from <- start.from
   }
   
   #try methods
   
   result <- tryCatch({
-    gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
-    print(gamlss_RSformula)
-
-    eval(parse(text = gamlss_RSformula))
-    
-  } , warning = function(w) {
-    message("warning")
-    eval(parse(text = gamlss_RSformula))
-    
-  } , error = function(e) {
-    message(e$message, ", trying method=CG()")
+    do.call(gamlss, args)
+  }, warning = function(w) {
+    message("warning: ", conditionMessage(w))
+    do.call(gamlss, args)
+  }, error = function(e) {
+    message("error: ", conditionMessage(e), ", trying method = CG()")
+    args$method <- CG()
     tryCatch({
-      gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
-      eval(parse(text = gamlss_CGformula))
-      
-      #if CG also fails, return NULL
+      do.call(gamlss, args)
     }, error = function(e2) {
-      message(e2$message, ", returning NULL")
+      message("error: ", conditionMessage(e2), ", returning NULL")
       return(NULL)
     })
-  } , finally = {
+  }, finally = {
     message("done")
-  } )
+  })
   return(result)
 }
 
