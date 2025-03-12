@@ -54,9 +54,9 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   )
   
   if (fs_moment != "none"){
-    mu_form <- paste0(mu_base, "+", fs_ver, ",") #add fs_version term if needed
+    mu_form <- paste(mu_base, "+", fs_ver) #add fs_version term if needed
   } else {
-    mu_form <- paste0(mu_base, ",") #or just comma
+    mu_form <- mu_base #or just rename
   }
   
   sig_base <- paste0(
@@ -66,22 +66,22 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   )
   
   if (fs_moment == "both" | fs_moment == "all") {
-    sig_form <- paste0(sig_base, "+", fs_ver, ",")
+    sig_form <- paste(sig_base, "+", fs_ver)
   } else {
-    sig_form <- paste0(",")
+    sig_form <- sig_base
   }
   
   if (fs_moment == "all") {
-    nu_form <- paste0("nu.formula = ~", nu_form," + ", fs_ver, ",")
+    nu_form <- paste("nu.formula = ~", nu_form," + ", fs_ver)
   } else {
-    nu_form <- paste0("nu.formula = ~", nu_form,",")
+    nu_form <- paste("nu.formula = ~", nu_form)
   }
   
   if (is.null(start.from)) {
     control <- paste0("control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
   } else if (is.gamlss(start.from)) {
     control <- paste0("start.from = ", start.from,
-                      "control = gamlss.control(n.cyc = 200), family =", fam,
+                      ", control = gamlss.control(n.cyc = 200), family =", fam,
                       ", data= df, trace = FALSE)")
   } else {
     stop("start.from arg must be gamlss model")
@@ -90,7 +90,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   #try methods
   
   result <- tryCatch({
-    gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control)
+    gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
     print(gamlss_RSformula)
 
     eval(parse(text = gamlss_RSformula))
@@ -102,7 +102,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   } , error = function(e) {
     message(e$message, ", trying method=CG()")
     tryCatch({
-      gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control)
+      gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
       eval(parse(text = gamlss_CGformula))
       
       #if CG also fails, return NULL
