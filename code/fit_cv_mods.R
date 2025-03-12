@@ -69,11 +69,12 @@ for (fs_include in fs_moment_list){
   print(paste("fitting model with lambda =", l, ", fs in", fs_include, "and nu = ", nu_name))
   
   #FIT BASIC MODEL
-  model <- gamlss_3lambda(pheno, lambda=l, 
+  model <- gamlss_3lambda(pheno,
+                          lambda=l, 
                           fs_ver=fs, fs_moment=fs_include, 
                           fam="GG", 
                           nu_form=nu,
-                          start.from = mod_list[1][[1]]) #use first model as starting point
+                          start.from = "mod_list[[1]]") #use first model as starting point
 
   #if model isn't fit, skip to next loop
   if (is.null(model)) {
