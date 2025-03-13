@@ -79,12 +79,10 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   
   if (is.null(start.from)) {
     control <- paste("control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
-  } else if (is.gamlss(start.from)) {
+  } else {
     control <- paste0("start.from = ", start.from,
                       ", control = gamlss.control(n.cyc = 200), family =", fam,
                       ", data= df, trace = FALSE)")
-  } else {
-    stop("start.from arg must be gamlss model")
   }
   
   #try methods

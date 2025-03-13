@@ -80,6 +80,8 @@ for (fs_include in fs_moment_list){
   if (is.null(model)) {
     message("model fitting failed")
     next
+  } else {
+    message("model fit")
   }
   
   m_name <- paste(fs_include, nu_name, sep="_")
@@ -115,7 +117,7 @@ best_bic <- summary_df %>%
 
 print(best_bic$m_name)
 
-best_mod <- mod_list[[best_bic$m_name]][[1]]
+best_mod <- mod_list[[best_bic$m_name]]
 
 print("compiling stats")
 
