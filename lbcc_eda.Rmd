@@ -104,9 +104,10 @@ covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale
                 "fs_version", "fs_version_SA", "fs_version_CT", "fs_version_GM",
                 "age_days", "logAge_days", "sexMale_x_logAge", "site", "country", "study_site", 
                 "QC.SS", "QC.RCA", "SurfaceHoles", 
-                "eTIV", "total.CT", "total.SA")
+                "eTIV", "TBV", "total.CT", "total.SA")
 
 df_select <- df_filt %>%
+  mutate(TBV = WMV + sGMV + GMV) %>%
   dplyr::select(all_of(c(pheno_list, covar_list)))
 
 skim(df_select)
@@ -426,7 +427,8 @@ covar_subset <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMa
 #global vols
 df_global <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, glob_vol_list, 
-                         "fs_version", "fs_version_SA", "fs_version_CT", "fs_version_GM", "eTIV"))) %>%
+                         "fs_version", "fs_version_SA", "fs_version_CT", "fs_version_GM", 
+                         "eTIV", "TBV"))) %>%
   filter_at(glob_vol_list, any_vars(complete.cases(.)))
 fwrite(df_global, "./data/csvs_by_pheno/global_vols.csv")
 
@@ -542,6 +544,27 @@ ggplot(df_global) +
 ggplot(df_global) + 
   geom_point(aes(x=log(age_days), y=CSF,color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = log(280))
+```
+```{r}
+ggplot(df_global, aes(x=log(age_days), y=eTIV)) + 
+  geom_point(aes(color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = log(280)) +
+  geom_smooth(method=lm, color="#264762") +
+  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x))
+
+ggplot(df_global, aes(x=age_days, y=eTIV)) + 
+  geom_point(aes(color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = log(280)) +
+  geom_smooth(method=lm, color="#264762") +
+  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x))
+
+df_global <- df_global %>%
+  mutate(TBV = WMV + sGMV + GMV)
+ggplot(df_global, aes(x=log(age_days), y=TBV)) + 
+  geom_point(aes(color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = log(280)) +
+  geom_smooth(method=lm, color="#264762") +
+  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x))
 ```
 
 ### Cortical volumes
