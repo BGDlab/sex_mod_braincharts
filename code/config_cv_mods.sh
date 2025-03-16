@@ -7,6 +7,7 @@ data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 log_scale="FALSE" #trying w/o scaling for now
+weight_pts="TRUE"
 
 #LOOP THROUGH 1/2 CSVS
 for file in $(find $(realpath $data_path)  -type f -name "cv_sample*.csv")
@@ -71,7 +72,7 @@ do
         while read -r pheno_line
         do
         # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$pheno_line\t$lambda\t$fs\t$save_path\t$log_scale" >> "$config_file"
+          echo -e "$file\t$pheno_line\t$lambda\t$fs\t$save_path\t$weight_pts\t$log_scale" >> "$config_file"
         done < "$pheno_list"
         
       done
