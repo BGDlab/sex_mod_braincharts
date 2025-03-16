@@ -78,10 +78,10 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   }
   
   if (is.null(start.from)) {
-    control <- paste("control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+    control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
   } else {
     control <- paste0("start.from = ", start.from,
-                      ", control = gamlss.control(n.cyc = 200), family =", fam,
+                      ", control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam,
                       ", data= df, trace = FALSE)")
   }
   
