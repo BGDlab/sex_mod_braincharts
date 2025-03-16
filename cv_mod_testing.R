@@ -141,6 +141,7 @@ best_bic <- summary_df %>%
 
 print(best_bic$nu)
 
-best_mod <- mod_list[[best_bic$nu]][[1]]
+best_mod <- mod_list[[best_bic$nu]]
 
 gamlssTools::make_centile_fan(best_mod, iris, "Petal.Length")
+

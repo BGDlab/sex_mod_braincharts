@@ -41,6 +41,7 @@ gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL, fam= "GG"){
 gamlss_3lambda <- function(pheno, lambda=NULL, 
                            fs_ver, fs_moment=c("both", "mu", "none", "all"), 
                            fam="GG",
+                           weight= FALSE,
                            nu_form="1",
                            start.from=NULL){
   
@@ -77,12 +78,14 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
     nu_form <- paste("nu.formula = ~", nu_form)
   }
   
-  if (is.null(start.from)) {
-    control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
-  } else {
-    control <- paste0("start.from = ", start.from,
-                      ", control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam,
-                      ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  
+  if (!is.null(start.from)) {
+    control <- paste0("start.from = ", start.from,", ", control)
+  }
+  
+  if (weight==TRUE) {
+    control <- paste0("weights = weight, ", control)
   }
   
   #try methods
