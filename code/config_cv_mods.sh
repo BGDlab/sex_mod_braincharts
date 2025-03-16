@@ -7,7 +7,7 @@ data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 log_scale="FALSE" #trying w/o scaling for now
-weight_pts="TRUE"
+weight_pts= $1
 
 #LOOP THROUGH 1/2 CSVS
 for file in $(find $(realpath $data_path)  -type f -name "cv_sample*.csv")
@@ -30,7 +30,7 @@ do
   
     #CREATE OUTPUT DIRS
     #make config file dir or remove old file if necessary
-    config_file=$config_path/${filename}_${pheno_cat}_config.txt
+    config_file=$config_path/${filename}_${pheno_cat}_weight${weight_pts}_config.txt
     if ! [ -d $config_path ]
     then
       mkdir $config_path

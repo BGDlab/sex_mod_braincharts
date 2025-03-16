@@ -1,147 +1,23 @@
-#troubleshooting
-gamlss_3lambda_iris <- function(pheno, lambda=NULL,
-                           fam="GG",
-                           nu_form="1",
-                           start.from=NULL){
+library(dplyr)
+library(gamlss)
+library(gamlssTools)
+library(data.table)
 
+pheno <- "WMV"
 
-  #define formulas for each moment
-  mu_form <- paste(
-    "gamlss(formula =", pheno, "~ pb(Petal.Length) + Species")
+df <- fread("./data/cv_sample_A.csv", stringsAsFactors = TRUE)
 
+df <- df %>%
+  dplyr::select(all_of(c(pheno, "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
+  na.omit()
 
-  sig_form <- paste(
-    "sigma.formula = ~ Petal.Length"
-  )
+#weighted mod
+WMV_weighted <- readRDS("./cv_sample_A_global_vols_mods/model_objs/WMV_lambdaNULL_all_sex_mod.rds")
 
-  nu_form <- paste("nu.formula = ~", nu_form)
+wp.taki(xvar=df$logAge_days, resid=WMV_weighted$residuals, n.inter=4)
+summary(WMV_weighted)
 
-  if (is.null(start.from)) {
-    control <- paste("control = gamlss.control(n.cyc = 200), family =", fam, ", data= iris, trace = FALSE)")
-  } else {
-    control <- paste0("start.from = ", start.from,
-                      ", control = gamlss.control(n.cyc = 200), family =", fam,
-                      ", data= iris, trace = FALSE)")
-  }
-
-  #try methods
-
-  result <- tryCatch({
-    gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=",")
-    print(gamlss_RSformula)
-
-    eval(parse(text = gamlss_RSformula))
-
-  } , warning = function(w) {
-    message("warning")
-    eval(parse(text = gamlss_RSformula))
-
-  } , error = function(e) {
-    message(e$message, ", trying method=CG()")
-    tryCatch({
-      gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=",")
-      eval(parse(text = gamlss_CGformula))
-
-      #if CG also fails, return NULL
-    }, error = function(e2) {
-      message(e2$message, ", returning NULL")
-      return(NULL)
-    })
-  } , finally = {
-    message("done")
-  } )
-  return(result)
-}
-
-# gamlss_3lambda_iris <- function(pheno, lambda=NULL, 
-#                                 fam="GG",
-#                                 nu_form="1",
-#                                 start.from=NULL) {
-#   
-#   mu_formula <- as.formula(paste(pheno, "~ pb(Petal.Length) + Species"))
-#   sigma_formula <- ~ Petal.Length
-#   nu_formula <- as.formula(paste("~", nu_form))
-#   
-#   args <- list(
-#     formula = mu_formula,
-#     sigma.formula = sigma_formula,
-#     nu.formula = nu_formula,
-#     family = fam,
-#     data = iris,
-#     control = gamlss.control(n.cyc = 200),
-#     trace = FALSE
-#   )
-#   
-#   if (!is.null(start.from)) {
-#     if (!is.gamlss(start.from)) stop("start.from arg must be gamlss model")
-#     args$start.from <- start.from
-#   }
-#   
-#   result <- tryCatch({
-#     do.call(gamlss, args)
-#   }, warning = function(w) {
-#     message("warning: ", conditionMessage(w))
-#     do.call(gamlss, args)
-#   }, error = function(e) {
-#     message("error: ", conditionMessage(e), ", trying method = CG()")
-#     args$method <- CG()
-#     tryCatch({
-#       do.call(gamlss, args)
-#     }, error = function(e2) {
-#       message("error: ", conditionMessage(e2), ", returning NULL")
-#       return(NULL)
-#     })
-#   }, finally = {
-#     message("done")
-#   })
-#   
-#   return(result)
-# }
-
-
-nu_list <- list(int = "1", 
-                species = "Species", 
-                plength = "Petal.Length")
-
-mod_list <- c()
-summary_df <- data.frame()
-
-for (nu in nu_list){
-  nu_name <- names(nu_list)[nu_list==nu]
-  print(nu_name)
-  
-  if (length(mod_list) > 0){
-    model <- gamlss_3lambda_iris("Sepal.Width", nu_form=nu, start.from="mod_list[[1]]")
-  } else {
-    model <- gamlss_3lambda_iris("Sepal.Width", nu_form=nu)
-  }
-  
-  
-  
-  #if model isn't fit, skip to next loop
-  if (is.null(model)) {
-    message("model fitting failed")
-    next
-  }
-  
-  #COMPILE
-  #BIC & AIC
-  summary_df <- data.frame(
-    "AIC" = model$aic,
-    "BIC" = model$sbc,
-    "nu" = nu_name
-  )
-  
-  mod_list[[nu_name]] <- model
-}
-
-best_bic <- summary_df %>%
-  arrange(BIC) %>%
-  slice_head(n=1)
-
-print(best_bic$nu)
-
-best_mod <- mod_list[[best_bic$nu]]
-
-gamlssTools::make_centile_fan(best_mod, iris, "Petal.Length")
-
+WMV_unweighted <- gamlss(formula = WMV ~ pb(sexMale_x_logAge, control = pb.control(order = 3)) + pb(logAge_days, control = pb.control(order = 3)) + random(study_site), 
+                         sigma.formula = ~pb(sexMale_x_logAge, control = pb.control(order = 3)) + pb(logAge_days, control = pb.control(order = 3)) + random(study_site),  
+                         nu.formula = ~sexMale + fs_version_GM, family = GG, data = df, start.from = mod_list[[1]],  
+                         control = gamlss.control(n.cyc = 200, nu.step = 0.25), trace = FALSE) 

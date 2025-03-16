@@ -51,7 +51,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   mu_base <- paste(
     "gamlss(formula =", pheno, "~",
     make_pb("sexMale_x_logAge", lambda), "+",
-    make_pb("logAge_days", lambda), "+ random(study_site)"
+    make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
   )
   
   if (fs_moment == "both" | fs_moment == "mu"){
@@ -63,7 +63,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   sig_base <- paste(
     "sigma.formula = ~",
     make_pb("sexMale_x_logAge", lambda), "+",
-    make_pb("logAge_days", lambda), "+ random(study_site)"
+    make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
   )
   
   if (fs_moment == "both") {
