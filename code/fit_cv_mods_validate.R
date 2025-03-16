@@ -15,12 +15,34 @@ df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 pheno <- as.character(args[2])
 base_mod <- readRDS(args[3])
 save_path <- as.character(args[4])
-log_scale <- as.logical(args[5])
+weight_pts <- as.logical(args[5])
+log_scale <- as.logical(args[6])
 
 #drop extra variables
 df <- df %>%
-  dplyr::select(all_of(c(pheno, fs, "logAge_days", "sexMale", "study_site", "sexMale_x_logAge"))) %>%
+  dplyr::select(all_of(c(pheno, fs, "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
   na.omit()
+
+#inverse-weight by age w/in sex (written w help from gpt)
+if (weight_pts == TRUE){
+  n_bins <- 600
+  df$age_bin <- cut(df$age_days, breaks = n_bins, include.lowest = TRUE)
+  
+  
+  df <- df %>%
+    mutate(sex = as.factor(sexMale)) %>%
+    group_by(sex, age_bin) %>%
+    mutate(bin_count = n()) %>%
+    group_by(sex) %>%
+    mutate(
+      observed_prob = bin_count / sum(bin_count),
+      uniform_prob = 1 / n_bins,
+      raw_weight = uniform_prob / observed_prob,
+      weight = raw_weight * (n() / sum(raw_weight))
+    ) %>%
+    ungroup() %>%
+    select(-bin_count, -observed_prob, -uniform_prob, - raw_weight)
+}
 
 #log-scale pheno if necessary
 if (log_scale == TRUE){
