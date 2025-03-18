@@ -19,5 +19,5 @@ summary(WMV_weighted)
 
 WMV_unweighted <- gamlss(formula = WMV ~ pb(sexMale_x_logAge, control = pb.control(order = 3)) + pb(logAge_days, control = pb.control(order = 3)) + random(study_site), 
                          sigma.formula = ~pb(sexMale_x_logAge, control = pb.control(order = 3)) + pb(logAge_days, control = pb.control(order = 3)) + random(study_site),  
-                         nu.formula = ~sexMale + fs_version_GM, family = GG, data = df, start.from = mod_list[[1]],  
+                         nu.formula = ~sexMale + fs_version_GM, family = GG, data = df,  
                          control = gamlss.control(n.cyc = 200, nu.step = 0.25), trace = FALSE) 

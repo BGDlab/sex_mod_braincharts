@@ -1,0 +1,90 @@
+---
+title: "sdjc_pres_prep"
+output: html_document
+date: "2025-03-17"
+---
+
+
+
+Preparing figures and preliminary results for Sex-Differences Journal Club Project Update Mar 18, 2025
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, gamlssTools)
+```
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+
+global_mod_path <- ("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_global_vols_mods/model_objs/")
+samp_A <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/cv_sample_A.csv", stringsAsFactors = TRUE, na.strings = "")
+```
+
+#UNWEIGHTED MODELS
+
+##sGMV
+
+fs_version in ALL moments, nu ~ sexMale
+
+```{r}
+sGMV_df <- samp_A %>%
+  dplyr::select(all_of(c("sGMV", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
+  na.omit()
+
+list.files(path=global_mod_path, pattern = "^sGMV_unweighted.*BestMod\\.rds$", full.names = TRUE)
+
+sGMV_train <- readRDS(paste0(global_mod_path, ))
+```
+
+```{r}
+cent_cdf(sGMV_train, sGMV_df, group="sexMale")
+wp.taki(xvar=sGMV_df$logAge_days, resid=resid(sGMV_train), n.inter=4)
+make_centile_fan(gamlssModel=sGMV_train, df=sGMV_df, 
+                 x_var="logAge_days", 
+                 color_var="sexMale",
+                 get_peaks=TRUE, 
+                 desiredCentiles=c(0.05, 0.5, 0.95),
+                 #x_axis="log_lifespan_fetal"
+                 ) +
+  labs(title="sGMV Sample A Training Model", 
+       x= "log(AgeDays)",
+       y = "sGMV",
+  color = "Sex=Male", fill="Sex=Male") +
+  geom_vline(xintercept=2.447158, linetype = "longdash") +
+  theme_bw()
+```
+
+##GMV
+
+fs_version in ALL moments, nu ~ site + sexMale
+
+```{r}
+GMV_df <- samp_A %>%
+  dplyr::select(all_of(c("GMV", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
+  na.omit()
+
+GMV_train <- readRDS(paste0(global_mod_path, "GMV_unweighted_lambdaNULL_all_siteSex_mod.rds"))
+```
+
+```{r}
+cent_cdf(GMV_train, GMV_df, group="sexMale")
+wp.taki(xvar=GMV_df$logAge_days, resid=resid(GMV_train), n.inter=4)
+make_centile_fan(gamlssModel=GMV_train, df=GMV_df, 
+                 x_var="logAge_days", 
+                 color_var="sexMale",
+                 get_peaks=TRUE, 
+                 desiredCentiles=c(0.05, 0.5, 0.95),
+                 #x_axis="log_lifespan_fetal"
+                 ) +
+  labs(title="GMV Sample A Training Model", 
+       x= "log(AgeDays)",
+       y = "GMV",
+  color = "Sex=Male", fill="Sex=Male") +
+  geom_vline(xintercept=2.447158, linetype = "longdash") +
+  theme_bw()
+
+ make_centile_fan(gamlssModel=GMV_train, df=GMV_df, x_var="logAge_days", color_var="sexMale",
+                             get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95))
+```

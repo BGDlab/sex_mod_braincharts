@@ -26,7 +26,7 @@ df <- df %>%
 
 #inverse-weight by age w/in sex (written w help from gpt)
 if (weight_pts == TRUE){
-  n_bins <- 600
+  n_bins <- 50
   df$age_bin <- cut(df$age_days, breaks = n_bins, include.lowest = TRUE)
   
   
@@ -118,7 +118,7 @@ for (fs_include in fs_moment_list){
  
   #COMPILE
     #BIC & AIC
-    summary_df <- data.frame(
+    tmp_df <- data.frame(
       "AIC" = model$aic,
       "BIC" = model$sbc,
       "lambda" = l.name,
@@ -127,6 +127,7 @@ for (fs_include in fs_moment_list){
       "weight" = w,
       "nu" = nu_name
     )
+    summary_df <- rbind(summary_df, tmp_df)
   }
 }
 expected <- length(nu_list)*length(fs_moment_list)
@@ -146,6 +147,10 @@ print(best_bic$m_name)
 
 best_mod <- mod_list[[best_bic$m_name]]
 
+#RENAME BEST MOD
+file.rename(paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$weight, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_mod.rds"),
+            paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$weight, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_BestMod.rds"))
+
 print("compiling stats")
 
 #CENTILE FAN PLOT
@@ -159,7 +164,7 @@ ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_", w, "_lambda", best_
 
 #WORM PLOT
 print("creating worm plot")
-wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=8) +
+wp <- wp.taki(xvar=df$logAge_days, resid=resid(best_mod), n.inter=8) +
   ggtitle(paste(pheno, "\nsmoothed w/ lambda=", l.name))
 ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, ".png"), wp)
 

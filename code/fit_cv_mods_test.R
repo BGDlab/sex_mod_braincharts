@@ -25,7 +25,7 @@ df <- df %>%
 
 #inverse-weight by age w/in sex (written w help from gpt)
 if (weight_pts == TRUE){
-  n_bins <- 600
+  n_bins <- 50
   df$age_bin <- cut(df$age_days, breaks = n_bins, include.lowest = TRUE)
   
   
