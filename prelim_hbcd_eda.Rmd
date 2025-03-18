@@ -1,0 +1,23 @@
+---
+title: "Prelim_HBCD_eda"
+output: html_document
+date: "2025-03-14"
+---
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+Incorporating preliminary HBCD data (pre-release) into LBCC v3  for growth charts
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr)
+```
+
+```{r}
+imaging_df <- fread("/mnt/isilon/bgdlab_processing/Data/HBCD/HBCD_tabular_downloads/imaging/bibset_segmentation/data.csv", na.strings = c("", NA))
+names(imaging_df)
+```
