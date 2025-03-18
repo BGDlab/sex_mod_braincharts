@@ -305,34 +305,6 @@ nrow(df_clean)
 
 ```
 
-determine equal knot placements 
-```{r}
-range(df_clean$logAge_days)
-
-knot_lists <- c()
-for (degree in seq(2, 24)){
-  list_name <- paste0("df", degree)
-  knot_lists[[list_name]] <- dlnm::equalknots(df_clean$logAge_days,
-                                             fun="ns",
-                                             df= degree)
-}
-
-#also get quantiles
-quant_knots <- quantile(df_clean$logAge_days, names=FALSE)
-dec_knots <- quantile(df_clean$logAge_days, probs=seq(0,1, 0.1), names=FALSE)
-
-quant_knot_lists <- c()
-dec_knot_lists <-c()
-for (name in names(knot_lists)){
-  quant_knot_lists[[name]] <- c(knot_lists[[name]], quant_knots) %>% sort()
-  dec_knot_lists[[name]] <- c(knot_lists[[name]], dec_knots) %>% sort()
-}
-
-saveRDS(knot_lists, "code/knot_lists.RDS")
-saveRDS(quant_knot_lists, "code/quant_knot_lists.RDS")
-saveRDS(dec_knot_lists, "code/dec_knot_lists.RDS")
-```
-
 write out full dataframe
 ```{r}
 fwrite(df_clean, "./data/v3_CN_cleaned.csv")
