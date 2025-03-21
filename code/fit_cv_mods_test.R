@@ -68,9 +68,11 @@ sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexM
   }
    
   saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_validate_full_mod.rds"))
-    
-  stopifnot(base_mod$mu.lambda == model$mu.lambda)
-  stopifnot(base_mod$sigma.lambda == model$sigma.lambda)
+  
+  #compare lambdas
+  mu_diff <- base_mod$mu.lambda - model$mu.lambda
+  sig_diff <- base_mod$sigma.lambda - model$sigma.lambda
+  stopifnot(c(mu_diff, sig_diff) < 0.0000000001)
   
   #CENTILE FAN PLOT
     print("creating centile fan plot")
@@ -91,13 +93,11 @@ sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexM
     print("compiling stats")
     #centiles
     results_df <- cent_cdf(model, df, "sexMale")
-    results_df$lambda <- l.name
     
     #BIC & AIC
     summary_df <- data.frame(
       "AIC" = model$aic,
       "BIC" = model$sbc,
-      "lambda" = l.name,
       "pheno" = pheno,
       "fs_moment" = fs_include
     )
