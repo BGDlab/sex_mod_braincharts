@@ -57,14 +57,15 @@ if (is.null(model)) {
   stop()
 }
 
+  #compare lambdas
+  mu_diff <- base_mod$mu.lambda - model$mu.lambda
+  sig_diff <- base_mod$sigma.lambda - model$sigma.lambda
+  stopifnot(c(mu_diff, sig_diff) < 0.0000000001)
+  
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("BestMod", "test", filename_no_ext)
 saveRDS(model, file=paste0(save_path, "/model_objs/", filename, "_full_mod.rds"))
 
-#double check lambdas  
-stopifnot(base_mod$mu.lambda == model$mu.lambda)
-stopifnot(base_mod$sigma.lambda == model$sigma.lambda)
-  
 #CENTILE FAN PLOT
 print("creating centile fan plot")
   fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
