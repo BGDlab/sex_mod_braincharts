@@ -1,20 +1,19 @@
 #!/bin/bash
-#script to write config file that will be used to models on 1/2 dataframe
+#script to write config file that will be used to test models on other sample
 #run from outside code dir
 
 #PATHS
 data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
-log_scale="FALSE" #trying w/o scaling for now
-
-echo "arg weight_pts: $1"
+weight=unweighted
 
 #LOOP THROUGH 1/2 CSVS
 for file in $(find $(realpath $data_path)  -type f -name "cv_sample*.csv")
 do
   
   echo "prepping: $file"
+  echo "$weight models"
   
   #get filename
   filename=$(basename -- "$file")
@@ -31,7 +30,7 @@ do
   
     #CREATE OUTPUT DIRS
     #make config file dir or remove old file if necessary
-    config_file=$config_path/${filename}_${pheno_cat}_weight${1}_config.txt
+    config_file=$config_path/${filename}_${pheno_cat}_test_config.txt
     if ! [ -d $config_path ]
     then
       mkdir $config_path
@@ -43,7 +42,7 @@ do
     touch $config_file
     
     #make output dir
-      save_dir=./${filename}_train
+      save_dir=./${filename}_test
       if ! [ -d $save_dir ]
       then
         mkdir $save_dir
@@ -59,30 +58,30 @@ do
         mkdir $save_path/cent_csvs
         mkdir $save_path/model_sums
       fi
-    
-      if [[ $pheno_cat == *"vols"* ]]; then
-        fs="fs_version_GM"
-      elif [[ $pheno_cat == *"thickness"* ]]; then
-        fs="fs_version_CT"
-      elif [[ $pheno_cat == *"surf"* ]]; then
-        fs="fs_version_SA"
-      else
-        echo "can't find appropriate fs version"
-      fi
-    
-      #LOOP THROUGH LAMBDAS
-      for lambda in NULL #$(seq 100 100 50000)
+      
+      #SET SEARCH PATH FOR TRAINING MODELS
+      #replace 'test' with 'train' and swap A and B
+      search_path=$(echo "$save_path" | \
+        sed -E 's/test/train/g; s/_A_/_TEMP_/g; s/_B_/_A_/g; s/_TEMP_/_B_/g')
+      
+      #LOOP THROUGH BESTMODS
+      while read -r pheno_line
       do
-      
-        #LOOP THROUGH PHENOS
-        while read -r pheno_line
-        do
-        # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$pheno_line\t$lambda\t$fs\t$save_path\t$1\t$log_scale" >> "$config_file"
-        done < "$pheno_list"
-        
-      done
-      
+        # find training BestModel in other csv
+        matches=$(find "$search_path" -type f -name "${pheno_line}_${weight}*BestMod.rds")
+        if [ ${#matches[@]} -eq 1 ]; then
+          og_mod="${matches[0]}"
+          
+          # Write the CSV file path and the formula to the output file (tab-delimited)
+          echo -e "$file\t$og_mod\t$save_path" >> "$config_file"
+        elif [ ${#matches[@]} -eq 0 ]; then
+          echo "Warning: No matching file found in '$search_path' for prefix '$pheno_line' and suffix 'BestMod.rds'" >&2
+        else
+          echo "Warning: Multiple matching files found in '$search_path':" >&2
+          printf '%s\n' "${matches[@]}" >&2
+        fi
+      done < "$pheno_list"
+
    #add numbering
   nl "$config_file" > temp.txt && mv temp.txt "$config_file"
   done

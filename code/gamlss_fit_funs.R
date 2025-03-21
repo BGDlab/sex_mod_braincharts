@@ -119,7 +119,10 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
 
 #gamlss_3lambda_rep
 #rep model with lambdas from another model obj
-gamlss_3lambda_rep <- function(og_mod, null_mod=TRUE){
+gamlss_3lambda_rep <- function(og_mod, 
+                               null_mod=TRUE, 
+                               start.from=NULL,
+                               weight=FALSE){
   
   pheno <- paste0(og_mod$mu.formula)[2]
   fam <- og_mod$family[1]
@@ -139,7 +142,7 @@ gamlss_3lambda_rep <- function(og_mod, null_mod=TRUE){
   }
   
   mu_base <- sub("logAge_days, lambda = *,", paste0("logAge_days, lambda =", mu_lambdas[2], ","), mu_base)
-  mu_base <- sub("random(study_site", paste0("random(study_site, lambda =", mu_lambdas[3], ")"), mu_base)
+  mu_base <- sub("random\\(study_site", paste0("random(study_site, lambda =", mu_lambdas[3]), mu_base)
   
   mu_form <- paste0("gamlss(formula =", pheno, "~", mu_base, ",")
   
@@ -155,20 +158,29 @@ gamlss_3lambda_rep <- function(og_mod, null_mod=TRUE){
                    "", sig_base)
   }
   sig_base <- sub("logAge_days, lambda = *,", paste0("logAge_days, lambda =", sig_lambdas[2], ","), sig_base)
-  sig_base <- sub("random(study_site", paste0("random(study_site, lambda =", sig_lambdas[3], ")"), sig_base)
+  sig_base <- sub("random\\(study_site", paste0("random(study_site, lambda =", sig_lambdas[3]), sig_base)
   
   sig_form <- paste0("sigma.formula = ~", sig_base, ",")
   
   #NU
-  nu_base <- paste0(og_mod$sigma.formula)[2]
+  nu_base <- paste0(og_mod$nu.formula)[2]
   nu_form <- paste0("nu.formula = ~", nu_base, ",")
   
-  control <- paste0("control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")
+
+  if (!is.null(start.from)) {
+    control <- paste0("start.from = ", start.from,", ", control)
+  }
+  
+  if (weight==TRUE) {
+    control <- paste0("weights = weight, ", control)
+  }
   
   #try methods
   
   result <- tryCatch({
-    gamlss_RSformula <-paste0(mu_form, sig_form, nu_form, control)
+    gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
+    print(gamlss_RSformula)
     
     eval(parse(text = gamlss_RSformula))
     
@@ -179,7 +191,7 @@ gamlss_3lambda_rep <- function(og_mod, null_mod=TRUE){
   } , error = function(e) {
     message(e$message, ", trying method=CG()")
     tryCatch({
-      gamlss_CGformula <-paste0(mu_form, sig_form, nu_form, "method=CG()", control)
+      gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
       eval(parse(text = gamlss_CGformula))
       
       #if CG also fails, return NULL

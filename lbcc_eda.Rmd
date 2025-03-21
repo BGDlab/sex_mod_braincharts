@@ -43,8 +43,6 @@ hist(df$MAD.Euler)
 
 write out lists of phenotypes by category
 ```{r}
-names(df)
-
 #global volumes
 glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF")
 write_lines(glob_vol_list, "./pheno_lists/global_vols.txt")
@@ -76,6 +74,14 @@ sa_list <- names(df)[grep("SA\\.", names(df))]
 stopifnot(length(sa_list) == 68)
 write_lines(sa_list, "./pheno_lists/cortical_surf.txt")
 saveRDS(sa_list, "./pheno_lists/cortical_surf.rds")
+```
+
+## Prelim HBCD
+Adding preliminary HBCD pre-release phenotypes from bibsnet. no regional cortical data for now
+
+```{r}
+
+
 ```
 
 ## Data Cleaning

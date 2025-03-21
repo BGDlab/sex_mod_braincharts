@@ -19,5 +19,34 @@ pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, para
 
 ```{r}
 imaging_df <- fread("/mnt/isilon/bgdlab_processing/Data/HBCD/HBCD_tabular_downloads/imaging/bibset_segmentation/data.csv", na.strings = c("", NA))
-names(imaging_df)
+#names(imaging_df)
+names(imaging_df)[grep("age", names(imaging_df))]
+skim(imaging_df$img_mriqc_T2w_candidate_age)
+
+imaging_df %>%
+  select(all_of(names(imaging_df)[grep("age", names(imaging_df))])) %>%
+  skim()
+
+imaging_df_filt <- imaging_df %>%
+  rename(age = img_mriqc_T2w_candidate_age) %>%
+  dplyr::select(!any_of(starts_with("img_mriqc"))) #dropping qc for now, since this is just the beta release
+```
+
+```{r}
+demo_df <- fread("/mnt/isilon/bgdlab_processing/Data/HBCD/HBCD_tabular_downloads/nonimaging/demographics/DATA_CSV14096344619509598011.csv", na.strings = c("", NA))
+#names(demo_df)
+unique(demo_df$par_visit_data_par_visit_data_cohort)
+unique(demo_df$par_visit_data_par_visit_data_project)
+
+demo_sub <- demo_df %>%
+  dplyr::select(id, visit_label, cohort, site, sed_basic_demographics_sed_basic_demographics_sex) %>%
+  rename(sex = sed_basic_demographics_sed_basic_demographics_sex) %>%
+  mutate(sex = ifelse(sex=="Unknown", NA, sex)) %>%
+  na.omit()
+```
+
+Merge!
+```{r}
+hbcd <- inner_join(demo_sub, imaging_df_filt)
+skim(hbcd)
 ```
