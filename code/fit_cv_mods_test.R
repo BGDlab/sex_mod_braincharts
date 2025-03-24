@@ -64,7 +64,9 @@ if (is.null(model)) {
   
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("BestMod", "test", filename_no_ext)
-saveRDS(model, file=paste0(save_path, "/model_objs/", filename, "_full_mod.rds"))
+file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
+print (paste("saving to", file_full))
+saveRDS(model, file=file_full)
 
 #CENTILE FAN PLOT
 print("creating centile fan plot")
@@ -90,7 +92,7 @@ print("creating centile fan plot")
     summary_df <- data.frame(
       "AIC" = model$aic,
       "BIC" = model$sbc,
-      "pheno" = pheno,
+      "pheno" = pheno
     )
 
 #SAVE CSVs
