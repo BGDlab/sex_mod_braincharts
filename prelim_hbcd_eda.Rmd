@@ -17,6 +17,8 @@ if(!require('pacman')) {
 pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr)
 ```
 
+#tabular imaging df
+
 ```{r}
 imaging_df <- fread("/mnt/isilon/bgdlab_processing/Data/HBCD/HBCD_tabular_downloads/imaging/bibset_segmentation/data.csv", na.strings = c("", NA))
 #names(imaging_df)
@@ -30,7 +32,50 @@ imaging_df %>%
 imaging_df_filt <- imaging_df %>%
   rename(age = img_mriqc_T2w_candidate_age) %>%
   dplyr::select(!any_of(starts_with("img_mriqc"))) #dropping qc for now, since this is just the beta release
+
+colnames(imaging_df_filt) <- gsub("img_bibsnet_space-T2w_desc-aseg_volumes_", "", colnames(imaging_df_filt))
 ```
+
+#M-CRIB Imaging Outputs
+need to compile across subject-specific dirs
+
+```{r}
+mcrib_df <- fread("/mnt/isilon/bgdlab_processing/Data/HBCD/HBCD_justMCRIB_21March2025/HBCD_beta_MCRIB_freesurfer_aparcaseg_volumes.csv")
+skim(mcrib_df)
+
+mcrib_df <- mcrib_df %>%
+  rename("id" = "subject") %>%
+  filter_all(any_vars(!is.na(.)))
+```
+
+
+compare dfs
+```{r}
+n_unique(mcrib_df$id)
+n_unique(imaging_df_filt$id)
+
+intersect(names(imaging_df_filt), names(mcrib_df))
+
+skim(mcrib_df)
+skim(imaging_df_filt)
+```
+
+test merge
+```{r}
+test_df <- full_join(imaging_df_filt, mcrib_df)
+names(test_df)
+
+ggplot(test_df) +
+  geom_point(aes(x=age, y=CSF), alpha=.4)
+ggplot(test_df) +
+  geom_point(aes(x=age, y=`Right-Amygdala`), alpha=.4)
+ggplot(test_df) +
+  geom_point(aes(x=age, y=`Right-Lateral-Ventricle`), alpha=.4)
+```
+
+looks pretty reasonable
+
+#Demographics
 
 ```{r}
 demo_df <- fread("/mnt/isilon/bgdlab_processing/Data/HBCD/HBCD_tabular_downloads/nonimaging/demographics/DATA_CSV14096344619509598011.csv", na.strings = c("", NA))
@@ -47,6 +92,17 @@ demo_sub <- demo_df %>%
 
 Merge!
 ```{r}
-hbcd <- inner_join(demo_sub, imaging_df_filt)
+n_unique(demo_sub$id)
+n_unique(test_df$id)
+
+hbcd <- inner_join(demo_sub, test_df) %>%
+  select_if(~!all(is.na(.))) %>% #drop col if all is empty
+  drop_na(age, sex)
+
 skim(hbcd)
+
+n_unique(hbcd$id)
+
+length(intersect(demo_sub$id, mcrib_df$id))
+fwrite(hbcd, "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/beta_hbcd.csv")
 ```
