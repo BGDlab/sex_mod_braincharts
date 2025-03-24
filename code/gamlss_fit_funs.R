@@ -114,6 +114,38 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   } , finally = {
     message("done")
   } )
+  
+  #if needed, try again with tiny nu.step
+  if(is.null(result)){
+    control <- sub("nu\\.step\\s*=\\s*[-+]?[0-9]*\\.?[0-9]+", "nu.step = 0.00000000001", control)
+    
+    result <- tryCatch({
+      gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
+      print(gamlss_RSformula)
+      
+      eval(parse(text = gamlss_RSformula))
+      
+    } , warning = function(w) {
+      message("warning")
+      eval(parse(text = gamlss_RSformula))
+      
+    } , error = function(e) {
+      message(e$message, ", trying method=CG()")
+      tryCatch({
+        gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
+        eval(parse(text = gamlss_CGformula))
+        
+        #if CG also fails, return NULL
+      }, error = function(e2) {
+        message(e2$message, ", returning NULL")
+        return(NULL)
+      })
+    } , finally = {
+      message("done")
+    } )
+    
+  }
+  
   return(result)
 }
 
@@ -203,6 +235,37 @@ gamlss_3lambda_rep <- function(og_mod,
   } , finally = {
     message("done")
   } )
+  
+  #if needed, try again with tiny nu.step
+  if(is.null(result)){
+    control <- sub("nu\\.step\\s*=\\s*[-+]?[0-9]*\\.?[0-9]+", "nu.step = 0.00000000001", control)
+    
+    result <- tryCatch({
+      gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
+      print(gamlss_RSformula)
+      
+      eval(parse(text = gamlss_RSformula))
+      
+    } , warning = function(w) {
+      message("warning")
+      eval(parse(text = gamlss_RSformula))
+      
+    } , error = function(e) {
+      message(e$message, ", trying method=CG()")
+      tryCatch({
+        gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
+        eval(parse(text = gamlss_CGformula))
+        
+        #if CG also fails, return NULL
+      }, error = function(e2) {
+        message(e2$message, ", returning NULL")
+        return(NULL)
+      })
+    } , finally = {
+      message("done")
+    } )
+    
+  }
   return(result)
 }
 
