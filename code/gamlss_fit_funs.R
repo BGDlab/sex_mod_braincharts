@@ -54,7 +54,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
     make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
   )
   
-  if (fs_moment == "both" | fs_moment == "mu"){
+  if (fs_moment != "none"){
     mu_form <- paste(mu_base, "+", fs_ver) #add fs_version term if needed
   } else {
     mu_form <- paste(mu_base) #or just comma
@@ -66,7 +66,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
     make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
   )
   
-  if (fs_moment == "both") {
+  if (fs_moment == "both" | fs_moment == "all") {
     sig_form <- paste(sig_base, "+", fs_ver)
   } else {
     sig_form <- sig_base
@@ -277,3 +277,132 @@ make_pb <- function(var, lambda) {
     paste0("pb(", var, ", lambda=", lambda, ", control=pb.control(order=3))")
   }
 }
+
+#gamlss_3lambda_etiv
+#penalty lambda on order 3 - using with default lambda=NULL -> model will select
+gamlss_3lambda_etiv <- function(pheno, lambda=NULL,
+                                total_var, total_moment=c("both", "mu", "none", "all"),
+                                fs_ver, fs_moment=c("both", "mu", "none", "all"), 
+                                fam="GG", 
+                                weight= FALSE,
+                                nu_form="1",
+                                start.from=NULL){
+  
+  fs_moment <- match.arg(fs_moment)
+  total_moment <- match.arg(total_moment)
+  
+  #define formulas for each moment
+  #MU BASE
+  mu_base <- paste(
+    "gamlss(formula =", pheno, "~",
+    make_pb("sexMale_x_logAge", lambda), "+",
+    make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
+  )
+  
+  #add fs_version
+  if (fs_moment != "none"){
+    mu_base <- paste(mu_base, "+", fs_ver)
+  }
+  
+  #add etiv/total pheno
+  if (total_moment != "none"){
+    mu_base <- paste(mu_base, "+", make_pb(total_var, lambda))
+  }
+  
+  #SIGMA BASE
+  sig_base <- paste(
+    "sigma.formula = ~",
+    make_pb("sexMale_x_logAge", lambda), "+",
+    make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
+  )
+  
+  if (fs_moment == "both" | fs_moment == "all") {
+    sig_base <- paste(sig_base, "+", fs_ver)
+  }
+  
+  if (total_moment == "both" | total_moment == "all") {
+    sig_base <- paste(sig_base, "+", make_pb(total_var, lambda))
+  }
+  
+  #NU BASE
+  nu_base <- paste("nu.formula = ~", nu_form)
+  
+  if (fs_moment == "all") {
+    nu_base <- paste(nu_base," + ", fs_ver)
+  } 
+  
+  if (total_moment == "all") {
+    nu_base <- paste(nu_base," + ", total_var)
+  }
+  
+  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  
+  if (!is.null(start.from)) {
+    control <- paste0("start.from = ", start.from,", ", control)
+  }
+  
+  if (weight==TRUE) {
+    control <- paste0("weights = weight, ", control)
+  }
+  
+  #try methods
+  
+  result <- tryCatch({
+    gamlss_RSformula <-paste(mu_base, sig_base, nu_base, control, sep=", ")
+    print(gamlss_RSformula)
+    
+    eval(parse(text = gamlss_RSformula))
+    
+  } , warning = function(w) {
+    message("warning")
+    eval(parse(text = gamlss_RSformula))
+    
+  } , error = function(e) {
+    message(e$message, ", trying method=CG()")
+    tryCatch({
+      gamlss_CGformula <-paste(mu_base, sig_base, nu_base, "method=CG()", control, sep=", ")
+      eval(parse(text = gamlss_CGformula))
+      
+      #if CG also fails, return NULL
+    }, error = function(e2) {
+      message(e2$message, ", returning NULL")
+      return(NULL)
+    })
+  } , finally = {
+    message("done")
+  } )
+  
+  #if needed, try again with tiny nu.step
+  if(is.null(result)){
+    control <- sub("nu\\.step\\s*=\\s*[-+]?[0-9]*\\.?[0-9]+", "nu.step = 0.00000000001", control)
+    
+    result <- tryCatch({
+      gamlss_RSformula <-paste(mu_base, sig_base, nu_base, control, sep=", ")
+      print(gamlss_RSformula)
+      
+      eval(parse(text = gamlss_RSformula))
+      
+    } , warning = function(w) {
+      message("warning")
+      eval(parse(text = gamlss_RSformula))
+      
+    } , error = function(e) {
+      message(e$message, ", trying method=CG()")
+      tryCatch({
+        gamlss_CGformula <-paste(mu_base, sig_base, nu_base, "method=CG()", control, sep=", ")
+        eval(parse(text = gamlss_CGformula))
+        
+        #if CG also fails, return NULL
+      }, error = function(e2) {
+        message(e2$message, ", returning NULL")
+        return(NULL)
+      })
+    } , finally = {
+      message("done")
+    } )
+    
+  }
+  
+  return(result)
+}
+
