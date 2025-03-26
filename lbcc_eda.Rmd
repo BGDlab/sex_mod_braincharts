@@ -17,7 +17,6 @@ pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, para
 load data - prelim version of LBCC 3.0, waiting on Lena to look into missing sex info
 ```{r}
 df <- fread("/mnt/isilon/bgdlab_processing/LBCC_releases/v3_Penn/v3_0_0_penn.csv", na.strings = c("", NA))
-names(df)
 ```
 
 ```{r}
@@ -77,11 +76,35 @@ saveRDS(sa_list, "./pheno_lists/cortical_surf.rds")
 ```
 
 ## Prelim HBCD
-Adding preliminary HBCD pre-release phenotypes from bibsnet. no regional cortical data for now
+Adding preliminary HBCD pre-release phenotypes (see `prelim_hbcd_eda.Rmd`)
 
 ```{r}
+hbcd <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/beta_hbcd.csv")
+hbcd_rename <- hbcd %>%
+  rename(participant = id) %>%
+  rename_with(~ gsub("-", ".", .)) %>%
+  rename_with(~ paste0("SUBC.", .), c(-participant, -visit_label, -cohort, 
+                                      -site, -sex, -age, -age_days, -candidate_age,
+                                      -CSF, -gestational_age, -Vermis)) %>%
+  rename(lhCortexVol = SUBC.Left.Cerebral.Cortex,
+         rhCortexVol = SUBC.Right.Cerebral.Cortex,
+         lhCerebralWhiteMatterVol = SUBC.Left.Cerebral.White.Matter,
+         rhCerebralWhiteMatterVol = SUBC.Right.Cerebral.White.Matter) %>%
+  mutate(sex = ifelse(sex=="Male", "male", "female"))
 
+hbcd_rename$study <- "HBCD"
+hbcd_rename$dx <- "CN"
+  
+names(hbcd_rename)
+setdiff(names(hbcd_rename), names(df))
+unique(hbcd_rename$sex)
+unique(df$sex)
+```
 
+merge in
+```{r}
+df_with_hbcd <- full_join(df, hbcd_rename)
+stopifnot(nrow(df_with_hbcd) == nrow(df) + nrow(hbcd_rename))
 ```
 
 ## Data Cleaning
@@ -89,7 +112,7 @@ Adding preliminary HBCD pre-release phenotypes from bibsnet. no regional cortica
 remove intersex subj, dummy-code sex and sex*age, add totals for CT and SA
 
 ```{r}
-df_filt <- df %>%
+df_filt <- df_with_hbcd %>%
   dplyr::filter(sex != "intersex") %>%
   mutate(sexMale = ifelse(sex=="male", 1, 0),
          sexMale_x_age = ifelse(sex=="male", age_days, 0),
@@ -99,7 +122,8 @@ df_filt <- df %>%
          total.CT = rowSums(across(all_of(ct_list)), na.rm=FALSE),
          total.SA = rowSums(across(all_of(sa_list)), na.rm=FALSE),
          study = as.factor(study),
-         study_site = as.factor(study_site))
+         study_site = as.factor(paste0("study-", study, "_", "site-", site)),
+         INDEX.ID = paste(study, participant, sex, sep="|"))
 ```
 
 keep only columns we need (phenotypes to model, covariates)
@@ -293,7 +317,8 @@ df_clean <- df_qc_filt %>%
   ungroup() %>%
   group_by(study_site) %>%
   filter(n_distinct(INDEX.ID) >=5) %>% #remove sites with < 5 ppl
-  ungroup()
+  ungroup() %>%
+  filter(study != "SYS-Adolescents") #weird bad sGMV values, removing
 
 #look at completeness for infant/toddler data
 df_clean %>%

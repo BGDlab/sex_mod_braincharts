@@ -97,7 +97,8 @@ n_unique(test_df$id)
 
 hbcd <- inner_join(demo_sub, test_df) %>%
   select_if(~!all(is.na(.))) %>% #drop col if all is empty
-  drop_na(age, sex)
+  drop_na(age, sex) %>%
+  mutate(age_days = 365.25*age) #confirmed age in years
 
 skim(hbcd)
 
