@@ -19,6 +19,7 @@ if(!require('pacman')) {
 pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, splitstackshape, gamlss, gamlssTools, gridExtra, grid, png)
 
 subcortical_vols <- readRDS("pheno_lists/subcortical_vols.rds")
+global_vols <- readRDS("pheno_lists/global_vols.rds")
 ```
 
 Testing CV models
@@ -26,52 +27,25 @@ Testing CV models
 ##Split Sample A
 
 ```{r}
-subcort_path <- "./cv_sample_A_subcortical_vols_mods/"
+glob_path <- Sys.glob("cv_sample_*_train/*global_vols_mods/")
 ```
 
-###Subcortical
-Load model summaries
-
-```{r}
-raw_files <- list.files(path = paste0(subcort_path, "model_sums"), pattern = "summary.csv", full.names = TRUE)
-files_list <- lapply(raw_files, fread)
-subcort_df <- rbindlist(files_list)
-```
-
-```{r}
-#look at range of lambdas in best 10 mods
-subcort_df %>%
-  group_by(pheno) %>%
-  arrange(BIC, .by_group = TRUE) %>%
-  slice_head(n=10) %>%
-  mutate(lambda=as.numeric(lambda)) %>%
-  summary(lambda)
-
-#get 3 best per BIC
-subcort_3lowest <- subcort_df %>%
-  group_by(pheno) %>%
-  arrange(BIC, .by_group = TRUE) %>%
-  slice_head(n=3) %>%
-  mutate(fname=paste0(pheno, "_lambda", lambda, "_")) #need to add fs_include col as rerun!!!!!!!!!!!!!!
-```
+###Global
 
 list best model's files for review - code with help from GPT
 ```{r}
-pdf("subcortical.pdf", width = 8.5, height = 11)  # Open PDF device
+pdf("global_train_mods.pdf", width = 8.5, height = 11)  # Open PDF device
 
-#get just top mods for now
-subcort_lowest <- subcort_3lowest %>%
-  group_by(pheno) %>%
-  arrange(BIC, .by_group = TRUE) %>%
-  slice_head(n=1)
+best_mods <- list.files(path = paste0(glob_path, "model_objs"),
+                        pattern = "*BestMod.rds", 
+                        recursive = T,
+                        full.names = TRUE)
 
-stopifnot(length(subcort_lowest$fname) == length(subcortical_vols))
-
-for (fname in subcort_lowest$fname) {
-  # Get file names
-  cent_png_file <- list.files(paste0(subcort_path, "centile_plots"), pattern = fname, full.names = TRUE)
-  wp_png_file <- list.files(paste0(subcort_path, "worm_plots"), pattern = fname, full.names = TRUE)
-  cent_csv_file <- list.files(paste0(subcort_path, "cent_csvs"), pattern = fname, full.names = TRUE)
+for (fname in best_mods) {
+  # Get plot fils
+  cent_png_file <- sub("model_objs", "centile_plots", fname) %>% sub("_BestMod.rds", ".png", .)
+  wp_png_file <- sub("model_objs", "worm_plots", fname) %>% sub("_BestMod.rds", ".png", .)
+  cent_csv_file <- sub("model_objs", "cent_csvs", fname) %>% sub("_BestMod.rds", "_results.csv", .)
   
   if((length(cent_png_file) & length(wp_png_file) & length(cent_csv_file)) != 1){
     warning(paste("ERROR in", fname, ": found", 
@@ -88,17 +62,19 @@ for (fname in subcort_lowest$fname) {
   img_list[[2]] <- rasterGrob(as.raster(png::readPNG(wp_png_file)), interpolate = TRUE)
   
   # Read and print CSV file
-  csv_data <- read.csv(cent_csv_file)
-  csv_table <- tableGrob(csv_data)
+  # csv_data <- read.csv(cent_csv_file)
+  # csv_table <- tableGrob(csv_data)
   
   #add section title
-  title <- textGrob(paste("Phenotype:", fname), gp = gpar(fontsize = 16, fontface = "bold"))
+  pheno <- sub("_.*", "", basename(fname))
+  samp <- regmatches(fname, gregexpr("(?<=cv_sample_)\\w", fname, perl = TRUE))[[1]] %>% unique()
+  title <- textGrob(paste("Phenotype:", pheno, "Sample:", samp), gp = gpar(fontsize = 14, fontface = "bold"))
   grid.arrange(
     title, 
     img_list[[1]], 
     img_list[[2]],
-    csv_table,
-    heights = c(1, 4, 5, 1)  # Adjust heights for better layout
+    # csv_table,
+    heights = c(.5, 3, 3, 2)  # Adjust heights for better layout
   )
 }
 
