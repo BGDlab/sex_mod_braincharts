@@ -69,6 +69,7 @@ if (l.name == "NULL"){
 #sim data ONCE for centile fan plotting
 print("simulate data for plotting")
 sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+sim_df2 <- sim_data(df, total, factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
 
 #loop over nu terms #NEED TO ADD START FROM 
 nu_list <- list(int = "1",
@@ -183,6 +184,7 @@ ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_", w, "_lambda", best_
 
 fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var=total, color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
+                             sim_data_list = sim_df2,
                              show_points=FALSE) +
   ggtitle(paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, ",", best_bic$m_name, w)) +
   xlab(total)
@@ -202,7 +204,7 @@ results_df$lambda <- best_bic$lambda
 results_df$fs <- best_bic$fs_moment
 results_df$total <- best_bic$total_moment
 results_df$nu <- best_bic$nu
-resuts_df$weight <- w
+results_df$weight <- w
 
 #centiles
 fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_results.csv"))

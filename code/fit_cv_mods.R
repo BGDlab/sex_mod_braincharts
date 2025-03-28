@@ -173,7 +173,7 @@ results_df <- cent_cdf(best_mod, df, plot=FALSE, group="sexMale")
 results_df$lambda <- best_bic$lambda
 results_df$fs <- best_bic$fs_moment
 results_df$nu <- best_bic$nu
-resuts_df$weight <- w
+results_df$weight <- w
 
 #centiles
 fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_results.csv"))
