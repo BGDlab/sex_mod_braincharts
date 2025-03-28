@@ -532,42 +532,88 @@ psych_df_eu %>%
 
 ### Global Phenotypes
 ```{r}
-ggplot(df_global) + 
+df_gmv <- df_global %>%
+  dplyr::select(age_days, sexMale, GMV) %>%
+  na.omit()
+
+ggplot(df_gmv) + 
   geom_point(aes(x=age_days, y=GMV,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280))
+  geom_vline(xintercept = log(280)) +
+  scale_y_continuous(limits = c(0, NA))
 
 ggplot(df_global) + 
   geom_point(aes(x=log(age_days), y=WMV,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280))
+  geom_vline(xintercept = log(280)) +
+  scale_y_continuous(limits = c(0, NA))
 
 ggplot(df_global) + 
   geom_point(aes(x=log(age_days), y=sGMV,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280))
+  geom_vline(xintercept = log(280)) +
+  scale_y_continuous(limits = c(0, NA))
 
 ggplot(df_global) + 
   geom_point(aes(x=log(age_days), y=CSF,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280))
+  geom_vline(xintercept = log(280)) +
+  scale_y_continuous(limits = c(0, NA))
 ```
 ```{r}
 ggplot(df_global, aes(x=log(age_days), y=eTIV)) + 
   geom_point(aes(color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = log(280)) +
-  geom_smooth(method=lm, color="#264762") +
-  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x))
+  # geom_smooth(method=lm, color="#264762") +
+  # geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x)) +
+  scale_y_continuous(limits = c(0, NA))
 
 ggplot(df_global, aes(x=age_days, y=eTIV)) + 
   geom_point(aes(color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = log(280)) +
   geom_smooth(method=lm, color="#264762") +
-  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x))
+  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x)) +
+  scale_y_continuous(limits = c(0, NA))
 
 df_global <- df_global %>%
   mutate(TBV = WMV + sGMV + GMV)
+
 ggplot(df_global, aes(x=log(age_days), y=TBV)) + 
   geom_point(aes(color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = log(280)) +
-  geom_smooth(method=lm, color="#264762") +
-  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x))
+  # geom_smooth(method=lm, color="#264762") +
+  # geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x)) +
+  scale_y_continuous(limits = c(0, NA))
+```
+
+```{r}
+mad_etiv <- mad(df_clean$eTIV, na.rm = T)
+med_etiv <- median(df_clean$eTIV, na.rm = T)
+
+ggplot(df_clean, aes(y=eTIV)) + 
+  geom_boxplot() +
+  geom_hline(yintercept = med_etiv + 8*mad_etiv) +
+  scale_y_continuous(limits = c(0, NA))
+
+mad_tbv <- mad(df_clean$TBV, na.rm = T)
+med_tbv <- median(df_clean$TBV, na.rm = T)
+
+ggplot(df_clean, aes(y=TBV)) + 
+  geom_boxplot() +
+  geom_hline(yintercept = med_tbv + 8*mad_tbv) +
+  scale_y_continuous(limits = c(0, NA))
+
+mad_ct <- mad(df_clean$total.CT, na.rm = T)
+med_ct <- median(df_clean$total.CT, na.rm = T)
+
+ggplot(df_clean, aes(y=total.CT)) + 
+  geom_boxplot() +
+  geom_hline(yintercept = med_ct + 8*mad_ct) +
+  scale_y_continuous(limits = c(0, NA))
+
+mad_sa <- mad(df_clean$total.SA, na.rm = T)
+med_sa <- median(df_clean$total.SA, na.rm = T)
+
+ggplot(df_clean, aes(y=total.SA)) + 
+  geom_boxplot() +
+  geom_hline(yintercept = med_sa + 8*mad_sa) +
+  scale_y_continuous(limits = c(0, NA))
 ```
 
 ### Cortical volumes
@@ -600,8 +646,9 @@ ggplot(df) +
 ###Cortical Thickness
 ```{r}
 ggplot(df_ct) + 
-  geom_point(aes(x=age_days, y=rh.CT.superiorparietal, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
+  geom_point(aes(x=log(age_days), y=total.CT, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = log(280))+
+  scale_y_continuous(limits = c(0, NA))
 
 #compare to full dataset
 ggplot(df_clean) + 
@@ -623,6 +670,11 @@ ggplot(df_ct) +
 
 ###Cortical SA
 ```{r}
+ggplot(df_sa) + 
+  geom_point(aes(x=log(age_days), y=total.SA, color=as.factor(sexMale)), alpha=.4) +
+  geom_vline(xintercept = log(280))+
+  scale_y_continuous(limits = c(0, max(df_sa$total.SA, na.rm=TRUE)))
+
 ggplot(df_sa) + 
   geom_point(aes(x=age_days, y=rh.SA.pericalcarine, color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = 280)
