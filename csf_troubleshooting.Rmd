@@ -1,0 +1,109 @@
+---
+title: "csf_troubleshoting"
+output: html_document
+date: "2025-03-31"
+---
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(dplyr)
+library(gamlss)
+library(gamlssTools)
+
+source("./code/gamlss_fit_funs.R")
+```
+
+```{r}
+cv_B <- fread("./data/cv_sample_B.csv", stringsAsFactors = TRUE, na.strings = "")
+```
+
+```{r}
+df_csf <- cv_B %>%
+  dplyr::select(all_of(c("CSF", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
+  na.omit()
+
+df_wm <- cv_B %>%
+  dplyr::select(all_of(c("WMV", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
+  na.omit()
+```
+
+test coverage along log age
+
+```{r}
+ggplot(df_csf) +
+  geom_point(aes(x=logAge_days, y= CSF, color=as.factor(sexMale)), alpha=.2)
+
+ggplot(df_wm) +
+  geom_point(aes(x=logAge_days, y= WMV, color=as.factor(sexMale)), alpha=.2)
+
+range(df_csf$logAge_days)
+range(df_wm$logAge_days)
+
+range(df_csf$sexMale_x_logAge)
+range(df_wm$sexMale_x_logAge)
+
+range(df_csf$CSF)
+range(df_wm$WMV)
+```
+
+```{r}
+df_csf %>%
+  arrange(logAge_days) %>%
+  mutate(age_group = cut(logAge_days, breaks = 8, labels = paste0("G", 1:8))) %>%
+  ggplot(aes(x=CSF, fill=as.factor(sexMale))) +
+  geom_histogram(position="identity", alpha=.6) +
+  facet_wrap(~age_group, scales = "free")
+```
+
+```{r}
+trunc_coverage(df_wm, "logAge_days")
+
+test_csf <- trunc_coverage(df_csf, "logAge_days", n_min=50)
+range(test_csf$CSF)
+range(test_csf$logAge_days)
+```
+```{r}
+test_mod1 <- gamlss(formula = CSF ~ pb(sexMale_x_logAge, control = pb.control(order = 3)) + 
+    pb(logAge_days, control = pb.control(order = 3)) + sexMale + 
+    random(study_site) + fs_version_GM, 
+    sigma.formula = ~pb(sexMale_x_logAge,  
+    control = pb.control(order = 3)) + pb(logAge_days, control = pb.control(order = 3)) + 
+    sexMale + random(study_site) + fs_version_GM, 
+    nu.formula = ~ pb(logAge_days, control = pb.control(order = 3)) + sexMale, 
+    family = BCCG, data = df_csf,
+    control = gamlss.control(n.cyc = 200, nu.step = 0.25), trace = FALSE)
+
+make_centile_fan(gamlssModel=test_mod1, df=df_csf, x_var="logAge_days", color_var="sexMale",
+                             get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),                             
+                             special_term = "sexMale_x_logAge = sexMale * logAge_days")
+```
+
+```{r}
+test_mod2 <- gamlss(formula = CSF ~
+    pb(logAge_days, control = pb.control(order = 3)) + sexMale + 
+    random(study_site) + fs_version_GM, sigma.formula = ~ pb(logAge_days, control = pb.control(order = 3)) + 
+    sexMale + random(study_site) + fs_version_GM, nu.formula = ~logAge_days + 
+    fs_version_GM, family = GG, data = df_csf, 
+    control = gamlss.control(n.cyc = 200, nu.step = 0.25), trace = FALSE)
+
+make_centile_fan(gamlssModel=test_mod2, df=df_csf, x_var="logAge_days", color_var="sexMale",
+                             get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95))
+```
+
+```{r}
+test_mod3 <- gamlss(formula = CSF ~
+    pb(logAge_days, control = pb.control(order = 3)) + sexMale + 
+    random(study_site) + fs_version_GM, sigma.formula = ~ pb(logAge_days, control = pb.control(order = 3)) + 
+    sexMale + random(study_site) + fs_version_GM, nu.formula = ~logAge_days + 
+    fs_version_GM, tau.formula = ~ logAge_days, family = BCT, data = df_csf, 
+    control = gamlss.control(n.cyc = 200, nu.step = 0.25), trace = FALSE)
+
+make_centile_fan(gamlssModel=test_mod3, df=df_csf, x_var="logAge_days", color_var="sexMale",
+                             get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95))
+```
