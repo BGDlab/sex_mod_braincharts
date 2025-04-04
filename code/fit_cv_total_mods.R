@@ -24,7 +24,8 @@ log_scale <- as.logical(args[8])
 df <- df %>%
   dplyr::select(all_of(c(pheno, fs, total,
                          "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
-  na.omit()
+  na.omit() %>%
+  trunc_coverage(c(total, "logAge_days"))
 
 #inverse-weight by age w/in sex (written w help from gpt)
 if (weight_pts == TRUE){
@@ -79,7 +80,11 @@ nu_list <- list(int = "1",
                 sexAge = "sexMale + logAge_days",
                 siteAge = "study_site + logAge_days",
                 siteSex = "study_site + sexMale",
-                siteAgeSex = "study_site + logAge_days + sexMale"
+                siteAgeSex = "study_site + logAge_days + sexMale",
+                pbage = "pb(logAge_days, control = pb.control(order = 3))",
+                sex_pbAge = "sexMale + pb(logAge_days, control = pb.control(order = 3))",
+                site_pbAge = "study_site + pb(logAge_days, control = pb.control(order = 3))",
+                site_pbAgeSex = "study_site + pb(logAge_days, control = pb.control(order = 3)) + sexMale"
                 )
 
 #loop over fs moments
@@ -177,8 +182,9 @@ fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="logAge_days", c
                              sim_data_list = sim_df,
                              show_points=FALSE
                              ) +
-  ggtitle(paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, ",", best_bic$m_name, w)) +
-  xlab("log Age Days")
+  labs(title=paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, ",", best_bic$m_name, w),
+     x ="log Age (days)",
+     color = "Sex=Male", fill="Sex=Male")
 
 ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, ".png"), fan_plot)
 
@@ -186,8 +192,9 @@ fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var=total, color_var
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df2,
                              show_points=FALSE) +
-  ggtitle(paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, ",", best_bic$m_name, w)) +
-  xlab(total)
+  labs(title=paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, ",", best_bic$m_name, w),
+       x = total,
+       color = "Sex=Male", fill="Sex=Male")
 
 ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, "total.png"), fan_plot)
 

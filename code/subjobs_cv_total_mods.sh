@@ -1,13 +1,13 @@
 #!/bin/bash
 #
 #SBATCH --job-name=cv_mods
-#SBATCH --time=120:00:00
+#SBATCH --time=168:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=10G
+#SBATCH --mem-per-cpu=5G
 #SBATCH --array=1-4%10
-#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_models_tot_%A_%a.out
-#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_models_tot_%A_%a.err
+#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_tot_train/R-%A_%a.out
+#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_tot_train/R-%A_%a.err
 
 CONFIGFN=$1
 #CONFIGFN=$(realpath $CONFIGFN)

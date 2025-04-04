@@ -21,7 +21,8 @@ fs <- list_predictors(base_mod)[grep("^fs_version", list_predictors(base_mod))]
 #drop extra variables
 df <- df %>%
   dplyr::select(all_of(c(pheno, fs, "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
-  na.omit()
+  na.omit() %>%
+  trunc_coverage("logAge_days")
 
 #inverse-weight by age w/in sex (written w help from gpt)
 if (length(unique(base_mod$weights)) != 1){
@@ -72,8 +73,10 @@ saveRDS(model, file=file_full)
 print("creating centile fan plot")
   fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
                                get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
-                               sim_data_list = sim_df) +
-    ggtitle(paste(pheno, "validation model"))
+                               sim_data_list = sim_df)  +
+    labs(title=paste(pheno, "validation model"),
+         x ="log Age (days)",
+         color = "Sex=Male", fill="Sex=Male")
     
     ggsave(file=paste0(save_path, "/centile_plots/", filename, ".png"), fan_plot)
     

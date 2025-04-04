@@ -22,7 +22,8 @@ log_scale <- as.logical(args[7])
 #drop extra variables
 df <- df %>%
   dplyr::select(all_of(c(pheno, fs, "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
-  na.omit()
+  na.omit() %>%
+  trunc_coverage("logAge_days") #drop points at ends if too sparse
 
 #inverse-weight by age w/in sex (written w help from gpt)
 if (weight_pts == TRUE){
@@ -76,11 +77,11 @@ nu_list <- list(int = "1",
                 sexAge = "sexMale + logAge_days",
                 siteAge = "study_site + logAge_days", 
                 siteSex = "study_site + sexMale", 
-                # siteAgeSex = "study_site + logAge_days + sexMale"
-                # pbage = "logAge_days",
-                # sex_pbAge = "sexMale + pb(logAge_days, control = pb.control(order = 3))",
-                # site_pbAge = "study_site + pb(logAge_days, control = pb.control(order = 3))", 
-                # site_pbAgeSex = "study_site + pb(logAge_days, control = pb.control(order = 3)) + sexMale"
+                siteAgeSex = "study_site + logAge_days + sexMale",
+                pbage = "pb(logAge_days, control = pb.control(order = 3))",
+                sex_pbAge = "sexMale + pb(logAge_days, control = pb.control(order = 3))",
+                site_pbAge = "study_site + pb(logAge_days, control = pb.control(order = 3))",
+                site_pbAgeSex = "study_site + pb(logAge_days, control = pb.control(order = 3)) + sexMale"
                 )
 
 #loop over fs moments
@@ -163,7 +164,9 @@ print("creating centile fan plot")
 fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="logAge_days", color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df) +
-  ggtitle(paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, ",", best_bic$m_name, w))
+  labs(title=paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, ",", best_bic$m_name, w),
+       x ="log Age (days)",
+       color = "Sex=Male", fill="Sex=Male")
 
 ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, ".png"), fan_plot)
 
