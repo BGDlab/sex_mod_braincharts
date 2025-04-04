@@ -57,7 +57,12 @@ do
       then
         mkdir $save_dir
       fi
-      save_path=$save_dir/${filename}_${pheno_cat}_mods
+      #name subdir based on whether total is controlled for
+      if [[ $2 == "TRUE" ]]; then
+        save_path=$save_dir/${pheno_cat}_total_mods
+      elif [[ $2 == "FALSE" ]]; then
+        save_path=$save_dir/${pheno_cat}_mods
+      fi
       save_path=$(realpath $save_path) #get full paths
       if ! [ -d $save_path ]
       then

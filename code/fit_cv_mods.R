@@ -76,7 +76,12 @@ nu_list <- list(int = "1",
                 sexAge = "sexMale + logAge_days",
                 siteAge = "study_site + logAge_days", 
                 siteSex = "study_site + sexMale", 
-                siteAgeSex = "study_site + logAge_days + sexMale")
+                # siteAgeSex = "study_site + logAge_days + sexMale"
+                # pbage = "logAge_days",
+                # sex_pbAge = "sexMale + pb(logAge_days, control = pb.control(order = 3))",
+                # site_pbAge = "study_site + pb(logAge_days, control = pb.control(order = 3))", 
+                # site_pbAgeSex = "study_site + pb(logAge_days, control = pb.control(order = 3)) + sexMale"
+                )
 
 #loop over fs moments
 fs_moment_list <- c("none", "mu", "both", "all")
