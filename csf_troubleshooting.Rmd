@@ -14,6 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(dplyr)
 library(gamlss)
+devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
 
 source("./code/gamlss_fit_funs.R")
@@ -28,7 +29,7 @@ df_csf <- cv_B %>%
   dplyr::select(all_of(c("CSF", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
   na.omit()
 
-df_wm <- cv_B %>%
+df_wmv<- cv_B %>%
   dplyr::select(all_of(c("WMV", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
   na.omit()
 ```
@@ -106,4 +107,34 @@ test_mod3 <- gamlss(formula = CSF ~
 
 make_centile_fan(gamlssModel=test_mod3, df=df_csf, x_var="logAge_days", color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95))
+```
+
+#Look into issues with eTIV
+
+```{r}
+df_sgmv<- cv_B %>%
+  dplyr::select(all_of(c("sGMV", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days", "eTIV"))) %>%
+  na.omit()
+
+ggplot(df_sgmv) +
+  geom_point(aes(x=eTIV, y=sGMV))
+```
+
+```{r}
+trunc_df <- trunc_coverage(df_sgmv, "eTIV")
+ggplot(trunc_df) +
+  geom_point(aes(x=eTIV, y=sGMV))
+
+ggplot(trunc_df) +
+  geom_point(aes(x=age_days, y=eTIV))
+ggplot(df_sgmv) +
+  geom_point(aes(x=age_days, y=eTIV))
+min(trunc_df$age_days)
+min(df_sgmv$age_days)
+```
+age and etiv together
+```{r}
+trunc_df2 <- trunc_coverage(df_sgmv, c("eTIV", "logAge_days"))
+#check age again
+trunc_coverage(trunc_df2, "logAge_days")
 ```
