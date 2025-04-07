@@ -406,3 +406,87 @@ gamlss_3lambda_etiv <- function(pheno, lambda=NULL,
   return(result)
 }
 
+#gamlss_4param
+gamlss_4param <- function(pheno, 
+                          mu_base,
+                          sig_base,
+                          nu_base,
+                          tau_base,
+                          fam="BCT",
+                          start.from=NULL){
+  
+
+  #define formulas for each moment
+  mu_form <- paste("gamlss(formula =", pheno, "~", mu_base)
+  sig_form <- paste("sigma.formula = ~", sig_base)
+  nu_form <- paste("nu.formula = ~", nu_base)
+  tau_form <- paste("ta.formula = ~", tau_base)
+  
+  
+  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  
+  if (!is.null(start.from)) {
+    control <- paste0("start.from = ", start.from,", ", control)
+  }
+  
+  #try methods
+  
+  result <- tryCatch({
+    gamlss_RSformula <-paste(mu_form, sig_form, nu_form, tau_form, control, sep=", ")
+    print(gamlss_RSformula)
+    
+    eval(parse(text = gamlss_RSformula))
+    
+  } , warning = function(w) {
+    message("warning")
+    eval(parse(text = gamlss_RSformula))
+    
+  } , error = function(e) {
+    message(e$message, ", trying method=CG()")
+    tryCatch({
+      gamlss_CGformula <-paste(mu_form, sig_form, nu_form, tau_form, "method=CG()", control, sep=", ")
+      eval(parse(text = gamlss_CGformula))
+      
+      #if CG also fails, return NULL
+    }, error = function(e2) {
+      message(e2$message, ", returning NULL")
+      return(NULL)
+    })
+  } , finally = {
+    message("done")
+  } )
+  
+  #if needed, try again with tiny nu.step
+  if(is.null(result)){
+    control <- sub("nu\\.step\\s*=\\s*[-+]?[0-9]*\\.?[0-9]+", "nu.step = 0.00000000001", control)
+    control <- sub("tau\\.step\\s*=\\s*[-+]?[0-9]*\\.?[0-9]+", "tau.step = 0.00000000001", control)
+    
+    result <- tryCatch({
+      gamlss_RSformula <-paste(mu_form, sig_form, nu_form, tau_form, control, sep=", ")
+      print(gamlss_RSformula)
+      
+      eval(parse(text = gamlss_RSformula))
+      
+    } , warning = function(w) {
+      message("warning")
+      eval(parse(text = gamlss_RSformula))
+      
+    } , error = function(e) {
+      message(e$message, ", trying method=CG()")
+      tryCatch({
+        gamlss_CGformula <-paste(mu_form, sig_form, nu_form, tau_form, "method=CG()", control, sep=", ")
+        eval(parse(text = gamlss_CGformula))
+        
+        #if CG also fails, return NULL
+      }, error = function(e2) {
+        message(e2$message, ", returning NULL")
+        return(NULL)
+      })
+    } , finally = {
+      message("done")
+    } )
+    
+  }
+  
+  return(result)
+}

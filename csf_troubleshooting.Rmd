@@ -22,6 +22,7 @@ source("./code/gamlss_fit_funs.R")
 
 ```{r}
 cv_B <- fread("./data/cv_sample_B.csv", stringsAsFactors = TRUE, na.strings = "")
+cv_A <- fread("./data/cv_sample_A.csv", stringsAsFactors = TRUE, na.strings = "")
 ```
 
 ```{r}
@@ -31,6 +32,10 @@ df_csf <- cv_B %>%
 
 df_wmv<- cv_B %>%
   dplyr::select(all_of(c("WMV", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
+  na.omit()
+
+df_gmv<- cv_A %>%
+  dplyr::select(all_of(c("GMV", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
   na.omit()
 ```
 
@@ -137,4 +142,54 @@ age and etiv together
 trunc_df2 <- trunc_coverage(df_sgmv, c("eTIV", "logAge_days"))
 #check age again
 trunc_coverage(trunc_df2, "logAge_days")
+
+trunc_df3 <- cv_B %>%
+  dplyr::select(all_of(c("sGMV", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days", "eTIV"))) %>%
+  na.omit() %>%
+  trunc_coverage(c("eTIV", "logAge_days"))
+```
+
+
+```{r}
+ggplot(df_gmv) +
+  geom_point(aes(x=logAge_days, y=GMV, color=as.factor(sexMale)), alpha=.2)
+
+#model without pb in nu
+gmv_mod2 <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_train/global_vols_mods/model_objs/GMV_unweighted_lambdaNULL_mu_age_mod.rds")
+
+make_centile_fan(gmv_mod2, df_gmv, "logAge_days", "sexMale", 
+                 remove_point_effect ="study_site", remove_cent_effect="study_site") #looks very bad!
+```
+
+looks really bad, checking out other models
+
+```{r}
+#model without pb in nu
+gmv_mod3 <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_train/global_vols_mods/model_objs/GMV_unweighted_lambdaNULL_both_age_mod.rds")
+
+make_centile_fan(gmv_mod3, df_gmv, "logAge_days", "sexMale") #looks very bad!
+
+#model without pb in nu
+gmv_mod4 <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_train/global_vols_mods/model_objs/GMV_unweighted_lambdaNULL_mu_sex_pbAge_mod.rds")
+
+make_centile_fan(gmv_mod4, df_gmv, "logAge_days", "sexMale") #looks very bad!
+
+#model without pb in nu
+gmv_mod5 <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_train/global_vols_mods/model_objs/GMV_unweighted_lambdaNULL_mu_sexAge_mod.rds")
+
+make_centile_fan(gmv_mod5, df_gmv, "logAge_days", "sexMale") #looks very bad!
+```
+
+try refitting best mod with BCCG()
+
+```{r}
+gmv_best <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_train/global_vols_mods/model_objs/GMV_unweighted_lambdaNULL_mu_pbage_BestMod.rds")
+
+gmv_refit <- gamlss(formula = GMV ~ pb(sexMale_x_logAge, control = pb.control(order = 3)) + 
+    pb(logAge_days, control = pb.control(order = 3)) + sexMale + random(study_site) + fs_version_GM, 
+    sigma.formula = ~pb(sexMale_x_logAge, control = pb.control(order = 3)) + pb(logAge_days, control = pb.control(order = 3)) + sexMale + random(study_site), 
+    nu.formula = ~pb(logAge_days, control = pb.control(order = 3)), 
+    family = BCCG, data = df_gmv, 
+    method = RS(), control = gamlss.control(n.cyc = 200, 
+        nu.step = 0.25), trace = FALSE)
 ```
