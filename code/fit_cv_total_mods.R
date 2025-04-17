@@ -180,7 +180,7 @@ print("creating centile fan plots")
 fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="logAge_days", color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
-                             remove_point_effect = total
+                             remove_point_effect = c(total, "study_site")
                              ) +
   labs(title=paste(pheno, "\nsmoothed w/ lamda=", best_bic$lambda, ",", best_bic$m_name, w),
      x ="log Age (days)",
