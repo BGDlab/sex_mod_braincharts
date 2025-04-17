@@ -103,7 +103,7 @@ for (fs_include in fs_moment_list){
   model <- gamlss_3lambda(pheno,
                           lambda=l, 
                           fs_ver=fs, fs_moment=fs_include, 
-                          fam="GG", 
+                          fam="BCCG", 
                           weight=weight_pts,
                           nu_form=nu,
                           start.from = "mod_list[[1]]") #use first model as starting point

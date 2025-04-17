@@ -23,12 +23,19 @@ df <- df %>%
   rename(freesurfer = freesurf) %>%
   trunc_coverage(vars=("logAge_days")) #drop points at ends if too sparse
 
+#try log-scaling
+pheno_sym <- sym(pheno)
+
+# df <- df %>%
+#   mutate(!!pheno_sym := ifelse(!!pheno_sym==0, 1, !!pheno_sym)) %>% #replace 0 with 1
+#   mutate(!!pheno_sym := log(!!pheno_sym, base=10)) #transform
+
 #try just fitting MOST COMPLEX 4-param model and see what happens
 
 mu_str <- "pb(logAge_days, control = pb.control(order = 3)) + pb(sexMale_x_logAge, control = pb.control(order = 3)) + sexMale + random(study_site) + freesurfer"
 sig_str <- "pb(logAge_days, control = pb.control(order = 3)) + pb(sexMale_x_logAge, control = pb.control(order = 3)) + sexMale + random(study_site) + freesurfer"
 nu_str <- "pb(logAge_days, control = pb.control(order = 3)) + pb(sexMale_x_logAge, control = pb.control(order = 3)) + sexMale + study_site + freesurfer"
-tau_str <- "logAge_days + sexMale_x_logAge + sexMale + random(study_site) + freesurfer"
+tau_str <- "pb(logAge_days, control=pb.control(order=3)) + sexMale_x_logAge + sexMale + random(study_site) + freesurfer"
   
 print("fitting model")
 model <- gamlss_4param(pheno, 
@@ -39,7 +46,7 @@ model <- gamlss_4param(pheno,
                        fam="BCT",
                        start.from=NULL)
 
-saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_4param_mod.rds"))
+saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_4param_pbtau_mod.rds"))
 
 
 #sim data ONCE for centile fan plotting
@@ -55,13 +62,13 @@ fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", colo
        x ="log Age (days)",
        color = "Sex=Male", fill="Sex=Male")
 
-ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_4param.png"), fan_plot)
+ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_4param_pbtau.png"), fan_plot)
 
 #WORM PLOT
 print("creating worm plot")
 wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=8) +
   ggtitle(paste(pheno, "validation model"))
-ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_4param.png"), wp)
+ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_4param_pbtau.png"), wp)
 
 #COMPILE
 print("compiling stats")
@@ -79,7 +86,7 @@ summary_df <- data.frame(
 print("saving csvs")
 
 #centiles
-fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_4param_centiles.csv"))
+fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_4param_pbtau_centiles.csv"))
 
 #BIC & AIC
-fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_4param_summary.csv"))
+fwrite(summary_df, file=paste0(save_path, "/model_sums/", pheno, "_4param_pbtau_summary.csv"))

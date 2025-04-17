@@ -34,7 +34,7 @@ glob_path <- Sys.glob("cv_sample_*_train/*global_vols_mods/")
 
 list best model's files for review - code with help from GPT
 ```{r}
-pdf("global_train_mods.pdf", width = 8.5, height = 11)  # Open PDF device
+pdf("global_train_mods_3param.pdf", width = 8.5, height = 11)  # Open PDF device
 
 best_mods <- list.files(path = paste0(glob_path, "model_objs"),
                         pattern = "*BestMod.rds", 
@@ -62,8 +62,8 @@ for (fname in best_mods) {
   img_list[[2]] <- rasterGrob(as.raster(png::readPNG(wp_png_file)), interpolate = TRUE)
   
   # Read and print CSV file
-  # csv_data <- read.csv(cent_csv_file)
-  # csv_table <- tableGrob(csv_data)
+  csv_data <- read.csv(cent_csv_file)
+  csv_table <- tableGrob(csv_data)
   
   #add section title
   pheno <- sub("_.*", "", basename(fname))
@@ -73,7 +73,7 @@ for (fname in best_mods) {
     title, 
     img_list[[1]], 
     img_list[[2]],
-    # csv_table,
+    csv_table,
     heights = c(.5, 3, 3, 2)  # Adjust heights for better layout
   )
 }
@@ -82,17 +82,23 @@ for (fname in best_mods) {
 dev.off()
 ```
 
-look at all lambda=40000s just to see
+get mods with etiv
 ```{r}
-pdf("subcortical_lambda40000.pdf", width = 8.5, height = 11)  # Open PDF device
+glob_path <- Sys.glob("cv_sample_*_train/*global_vols_total_mods/")
 
-l400_list <- paste(subcortical_vols, "lambda40000", sep="_")
+pdf("global_train_mods_3param_total.pdf", width = 8.5, height = 11)  # Open PDF device
 
-for (fname in l400_list) {
-  # Get file names
-  cent_png_file <- list.files(paste0(subcort_path, "centile_plots"), pattern = fname, full.names = TRUE)
-  wp_png_file <- list.files(paste0(subcort_path, "worm_plots"), pattern = fname, full.names = TRUE)
-  cent_csv_file <- list.files(paste0(subcort_path, "cent_csvs"), pattern = fname, full.names = TRUE)
+best_mods <- list.files(path = paste0(glob_path, "model_objs"),
+                        pattern = "*BestMod.rds", 
+                        recursive = T,
+                        full.names = TRUE)
+
+for (fname in best_mods) {
+  print(fname)
+  # Get plot fils
+  cent_png_file <- sub("model_objs", "centile_plots", fname) %>% sub("_BestMod.rds", ".png", .)
+  wp_png_file <- sub("model_objs", "worm_plots", fname) %>% sub("_BestMod.rds", ".png", .)
+  cent_csv_file <- sub("model_objs", "cent_csvs", fname) %>% sub("_BestMod.rds", "_results.csv", .)
   
   if((length(cent_png_file) & length(wp_png_file) & length(cent_csv_file)) != 1){
     warning(paste("ERROR in", fname, ": found", 
@@ -113,13 +119,15 @@ for (fname in l400_list) {
   csv_table <- tableGrob(csv_data)
   
   #add section title
-  title <- textGrob(paste("Phenotype:", fname), gp = gpar(fontsize = 16, fontface = "bold"))
+  pheno <- sub("_.*", "", basename(fname))
+  samp <- regmatches(fname, gregexpr("(?<=cv_sample_)\\w", fname, perl = TRUE))[[1]] %>% unique()
+  title <- textGrob(paste("Phenotype:", pheno, "Sample:", samp), gp = gpar(fontsize = 14, fontface = "bold"))
   grid.arrange(
     title, 
     img_list[[1]], 
     img_list[[2]],
     csv_table,
-    heights = c(1, 4, 5, 1)  # Adjust heights for better layout
+    heights = c(.5, 3, 3, 2)  # Adjust heights for better layout
   )
 }
 
