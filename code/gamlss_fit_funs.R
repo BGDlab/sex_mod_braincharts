@@ -49,7 +49,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   
   #define formulas for each moment
   mu_base <- paste(
-    "gamlss(formula =", pheno, "~",
+    "safe_gamlss(formula =", pheno, "~",
     make_pb("sexMale_x_logAge", lambda), "+",
     make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
   )
@@ -176,7 +176,7 @@ gamlss_3lambda_rep <- function(og_mod,
   mu_base <- sub("logAge_days", paste0("logAge_days, lambda =", mu_lambdas[2]), mu_base)
   mu_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", mu_lambdas[3], ")"), mu_base)
   
-  mu_form <- paste0("gamlss(formula =", pheno, "~", mu_base)
+  mu_form <- paste0("safe_gamlss(formula =", pheno, "~", mu_base)
   
   #SIGMA
   sig_base <- paste0(og_mod$sigma.formula)[2]
@@ -294,7 +294,7 @@ gamlss_3lambda_etiv <- function(pheno, lambda=NULL,
   #define formulas for each moment
   #MU BASE
   mu_base <- paste(
-    "gamlss(formula =", pheno, "~",
+    "safe_gamlss(formula =", pheno, "~",
     make_pb("sexMale_x_logAge", lambda), "+",
     make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
   )
@@ -490,3 +490,21 @@ gamlss_4param <- function(pheno,
   
   return(result)
 }
+
+
+#written with help from GPT, trying to throw error instead of silently returning NULL model
+safe_gamlss <- function(...) {
+  mod <- gamlss(...)
+  
+  # Check for NULL coefficients
+  null_mu <- is.null(coef(mod, what = "mu"))
+  null_sigma <- is.null(coef(mod, what = "sigma"))
+  null_nu <- is.null(coef(mod, what = "nu"))
+  
+  if (null_mu && null_sigma && null_nu) {
+    stop("Model fit failed: coefficients are NULL")
+  }
+  
+  return(mod)
+}
+

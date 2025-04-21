@@ -151,6 +151,8 @@ for (fs_include in moment_list){
 expected <- length(nu_list)*length(moment_list)*length(moment_list)
 print(paste(length(mod_list), "of", expected, "models fit"))
 
+stopifnot(length(mod_list) > 0)
+
 #SAVE CSVs
 print("saving csvs")
 fwrite(summary_df, file=paste0(save_path, "/model_sums/", pheno, "_", w, "_lambda", l.name, "_summary.csv"))

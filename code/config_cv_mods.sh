@@ -20,7 +20,7 @@ echo "weighted = $1"
 echo "include total value = $2"
 
 #LOOP THROUGH 1/2 CSVS
-for file in $(find $(realpath $data_path)  -type f -name "cv_sample*.csv")
+for file in $(find $(realpath $data_path)  -type f -name "cv_sample*.csv") #for testing full df v3_CN_cleaned
 do
   
   echo "prepping: $file"
