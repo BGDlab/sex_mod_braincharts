@@ -1,4 +1,5 @@
-#Fit GAMLSS models to select from on CV samples
+#seeing if models behave better when age is not log-scaled
+set.seed(99999)
 
 #LOAD PACKAGES
 library(data.table)
@@ -21,9 +22,9 @@ log_scale <- as.logical(args[7])
 
 #drop extra variables
 df <- df %>%
-  dplyr::select(all_of(c(pheno, fs, "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
+  dplyr::select(all_of(c(pheno, fs, "age_days", "sexMale", "study_site", "sexMale_x_age"))) %>%
   na.omit() %>%
-  trunc_coverage("logAge_days") #drop points at ends if too sparse
+  trunc_coverage("age_days") #drop points at ends if too sparse
 
 #inverse-weight by age w/in sex (written w help from gpt)
 if (weight_pts == TRUE){
@@ -67,21 +68,21 @@ if (l.name == "NULL"){
 
 #sim data ONCE for centile fan plotting
 print("simulate data for plotting")
-sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+sim_df <- sim_data(df, "age_days", factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
 
 #loop over nu terms #NEED TO ADD START FROM 
 nu_list <- list(int = "1", 
                 site = "study_site", 
                 sex = "sexMale",
-                age = "logAge_days",
-                sexAge = "sexMale + logAge_days",
-                siteAge = "study_site + logAge_days", 
+                age = "age_days",
+                sexAge = "sexMale + age_days",
+                siteAge = "study_site + age_days", 
                 siteSex = "study_site + sexMale", 
-                siteAgeSex = "study_site + logAge_days + sexMale",
-                pbage = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
+                siteAgeSex = "study_site + age_days + sexMale",
+                pbage = "pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                sex_pbAge = "sexMale + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                site_pbAge = "study_site + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                site_pbAgeSex = "study_site + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
                 )
 
 #loop over fs moments
@@ -100,7 +101,7 @@ for (fs_include in fs_moment_list){
   print(paste("fitting model with lambda =", l, ", fs in", fs_include, "and nu = ", nu_name, w))
   
   #FIT BASIC MODEL
-  model <- gamlss_3lambda(pheno,
+  model <- gamlss_age(pheno,
                           lambda=l, 
                           fs_ver=fs, fs_moment=fs_include, 
                           fam="BCCG", 
@@ -119,7 +120,7 @@ for (fs_include in fs_moment_list){
   m_name <- paste(fs_include, nu_name, sep="_")
   mod_list[[m_name]] <- model
   
-  saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", w, "_lambda", l.name, "_", m_name, "_mod.rds"))
+  saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_unscaledAge_", w, "_lambda", l.name, "_", m_name, "_mod.rds"))
 
  
   #COMPILE
@@ -143,7 +144,7 @@ stopifnot(length(mod_list) > 0)
 
 #SAVE CSVs
 print("saving csvs")
-fwrite(summary_df, file=paste0(save_path, "/model_sums/", pheno, "_", w, "_lambda", l.name, "_summary.csv"))
+fwrite(summary_df, file=paste0(save_path, "/model_sums/", pheno, "_unscaledAge_", w, "_lambda", l.name, "_summary.csv"))
 
 print("finding lowest BIC")
 best_bic <- summary_df %>%
@@ -156,14 +157,14 @@ print(best_bic$m_name)
 best_mod <- mod_list[[best_bic$m_name]]
 
 #RENAME BEST MOD
-file.rename(paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$weight, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_mod.rds"),
-            paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$weight, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_BestMod.rds"))
+file.rename(paste0(save_path, "/model_objs/", best_bic$pheno, "_unscaledAge_", best_bic$weight, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_mod.rds"),
+            paste0(save_path, "/model_objs/", best_bic$pheno, "_unscaledAge_", best_bic$weight, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_BestMod.rds"))
 
 print("compiling stats")
 
 #CENTILE FAN PLOT
 print("creating centile fan plot")
-fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="logAge_days", color_var="sexMale",
+fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="age_days", color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
                              remove_cent_effect="study_site",
@@ -172,13 +173,13 @@ fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="logAge_days", c
        x ="log Age (days)",
        color = "Sex=Male", fill="Sex=Male")
 
-ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, ".png"), fan_plot)
+ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_unscaledAge_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, ".png"), fan_plot)
 
 #WORM PLOT
 print("creating worm plot")
-wp <- wp.taki(xvar=df$logAge_days, resid=resid(best_mod), n.inter=8) +
+wp <- wp.taki(xvar=df$age_days, resid=resid(best_mod), n.inter=8) +
   ggtitle(paste(pheno, "\nsmoothed w/ lambda=", l.name))
-ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, ".png"), wp)
+ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_unscaledAge_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, ".png"), wp)
 
 #centiles
 results_df <- cent_cdf(best_mod, df, plot=FALSE, group="sexMale")
@@ -188,6 +189,6 @@ results_df$nu <- best_bic$nu
 results_df$weight <- w
 
 #centiles
-fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_results.csv"))
+fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_unscaledAge_", w, "_lambda", best_bic$lambda, "_", best_bic$m_name, "_results.csv"))
 
 print("DONE")

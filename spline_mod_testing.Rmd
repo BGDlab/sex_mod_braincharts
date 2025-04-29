@@ -17,14 +17,27 @@ source("code/gamlss_fit_funs.R")
 
 load data
 ```{r}
-df_full <- fread("data/csvs_by_pheno/global_vols.csv")
-knot_list <- readRDS("code/knot_lists.RDS") #knots evenly spaced along log(age)
+df_B <- fread("data/cv_sample_B.csv", stringsAsFactors=TRUE)
+
+df_WMV <- df_B %>%
+  dplyr::select(all_of(c("WMV", "fs_version_GM", "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days", "sexMale_x_age", "age_days"))) %>%
+  na.omit() %>%
+  trunc_coverage("logAge_days")
+
+ggplot(df_WMV) +
+  geom_histogram(aes(x=logAge_days))
+
+ggplot(df_WMV) +
+  geom_histogram(aes(x=age_days/365.25))
 ```
 
 ```{r}
-gmv_df <- df_full %>%
-  select(c(sexMale, logAge_days, age_days, study_site, GMV)) %>%
-  na.omit()
+test <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_train/global_vols_mods/model_objs/WMV_unweighted_lambdaNULL_none_int_mod.rds")
 
-test1 <- gamlss(formula=GMV ~ pb(logAge_days, k=10) + sexMale + study_site, sigma.formula = ~pb(logAge_days, k=10) + sexMale + study_site, family=GG, data=gmv_df)
+test1 <- gamlss(formula = WMV ~ pb(sexMale_x_age, control = pb.control(order = 3)) + 
+    pb(age_days, control = pb.control(order = 3)) + sexMale + random(study_site), 
+    sigma.formula = ~pb(sexMale_x_age, control = pb.control(order = 3)) + pb(age_days, control = pb.control(order = 3)) + sexMale + random(study_site), 
+    nu.formula = ~1, 
+    family = BCCG, 
+    data = df_WMV, control = gamlss.control(n.cyc = 200, nu.step = 0.25), trace = FALSE)
 ```

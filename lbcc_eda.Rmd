@@ -462,6 +462,19 @@ fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 
 # Visualize Data
 
+```{r, eval=FALSE}
+#df_clean <- fread("./data/v3_CN_cleaned.csv", stringsAsFactors=T)
+```
+
+check ranges
+
+```{r}
+get_min <- function(p, df){
+  min(df[[p]], na.rm=T)
+}
+pheno_mins <- lapply(pheno_list, get_min, df_clean)
+```
+
 ### Euler QC
 looking at associations between Euler and demographics (in control sample and held-out psychosis sample)
 

@@ -272,9 +272,9 @@ gamlss_3lambda_rep <- function(og_mod,
 #helper fun
 make_pb <- function(var, lambda) {
   if (is.null(lambda)) {
-    paste0("pb(", var, ", control=pb.control(order=3))")
+    paste0("pb(", var, ", method='GAIC', k=log(nrow(df)), control=pb.control(order=3))")
   } else {
-    paste0("pb(", var, ", lambda=", lambda, ", control=pb.control(order=3))")
+    paste0("pb(", var, ", lambda=", lambda, ", method='GAIC', k=log(nrow(df)), control=pb.control(order=3))")
   }
 }
 
@@ -508,3 +508,222 @@ safe_gamlss <- function(...) {
   return(mod)
 }
 
+#try not log-scaling age
+gamlss_age <- function(pheno, lambda=NULL, 
+                           fs_ver, fs_moment=c("both", "mu", "none", "all"), 
+                           fam="GG",
+                           weight= FALSE,
+                           nu_form="1",
+                           start.from=NULL){
+  
+  fs_moment <- match.arg(fs_moment)
+  
+  #define formulas for each moment
+  mu_base <- paste(
+    "safe_gamlss(formula =", pheno, "~",
+    make_pb("sexMale_x_age", lambda), "+",
+    make_pb("age_days", lambda), "+ sexMale + random(study_site)"
+  )
+  
+  if (fs_moment != "none"){
+    mu_form <- paste(mu_base, "+", fs_ver) #add fs_version term if needed
+  } else {
+    mu_form <- paste(mu_base) #or just comma
+  }
+  
+  sig_base <- paste(
+    "sigma.formula = ~",
+    make_pb("sexMale_x_age", lambda), "+",
+    make_pb("age_days", lambda), "+ sexMale + random(study_site)"
+  )
+  
+  if (fs_moment == "both" | fs_moment == "all") {
+    sig_form <- paste(sig_base, "+", fs_ver)
+  } else {
+    sig_form <- sig_base
+  }
+  
+  if (fs_moment == "all") {
+    nu_form <- paste("nu.formula = ~", nu_form," + ", fs_ver)
+  } else {
+    nu_form <- paste("nu.formula = ~", nu_form)
+  }
+  
+  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  
+  if (!is.null(start.from)) {
+    control <- paste0("start.from = ", start.from,", ", control)
+  }
+  
+  if (weight==TRUE) {
+    control <- paste0("weights = weight, ", control)
+  }
+  
+  #try methods
+  
+  result <- tryCatch({
+    gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
+    print(gamlss_RSformula)
+    
+    eval(parse(text = gamlss_RSformula))
+    
+  } , warning = function(w) {
+    message("warning")
+    eval(parse(text = gamlss_RSformula))
+    
+  } , error = function(e) {
+    message(e$message, ", trying method=CG()")
+    tryCatch({
+      gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
+      eval(parse(text = gamlss_CGformula))
+      
+      #if CG also fails, return NULL
+    }, error = function(e2) {
+      message(e2$message, ", returning NULL")
+      return(NULL)
+    })
+  } , finally = {
+    message("done")
+  } )
+  
+  #if needed, try again with tiny nu.step
+  if(is.null(result)){
+    control <- sub("nu\\.step\\s*=\\s*[-+]?[0-9]*\\.?[0-9]+", "nu.step = 0.00000000001", control)
+    
+    result <- tryCatch({
+      gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
+      print(gamlss_RSformula)
+      
+      eval(parse(text = gamlss_RSformula))
+      
+    } , warning = function(w) {
+      message("warning")
+      eval(parse(text = gamlss_RSformula))
+      
+    } , error = function(e) {
+      message(e$message, ", trying method=CG()")
+      tryCatch({
+        gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
+        eval(parse(text = gamlss_CGformula))
+        
+        #if CG also fails, return NULL
+      }, error = function(e2) {
+        message(e2$message, ", returning NULL")
+        return(NULL)
+      })
+    } , finally = {
+      message("done")
+    } )
+    
+  }
+  
+  return(result)
+}
+
+#cs() to smooth instead of pb()
+gamlss_cs <- function(pheno,
+                           fs_ver, fs_moment=c("both", "mu", "none", "all"), 
+                           fam="GG",
+                           weight= FALSE,
+                           nu_form="1",
+                           start.from=NULL){
+  
+  fs_moment <- match.arg(fs_moment)
+  
+  #define formulas for each moment
+  mu_base <- paste(
+    "safe_gamlss(formula =", pheno, "~ cs(sexMale_x_logAge) + cs(logAge_days)+ sexMale + random(study_site)"
+  )
+  
+  if (fs_moment != "none"){
+    mu_form <- paste(mu_base, "+", fs_ver) #add fs_version term if needed
+  } else {
+    mu_form <- paste(mu_base) #or just comma
+  }
+  
+  sig_base <- paste(
+    "sigma.formula = ~ cs(sexMale_x_logAge) + cs(logAge_days) + sexMale + random(study_site)"
+  )
+  
+  if (fs_moment == "both" | fs_moment == "all") {
+    sig_form <- paste(sig_base, "+", fs_ver)
+  } else {
+    sig_form <- sig_base
+  }
+  
+  if (fs_moment == "all") {
+    nu_form <- paste("nu.formula = ~", nu_form," + ", fs_ver)
+  } else {
+    nu_form <- paste("nu.formula = ~", nu_form)
+  }
+  
+  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  
+  if (!is.null(start.from)) {
+    control <- paste0("start.from = ", start.from,", ", control)
+  }
+  
+  if (weight==TRUE) {
+    control <- paste0("weights = weight, ", control)
+  }
+  
+  #try methods
+  
+  result <- tryCatch({
+    gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
+    print(gamlss_RSformula)
+    
+    eval(parse(text = gamlss_RSformula))
+    
+  } , warning = function(w) {
+    message("warning")
+    eval(parse(text = gamlss_RSformula))
+    
+  } , error = function(e) {
+    message(e$message, ", trying method=CG()")
+    tryCatch({
+      gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
+      eval(parse(text = gamlss_CGformula))
+      
+      #if CG also fails, return NULL
+    }, error = function(e2) {
+      message(e2$message, ", returning NULL")
+      return(NULL)
+    })
+  } , finally = {
+    message("done")
+  } )
+  
+  #if needed, try again with tiny nu.step
+  if(is.null(result)){
+    control <- sub("nu\\.step\\s*=\\s*[-+]?[0-9]*\\.?[0-9]+", "nu.step = 0.00000000001", control)
+    
+    result <- tryCatch({
+      gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
+      print(gamlss_RSformula)
+      
+      eval(parse(text = gamlss_RSformula))
+      
+    } , warning = function(w) {
+      message("warning")
+      eval(parse(text = gamlss_RSformula))
+      
+    } , error = function(e) {
+      message(e$message, ", trying method=CG()")
+      tryCatch({
+        gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
+        eval(parse(text = gamlss_CGformula))
+        
+        #if CG also fails, return NULL
+      }, error = function(e2) {
+        message(e2$message, ", returning NULL")
+        return(NULL)
+      })
+    } , finally = {
+      message("done")
+    } )
+    
+  }
+  
+  return(result)
+}

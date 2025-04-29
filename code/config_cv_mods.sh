@@ -20,7 +20,7 @@ echo "weighted = $1"
 echo "include total value = $2"
 
 #LOOP THROUGH 1/2 CSVS
-for file in $(find $(realpath $data_path)  -type f -name "cv_sample*.csv") #for testing full df v3_CN_cleaned
+for file in $(find $(realpath $data_path)  -type f -name "v3_CN_cleaned.csv") #for testing full df v3_CN_cleaned
 do
   
   echo "prepping: $file"
@@ -40,7 +40,7 @@ do
   
     #CREATE OUTPUT DIRS
     #make config file dir or remove old file if necessary
-    config_file=$config_path/${filename}_${pheno_cat}_weight${1}_total${2}_config.txt
+    config_file=$config_path/${filename}_${pheno_cat}_weight${1}_total${2}_scale${log_scale}config.txt
     if ! [ -d $config_path ]
     then
       mkdir $config_path
