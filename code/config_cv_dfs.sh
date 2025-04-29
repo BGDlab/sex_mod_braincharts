@@ -30,7 +30,7 @@ echo "include total value = $total"
 echo "log scale age = $log_age"
 
 #LOOP THROUGH 1/2 CSVS
-for file in $(find $(realpath $data_path)  -type f -name "v3_CN_cleaned.csv") #for testing full df "cv_sample_*.csv"
+for file in $(find $(realpath $data_path)  -type f -name "cv_sample_*.csv") #for testing full df "v3_CN_cleaned.csv"
 do
   
   echo "prepping: $file"

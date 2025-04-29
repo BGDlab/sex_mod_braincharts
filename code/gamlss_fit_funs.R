@@ -622,11 +622,12 @@ gamlss_age <- function(pheno, lambda=NULL,
 
 #cs() to smooth instead of pb()
 gamlss_cs <- function(pheno,
-                           fs_ver, fs_moment=c("both", "mu", "none", "all"), 
-                           fam="GG",
-                           weight= FALSE,
-                           nu_form="1",
-                           start.from=NULL){
+                      fs_ver, 
+                      fs_moment=c("both", "mu", "none", "all"), 
+                      fam="GG",
+                      weight= FALSE,
+                      nu_form="1",
+                      start.from=NULL){
   
   fs_moment <- match.arg(fs_moment)
   

@@ -37,17 +37,18 @@ echo "SMOOTH: $SMOOTH"
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
 
-if [ $TOTAL == "TRUE" ] 
-then
-  script=$BASE/code/fit_cv_total_mods.R
-elif [ $TOTAL == "FALSE" ]
+if [ $TOTAL == "NULL" ] 
 then
   script=$BASE/code/fit_cv_mods.R
+else
+  script=$BASE/code/fit_cv_total_mods.R
 fi
+
+echo "SCRIPT: $script"
 
 module load R/4.4.0
 
-Rscript $script $DF $PHENO $LAMBDA $FS $SAVE_PATH $WEIGHT $SCALE
+Rscript $script $DF $PHENO $LAMBDA $FS $TOTAL $SAVE_PATH $WEIGHT $LOG_PHENO $LOG_AGE $SMOOTH
 
 # Done!
 echo "Job finished running!"

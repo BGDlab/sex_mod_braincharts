@@ -14,53 +14,53 @@ print(args)
 df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 pheno <- as.character(args[2])
 fs <- as.character(args[3])
-total <- as.logical(args[4])
+total <- as.character(args[4])
 save_path <- as.character(args[5])
 log_pheno <- as.logical(args[6])
 log_age <- as.logical(args[7])
 sm <- as.character(args[8])
 
-stopifnot(is.null(total))
+stopifnot(total == "NULL")
 
 #loop over nu terms
 if (log_age == TRUE & sm == "pb"){
-  nu_list <- list(int = "1", 
-                  site = "study_site", 
+  nu_list <- list(int = "1",
+                  site = "study_site",
                   sex = "sexMale",
                   age = "logAge_days",
                   sexAge = "sexMale + logAge_days",
-                  siteAge = "study_site + logAge_days", 
-                  siteSex = "study_site + sexMale", 
+                  siteAge = "study_site + logAge_days",
+                  siteSex = "study_site + sexMale",
                   siteAgeSex = "study_site + logAge_days + sexMale",
                   pbage = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
                   sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
                   site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
                   site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
   )
-  
+
 } else if (log_age == TRUE & sm == "cs"){
-  nu_list <- list(int = "1", 
-                  site = "study_site", 
+  nu_list <- list(int = "1",
+                  site = "study_site",
                   sex = "sexMale",
                   age = "logAge_days",
                   sexAge = "sexMale + logAge_days",
-                  siteAge = "study_site + logAge_days", 
-                  siteSex = "study_site + sexMale", 
+                  siteAge = "study_site + logAge_days",
+                  siteSex = "study_site + sexMale",
                   siteAgeSex = "study_site + logAge_days + sexMale",
                   pbage = "cs(logAge_days)",
                   sex_pbAge = "sexMale + cs(logAge_days)",
                   site_pbAge = "study_site + cs(logAge_days)",
                   site_pbAgeSex = "study_site + cs(logAge_days) + sexMale"
   )
-  
+
 } else if (log_age == FALSE & sm == "pb"){
-  nu_list <- list(int = "1", 
-                  site = "study_site", 
+  nu_list <- list(int = "1",
+                  site = "study_site",
                   sex = "sexMale",
                   age = "age_days",
                   sexAge = "sexMale + age_days",
-                  siteAge = "study_site + age_days", 
-                  siteSex = "study_site + sexMale", 
+                  siteAge = "study_site + age_days",
+                  siteSex = "study_site + sexMale",
                   siteAgeSex = "study_site + age_days + sexMale",
                   pbage = "pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
                   sex_pbAge = "sexMale + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
@@ -68,13 +68,13 @@ if (log_age == TRUE & sm == "pb"){
                   site_pbAgeSex = "study_site + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
   )
 } else if (log_age == FALSE & sm == "cs"){
-  nu_list <- list(int = "1", 
-                  site = "study_site", 
+  nu_list <- list(int = "1",
+                  site = "study_site",
                   sex = "sexMale",
                   age = "age_days",
                   sexAge = "sexMale + age_days",
-                  siteAge = "study_site + age_days", 
-                  siteSex = "study_site + sexMale", 
+                  siteAge = "study_site + age_days",
+                  siteSex = "study_site + sexMale",
                   siteAgeSex = "study_site + age_days + sexMale",
                   pbage = "cs(age_days)",
                   sex_pbAge = "sexMale + cs(age_days)",
@@ -98,20 +98,29 @@ for (fs_include in fs_moment_list){
   for (nu in nu_list){
   nu_name <- names(nu_list)[nu_list==nu]
   print(paste("fitting model with fs in", fs_include, "and nu = ", nu_name))
-  
+
   #FIT BASIC MODEL
-  if (sm == "pb"){
+  if (sm == "pb" & log_age == TRUE){
     model <- gamlss_3lambda(pheno,
-                            fs_ver=fs, 
-                            fs_moment=fs_include, 
-                            fam="BCCG", 
+                            fs_ver=fs,
+                            fs_moment=fs_include,
+                            fam="BCCG",
                             nu_form=nu,
                             start.from = "mod_list[[1]]") #use first model as starting point
+    
+  } else if (sm == "pb" & log_age == FALSE) {
+    model <- gamlss_age(pheno,
+                        fs_ver=fs,
+                        fs_moment=fs_include,
+                        fam="BCCG",
+                        nu_form=nu,
+                        start.from = "mod_list[[1]]") #use first model as starting point
+    
   } else if (sm == "cs"){
     model <- gamlss_cs(pheno,
-                       fs_ver=fs, 
+                       fs_ver=fs,
                        fs_moment=fs_include,
-                       fam="BCCG", 
+                       fam="BCCG",
                        nu_form=nu,
                        start.from = "mod_list[[1]]") #use first model as starting point
   }
@@ -123,10 +132,10 @@ for (fs_include in fs_moment_list){
   } else {
     message("model fit")
   }
-  
+
   m_name <- paste(fs_include, nu_name, sep="_")
   mod_list[[m_name]] <- model
-  
+
   saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds"))
 
   #COMPILE
@@ -179,8 +188,8 @@ if (log_age == TRUE){
 }
 
 
-fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, 
-                             x_var=age_var, 
+fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df,
+                             x_var=age_var,
                              color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
