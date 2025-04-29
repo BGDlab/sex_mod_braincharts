@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH --job-name=cv_mods
-#SBATCH --time=168:00:00
+#SBATCH --time=336:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=3
 #SBATCH --mem-per-cpu=8G
@@ -10,7 +10,6 @@
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_train/R-%A_%a.err
 
 CONFIGFN=$1
-#CONFIGFN=$(realpath $CONFIGFN)
 
 echo "Config file: $CONFIGFN"
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
@@ -18,27 +17,37 @@ echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
 #PARSE CONFIG FILE
 DF=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
 PHENO=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
-LAMBDA=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
-FS=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
+FS=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
+TOTAL=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
 SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
-WEIGHT=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
-SCALE=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $8}' $CONFIGFN )
+LOG_PHENO=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
+LOG_AGE=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $8}' $CONFIGFN )
+SMOOTH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $9}' $CONFIGFN )
 
 echo "DF: $DF"
 echo "PHENO: $PHENO"
-echo "LAMBDA: $LAMBDA"
 echo "FREESURFER COV: $FS"
+echo "TOTAL COV: $TOTAL"
 echo "SAVE_PATH: $SAVE_PATH"
-echo "WEIGHT: $WEIGHT"
-echo "SCALE: $SCALE"
+echo "LOG-SCALE PHENO: $LOG_PHENO"
+echo "LOG-SCALE AGE: $LOG_AGE"
+echo "SMOOTH: $SMOOTH"
 
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
 
+if [ $TOTAL == "TRUE" ] 
+then
+  script=$BASE/code/fit_cv_total_mods.R
+elif [ $TOTAL == "FALSE" ]
+then
+  script=$BASE/code/fit_cv_mods.R
+fi
+
 module load R/4.4.0
 
-Rscript $BASE/code/fit_cv_mods.R $DF $PHENO $LAMBDA $FS $SAVE_PATH $WEIGHT $SCALE
+Rscript $script $DF $PHENO $LAMBDA $FS $SAVE_PATH $WEIGHT $SCALE
 
 # Done!
 echo "Job finished running!"

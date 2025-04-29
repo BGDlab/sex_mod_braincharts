@@ -13,79 +13,75 @@ args <- commandArgs(trailingOnly = TRUE)
 print(args)
 df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 pheno <- as.character(args[2])
-l.name <- as.character(args[3])
-fs <- as.character(args[4])
-total <- as.character(args[5])
-save_path <- as.character(args[6])
-weight_pts <- as.logical(args[7])
-log_scale <- as.logical(args[8])
+fs <- as.character(args[3])
+total <- as.logical(args[4])
+save_path <- as.character(args[5])
+log_pheno <- as.logical(args[6])
+log_age <- as.logical(args[7])
+sm <- as.character(args[8])
 
-#drop extra variables
-df <- df %>%
-  dplyr::select(all_of(c(pheno, fs, total,
-                         "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
-  na.omit() %>%
-  trunc_coverage(c(total, "logAge_days"))
+stopifnot(!is.null(total))
 
-#inverse-weight by age w/in sex (written w help from gpt)
-if (weight_pts == TRUE){
-  n_bins <- 50
-  df$age_bin <- cut(df$age_days, breaks = n_bins, include.lowest = TRUE)
+#loop over nu terms
+if (log_age == TRUE & sm == "pb"){
+  nu_list <- list(int = "1", 
+                  site = "study_site", 
+                  sex = "sexMale",
+                  age = "logAge_days",
+                  sexAge = "sexMale + logAge_days",
+                  siteAge = "study_site + logAge_days", 
+                  siteSex = "study_site + sexMale", 
+                  siteAgeSex = "study_site + logAge_days + sexMale",
+                  pbage = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                  sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                  site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                  site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
+  )
   
+} else if (log_age == TRUE & sm == "cs"){
+  nu_list <- list(int = "1", 
+                  site = "study_site", 
+                  sex = "sexMale",
+                  age = "logAge_days",
+                  sexAge = "sexMale + logAge_days",
+                  siteAge = "study_site + logAge_days", 
+                  siteSex = "study_site + sexMale", 
+                  siteAgeSex = "study_site + logAge_days + sexMale",
+                  pbage = "cs(logAge_days)",
+                  sex_pbAge = "sexMale + cs(logAge_days)",
+                  site_pbAge = "study_site + cs(logAge_days)",
+                  site_pbAgeSex = "study_site + cs(logAge_days) + sexMale"
+  )
   
-  df <- df %>%
-    mutate(sex = as.factor(sexMale)) %>%
-    group_by(sex, age_bin) %>%
-    mutate(bin_count = n()) %>%
-    group_by(sex) %>%
-    mutate(
-      observed_prob = bin_count / sum(bin_count),
-      uniform_prob = 1 / n_bins,
-      raw_weight = uniform_prob / observed_prob,
-      weight = raw_weight * (n() / sum(raw_weight))
-    ) %>%
-    ungroup() %>%
-    select(-bin_count, -observed_prob, -uniform_prob, - raw_weight)
-  w <- "weighted"
-} else{
-  w <- "unweighted"
+} else if (log_age == FALSE & sm == "pb"){
+  nu_list <- list(int = "1", 
+                  site = "study_site", 
+                  sex = "sexMale",
+                  age = "age_days",
+                  sexAge = "sexMale + age_days",
+                  siteAge = "study_site + age_days", 
+                  siteSex = "study_site + sexMale", 
+                  siteAgeSex = "study_site + age_days + sexMale",
+                  pbage = "pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                  sex_pbAge = "sexMale + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                  site_pbAge = "study_site + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                  site_pbAgeSex = "study_site + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
+  )
+} else if (log_age == FALSE & sm == "cs"){
+  nu_list <- list(int = "1", 
+                  site = "study_site", 
+                  sex = "sexMale",
+                  age = "age_days",
+                  sexAge = "sexMale + age_days",
+                  siteAge = "study_site + age_days", 
+                  siteSex = "study_site + sexMale", 
+                  siteAgeSex = "study_site + age_days + sexMale",
+                  pbage = "cs(age_days)",
+                  sex_pbAge = "sexMale + cs(age_days)",
+                  site_pbAge = "study_site + cs(age_days)",
+                  site_pbAgeSex = "study_site + cs(age_days) + sexMale"
+  )
 }
-
-#log-scale pheno if necessary
-if (log_scale == TRUE){
-  pheno_sym <- sym(pheno)
-  
-  df <- df %>%
-    mutate(!!pheno_sym := ifelse(!!pheno_sym==0, 1, !!pheno_sym)) %>% #replace 0 with 1
-    mutate(!!pheno_sym := log(!!pheno_sym, base=10)) #transform
-}
-
-#define lambdas to be tested - FROM CONFIG FILE
-if (l.name == "NULL"){
-  l <- NULL
-} else {
-  l <- as.numeric(l.name)
-}
-
-#sim data ONCE for centile fan plotting
-print("simulate data for plotting")
-sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
-sim_df2 <- sim_data(df, total, factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
-
-#loop over nu terms #NEED TO ADD START FROM 
-nu_list <- list(int = "1",
-                site = "study_site",
-                sex = "sexMale",
-                age = "logAge_days",
-                sexAge = "sexMale + logAge_days",
-                siteAge = "study_site + logAge_days",
-                siteSex = "study_site + sexMale",
-                siteAgeSex = "study_site + logAge_days + sexMale",
-                pbage = "pb(logAge_days, control = pb.control(order = 3))",
-                sex_pbAge = "sexMale + pb(logAge_days, control = pb.control(order = 3))",
-                site_pbAge = "study_site + pb(logAge_days, control = pb.control(order = 3))",
-                site_pbAgeSex = "study_site + pb(logAge_days, control = pb.control(order = 3)) + sexMale"
-                )
 
 #loop over fs moments
 moment_list <- c("none", "mu", "both", "all")
@@ -179,6 +175,11 @@ print("compiling stats")
 
 #CENTILE FAN PLOT
 print("creating centile fan plots")
+#sim data ONCE for centile fan plotting
+print("simulate data for plotting")
+sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+sim_df2 <- sim_data(df, total, factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+
 fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="logAge_days", color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
