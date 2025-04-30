@@ -116,8 +116,15 @@ for (fs_include in fs_moment_list){
                         nu_form=nu,
                         start.from = "mod_list[[1]]") #use first model as starting point
     
-  } else if (sm == "cs"){
+  } else if (sm == "cs" & log_age == TRUE){
     model <- gamlss_cs(pheno,
+                       fs_ver=fs,
+                       fs_moment=fs_include,
+                       fam="BCCG",
+                       nu_form=nu,
+                       start.from = "mod_list[[1]]") #use first model as starting point
+  } else if (sm == "cs" & log_age == FALSE){
+    model <- gamlss_csage(pheno,
                        fs_ver=fs,
                        fs_moment=fs_include,
                        fam="BCCG",
