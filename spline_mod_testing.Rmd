@@ -10,9 +10,17 @@ Playing around with different spline configurations to see how they effect worm 
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, gamlss, gamlssTools)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, gamlss, gamlssTools, gamlss.add, mgcv)
 
 source("code/gamlss_fit_funs.R")
+```
+
+look into csf
+```{r}
+df_A <- fread("data/cv_sample_A.csv", stringsAsFactors=TRUE)
+range(df_A$GMV, na.rm=TRUE)
+range(df_A$CSF, na.rm=TRUE)
+log(1000, base=10)
 ```
 
 load data
@@ -31,13 +39,121 @@ ggplot(df_WMV) +
   geom_histogram(aes(x=age_days/365.25))
 ```
 
-```{r}
-test <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_train/global_vols_mods/model_objs/WMV_unweighted_lambdaNULL_none_int_mod.rds")
 
-test1 <- gamlss(formula = WMV ~ pb(sexMale_x_age, control = pb.control(order = 3)) + 
-    pb(age_days, control = pb.control(order = 3)) + sexMale + random(study_site), 
-    sigma.formula = ~pb(sexMale_x_age, control = pb.control(order = 3)) + pb(age_days, control = pb.control(order = 3)) + sexMale + random(study_site), 
-    nu.formula = ~1, 
-    family = BCCG, 
-    data = df_WMV, control = gamlss.control(n.cyc = 200, nu.step = 0.25), trace = FALSE)
+attempting frankensample - removing adults so distribution is less skewed by age
+```{r}
+ggplot(df_B) +
+  geom_histogram(aes(x=logAge_days))
+
+ggplot(df_B) +
+  geom_histogram(aes(x=age_days/365.25))
+```
+
+
+```{r}
+# Example data
+set.seed(123)
+df_full <- fread("data/v3_CN_cleaned.csv", stringsAsFactors=TRUE)
+
+# Bin ages into 10 equal-width intervals
+df_full$age_bin <- cut(df_full$logAge_days, breaks = 10)
+
+ggplot(df_full) +
+  geom_histogram(aes(x=logAge_days, fill=age_bin))
+```
+
+sample up to 1000 from each age bin
+
+```{r}
+balanced_df <- df_full %>%
+  group_by(age_bin) %>%
+  slice_sample(n = 500, replace = FALSE) %>%
+  ungroup()
+
+ggplot(balanced_df) +
+  geom_histogram(aes(x=logAge_days, fill=age_bin))
+```
+```{r}
+df <- df_B %>%
+  dplyr::select("sGMV", "fs_version_GM", "logAge_days", "sexMale", "sexMale_x_logAge", "study_site") %>%
+  na.omit()
+
+df_test <- df %>%
+  mutate(sGMV = sGMV + 1000) #try adding 1000 to keep from going negative
+
+# linear_mod <- gamlss(sGMV ~ 0 + logAge_days + sexMale,
+#     family="NO", data=df,
+#     control=gamlss.control(n.cyc = 200))
+
+# linear_mod <- lm(sGMV ~ 0 + logAge_days + sexMale + random(study_site), data=df)
+# 
+# ggplot(df, aes(x=logAge_days, y=sGMV, color=as.factor(sexMale)))+
+#   geom_point() +
+#   geom_line(aes(y = predict(linear_mod)))  # fitted line
+
+#make_centile_fan(linear_mod, df, x_var="logAge_days", color_var="sexMale")
+
+test_mod <- gamlss(sGMV ~ pb(sexMale_x_logAge, method = "GAIC", k = log(nrow(df)), control = pb.control(order = 3)) + 
+    pb(logAge_days, method = "GAIC", k = log(nrow(df)), control = pb.control(order = 3)) + 
+    sexMale + random(study_site),
+    sigma.formula= ~pb(sexMale_x_logAge, method = "GAIC", k = log(nrow(df)), control = pb.control(order = 3)) + 
+    pb(logAge_days, method = "GAIC", k = log(nrow(df)), control = pb.control(order = 3)) + 
+    sexMale + random(study_site), 
+    nu.formula=~logAge_days,
+    family="BCCG", data=df_test
+    #control=gamlss.control(n.cyc = 200, mu.step = 0.000000001, sigma.step= 0.0000000001, nu.step=0.00000000001),
+    #start.from=linear_mod
+    )
+
+make_centile_fan(test_mod, df, x_var="logAge_days", color_var="sexMale")
+
+```
+
+```{r}
+df2 <- fread("data/cv_sample_A_dfs/sGMV_totalFALSE_logPhenoFALSE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+
+#make_centile_fan(sGMV_none_int_mod, df2, x_var="logAge_days", color_var="sexMale")
+
+df2_test <- df2 %>% mutate(sGMV = sGMV+1000)
+
+test_mod2 <- gamlss(sGMV ~ ga(~s(sexMale_x_logAge, k=20, bs="ad") + 
+                                s(logAge_days, k=20, bs="ad") + 
+                                sexMale + random(study_site), method = 'ML'),
+                    sigma.formula= ~ga(~s(sexMale_x_logAge, k=20, bs="ad") + 
+                                s(logAge_days, k=20, bs="ad") + 
+                                sexMale + random(study_site), method = 'ML'), 
+    nu.formula=~logAge_days,
+    family="BCCG", 
+    data=df2_test,
+    control=gamlss.control(n.cyc = 200)
+    # start.from=linear_mod
+    )
+```
+
+can also play around with order (m), method, etc
+
+```{r}
+df3 <- fread("data/cv_sample_A_dfs/GMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE, na.strings = "")
+gmv_mod1 <- readRDS("cv_sample_A_train/global_vols_logPhenoTRUE_logAgeTRUE_pbmods/model_objs/GMV_both_pbage_BestMod.rds")
+gmv_mod1$call$family <- gmv_mod1$family
+
+make_centile_fan(gmv_mod1, df3, x_var="logAge_days", color_var="sexMale", desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
+                 special_term = "sexMale_x_logAge = sexMale * logAge_days",
+                 remove_cent_effect="study_site",
+                 remove_point_effect = "study_site")
+
+unscale <- function(x){10^x - 5}
+
+make_centile_fan(gmv_mod1, df3, x_var="logAge_days", color_var="sexMale", desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
+                 special_term = "sexMale_x_logAge = sexMale * logAge_days",
+                 remove_cent_effect="study_site",
+                 remove_point_effect = "study_site",
+                 y_scale=unscale)
+```
+
+un-log pheno
+
+```{r}
+
+
 ```

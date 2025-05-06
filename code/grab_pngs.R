@@ -4,7 +4,7 @@ library(png)
 library(tools)
 
 # Define root directory
-root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/*/global_vols_mods")
+root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/*/global_vols_*")
 
 # Get all PNGs from matching directories
 png_files <- unlist(lapply(root_dirs, function(dir) {

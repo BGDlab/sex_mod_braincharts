@@ -1,0 +1,118 @@
+---
+title: "replot_centiles"
+output: html_document
+date: "2025-04-28"
+---
+
+```{r warning=FALSE}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, gamlss, gamlssTools)
+set.seed(99999)
+source("code/gamlss_fit_funs.R")
+```
+
+
+Get sample A data & pheno lists
+```{r}
+# paths
+dir_paths <- list()
+dir_paths[[1]] <- list(
+  csv_dir = "data/cv_sample_A_dfs",
+  rds_dir = "cv_sample_A_train/global_vols_logPhenoTRUE_logAgeTRUE_pbmods",
+  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+  log_age=TRUE
+)
+dir_paths[[2]] <- list(
+  csv_dir = "data/cv_sample_B_dfs",
+  rds_dir = "cv_sample_B_train/global_vols_logPhenoTRUE_logAgeTRUE_pbmods",
+  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+  log_age=TRUE
+)
+dir_paths[[3]] <- list(
+  csv_dir = "data/cv_sample_A_dfs",
+  rds_dir = "cv_sample_A_train/global_vols_logPhenoTRUE_logAgeFALSE_pbmods",
+  csv_path = "totalFALSE_logPhenoTRUE_logAgeFALSE\\.csv$",
+  log_age=FALSE
+)
+dir_paths[[4]] <- list(
+  csv_dir = "data/cv_sample_B_dfs",
+  rds_dir = "cv_sample_B_train/global_vols_logPhenoTRUE_logAgeFALSE_pbmods",
+  csv_path = "totalFALSE_logPhenoTRUE_logAgeFALSE\\.csv$",
+  log_age=FALSE
+)
+
+for (paths in dir_paths){
+# List all .rds files ending with BestMod.rds
+  rds_dir <- paste0(paths$rds_dir,"/model_objs")
+  csv_dir <- paths$csv_dir
+  csv_path <- paths$csv_path
+  log_age <- paths$log_age
+  
+  plot_dir <- paste0(paths$rds_dir,"/unscaled_centile_plots")
+  dir.create(plot_dir, showWarnings = FALSE)
+  
+  rds_files <- list.files(rds_dir, pattern = "BestMod\\.rds$", full.names = TRUE)
+  
+  # List all .csv files
+  csv_files <- list.files(csv_dir, pattern = csv_path, full.names = TRUE)
+  
+  # Extract matching prefixes from .rds filenames
+  get_prefix <- function(path) sub("_.*$", "", basename(path))
+  
+  rds_prefixes <- setNames(rds_files, vapply(rds_files, get_prefix, ""))
+  
+  # Match each rds file with the corresponding csv file
+  matched <- lapply(names(rds_prefixes), function(prefix) {
+    # Find the CSV with the same prefix
+    csv_path <- grep(paste0("^", prefix), basename(csv_files), value = TRUE)
+    
+    if (length(csv_path) == 1) {
+      list(
+        prefix = prefix,
+        model = readRDS(rds_prefixes[[prefix]]),
+        data  = fread(file.path(csv_dir, csv_path), stringsAsFactors=TRUE, na.strings = ""),
+        log_age = log_age
+      )
+    } else {
+      warning(sprintf("No unique match found for prefix: %s", prefix))
+      NULL
+    }
+  })
+  
+  # Remove NULLs (if any unmatched)
+  matched <- Filter(Negate(is.null), matched)
+  
+  for (item in matched) {
+    model <- item$model
+    data  <- item$data
+    prefix <- item$prefix
+    log_age <- item$log_age
+    
+    if (log_age ==TRUE){
+      xvar <- "logAge_days"
+      st <- "sexMale_x_logAge = sexMale * logAge_days"
+    } else {
+      xvar <- "age_days"
+      st <- "sexMale_x_age = sexMale * age_days"
+    }
+    
+    # Plot: predicted (line) + original (points)
+    p <- make_centile_fan(model, data, 
+                          x_var=xvar, 
+                          color_var="sexMale", 
+                          desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
+                          special_term = st,
+                          remove_cent_effect="study_site",
+                          remove_point_effect = "study_site",
+                          y_scale=unscale)
+    
+    ggsave(filename = file.path(plot_dir, paste0(prefix, "_plot.png")), plot = p, width = 8, height = 5)
+  
+    # Or just print to viewer
+    print(p)
+  }
+}
+
+```
