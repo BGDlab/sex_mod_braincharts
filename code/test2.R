@@ -26,26 +26,28 @@ for (pheno in pheno_list) {
   # Select and mutate
   df_p <- df_full %>%
     dplyr::select(all_of(c(pheno, "fs_version_GM", "logAge_days", "sexMale_x_logAge", "sexMale", "study_site"))) %>%
-    mutate(!!pheno_sym := (!!pheno_sym + 10000)) %>%
+    mutate(!!pheno_sym := (!!pheno_sym + 100000)) %>%
     na.omit()
+  unscale <- function(x){x-100000}
   
   # Apply coverage truncation
-  df_final <- trunc_coverage(df_p, vars = "logAge_days")
+  df_final <- trunc_coverage(df_p, vars = "logAge_days", n_min = 50)
   
   # Check df is valid
   stopifnot(is.data.frame(df_final))
   
   # Construct model formulas
   mu_formula <- as.formula(
-    paste0(pheno, " ~ ga(~ s(sexMale_x_logAge, k=20, bs='ad') + ",
-           "s(logAge_days, k=20, bs='ad') + sexMale + random(study_site), method = 'ML')")
+    paste0(pheno, " ~ ga(~ s(sexMale_x_logAge, k=8, bs='ad') + ",
+           "s(logAge_days, k=8, bs='ad') + sexMale + random(study_site), method = 'ML')")
   )
   
-  sigma_formula <- ~ga(~s(sexMale_x_logAge, k=20, bs='ad') + 
-                         s(logAge_days, k=20, bs='ad') + 
+  sigma_formula <- ~ga(~s(sexMale_x_logAge, k=8, bs='ad') + 
+                         s(logAge_days, k=8, bs='ad') + 
                          sexMale + random(study_site), method = 'ML')
   
-  nu_formula <- ~logAge_days
+  nu_formula <- ~ ga(~s(logAge_days, k=8, bs='ad') + 
+                       sexMale, method = 'ML')
   
   print("fitting")
   
@@ -60,8 +62,14 @@ for (pheno in pheno_list) {
   )
   
   # Save model and centile plot
-  saveRDS(test_mod, file = paste0("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/", pheno, "_test_mod.rds"))
+  saveRDS(test_mod, file = paste0("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/", pheno, "_test_modk8_nurefit2.rds"))
   
-  fan_plot <- make_centile_fan(test_mod, df_final, x_var = "logAge_days", color_var = "sexMale")
-  ggsave(filename = paste0("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/", pheno, "_test_centiles.png"), fan_plot)
+  fan_plot <- make_centile_fan(test_mod, 
+                               df_final, 
+                               x_var = "logAge_days", 
+                               color_var = "sexMale", 
+                               special_term = "sexMale_x_logAge = sexMale * logAge_days",
+                               y_scale=unscale)
+  
+  ggsave(filename = paste0("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/", pheno, "_test_centilesk8_nurefit2.png"), fan_plot)
 }

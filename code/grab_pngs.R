@@ -4,15 +4,18 @@ library(png)
 library(tools)
 
 # Define root directory
-root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/*/global_vols_*")
+#root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/*/global_vols_*")
+root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 
 # Get all PNGs from matching directories
 png_files <- unlist(lapply(root_dirs, function(dir) {
-  list.files(dir, pattern = "\\.png$", full.names = TRUE, recursive = TRUE)
+  list.files(dir, pattern = "\\.png$", full.names = TRUE
+             #, recursive = TRUE
+             )
 }))
 
 # Output PDF path
-output_pdf <- "global_vols_mods_testing.pdf"
+output_pdf <- "global_vols_mods_adaptivespline_testing.pdf"
 
 # Create PDF
 pdf(output_pdf, width = 8, height = 10)

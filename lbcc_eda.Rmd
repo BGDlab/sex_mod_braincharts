@@ -463,7 +463,13 @@ fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 # Visualize Data
 
 ```{r, eval=FALSE}
-#df_clean <- fread("./data/v3_CN_cleaned.csv", stringsAsFactors=T)
+# df_clean <- fread("./data/v3_CN_cleaned.csv", stringsAsFactors=T)
+# glob_vol_list <- readRDS("./pheno_lists/global_vols.rds")
+# gmv_list <- readRDS("./pheno_lists/cortical_vols.rds")
+# subcort_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+# ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
+# sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
+# pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
 ```
 
 check ranges
@@ -473,6 +479,35 @@ get_min <- function(p, df){
   min(df[[p]], na.rm=T)
 }
 pheno_mins <- lapply(pheno_list, get_min, df_clean)
+```
+
+look at data in ages <= 3 years
+
+```{r}
+df_clean_inf <- df_clean %>%
+  select(c(pheno_list, sexMale, age_days, country, study)) %>%
+  dplyr::filter(age_days <= (365.25*3)+280) %>%
+  mutate(across(all_of(pheno_list), ~ ifelse(!is.na(.), TRUE, FALSE))) %>%
+  pivot_longer(pheno_list, names_to = "pheno", values_to = "has_data") %>%
+  dplyr::filter(has_data == TRUE) %>%
+  mutate(pheno_cat = case_when(pheno %in% glob_vol_list ~ "global",
+                               pheno %in% gmv_list ~ "cortical_vol",
+                               pheno %in% subcort_list ~ "subcortical",
+                               pheno %in% ct_list ~ "thickness",
+                               pheno %in% sa_list ~ "surface_area"))
+
+ggplot(df_clean_inf) +
+  geom_histogram(aes(x=age_days, fill=pheno), position = "identity", alpha=0.4) +
+  theme(legend.position="none") +
+  geom_vline(xintercept=280) + 
+  geom_vline(xintercept=(28*7)) + #3rd trimester starts
+  geom_vline(xintercept=(13*7)) + #2rd trimester starts
+  facet_wrap(~pheno_cat)
+
+df_clean_inf %>%
+  dplyr::filter(pheno_cat == "global") %>%
+  ggplot() +
+  geom_histogram(aes(x=age_days, fill=pheno, color=pheno))
 ```
 
 ### Euler QC

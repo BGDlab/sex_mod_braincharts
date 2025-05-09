@@ -8,7 +8,7 @@ date: "2025-04-28"
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, gamlss, gamlssTools)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, gamlss, gamlssTools, gridExtra, grid)
 set.seed(99999)
 source("code/gamlss_fit_funs.R")
 ```
@@ -30,18 +30,22 @@ dir_paths[[2]] <- list(
   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
   log_age=TRUE
 )
-dir_paths[[3]] <- list(
-  csv_dir = "data/cv_sample_A_dfs",
-  rds_dir = "cv_sample_A_train/global_vols_logPhenoTRUE_logAgeFALSE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeFALSE\\.csv$",
-  log_age=FALSE
-)
-dir_paths[[4]] <- list(
-  csv_dir = "data/cv_sample_B_dfs",
-  rds_dir = "cv_sample_B_train/global_vols_logPhenoTRUE_logAgeFALSE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeFALSE\\.csv$",
-  log_age=FALSE
-)
+# dir_paths[[3]] <- list(
+#   csv_dir = "data/cv_sample_A_dfs",
+#   rds_dir = "cv_sample_A_train/global_vols_logPhenoTRUE_logAgeFALSE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeFALSE\\.csv$",
+#   log_age=FALSE
+# )
+# dir_paths[[4]] <- list(
+#   csv_dir = "data/cv_sample_B_dfs",
+#   rds_dir = "cv_sample_B_train/global_vols_logPhenoTRUE_logAgeFALSE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeFALSE\\.csv$",
+#   log_age=FALSE
+# )
+
+unscale <- function(x){10^x - 5}
+
+pdf("global_mods_logPheno_logAge.pdf", width = 8.5, height = 11)  # Open PDF device
 
 for (paths in dir_paths){
 # List all .rds files ending with BestMod.rds
@@ -86,7 +90,7 @@ for (paths in dir_paths){
   
   for (item in matched) {
     model <- item$model
-    data  <- item$data
+    df  <- item$data
     prefix <- item$prefix
     log_age <- item$log_age
     
@@ -99,7 +103,7 @@ for (paths in dir_paths){
     }
     
     # Plot: predicted (line) + original (points)
-    p <- make_centile_fan(model, data, 
+    p <- make_centile_fan(model, df, 
                           x_var=xvar, 
                           color_var="sexMale", 
                           desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
@@ -108,11 +112,23 @@ for (paths in dir_paths){
                           remove_point_effect = "study_site",
                           y_scale=unscale)
     
-    ggsave(filename = file.path(plot_dir, paste0(prefix, "_plot.png")), plot = p, width = 8, height = 5)
-  
-    # Or just print to viewer
+    wp <- wp.taki(xvar=df[[xvar]], resid=resid(model))
+    
+    model$call$data <- "df"
+    model$call$family <- "BCCG"
+    
+    
+    results_df <- cent_cdf(model, df, plot=FALSE, group="sexMale")
+    
+    tbl <- tableGrob(results_df)
+
     print(p)
+    print(wp)
+    grid.newpage()
+  grid.draw(tbl)
+    # ggsave(filename = file.path(plot_dir, paste0(prefix, "_plot.png")), plot = p, width = 8, height = 5)
+
   }
 }
-
+dev.off()
 ```

@@ -141,7 +141,11 @@ make_centile_fan(gmv_mod1, df3, x_var="logAge_days", color_var="sexMale", desire
                  special_term = "sexMale_x_logAge = sexMale * logAge_days",
                  remove_cent_effect="study_site",
                  remove_point_effect = "study_site")
+```
 
+un-log pheno
+
+```{r}
 unscale <- function(x){10^x - 5}
 
 make_centile_fan(gmv_mod1, df3, x_var="logAge_days", color_var="sexMale", desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
@@ -151,7 +155,7 @@ make_centile_fan(gmv_mod1, df3, x_var="logAge_days", color_var="sexMale", desire
                  y_scale=unscale)
 ```
 
-un-log pheno
+
 
 ```{r}
 
