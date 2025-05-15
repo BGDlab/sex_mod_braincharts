@@ -18,33 +18,6 @@ save_path <- as.character(args[3])
 pheno <- base_mod$mu.terms[[2]] %>% as.character()
 fs <- list_predictors(base_mod)[grep("^fs_version", list_predictors(base_mod))]
 
-#drop extra variables
-df <- df %>%
-  dplyr::select(all_of(c(pheno, fs, "logAge_days", "sexMale", "study_site", "sexMale_x_logAge", "age_days"))) %>%
-  na.omit() %>%
-  trunc_coverage("logAge_days")
-
-#inverse-weight by age w/in sex (written w help from gpt)
-if (length(unique(base_mod$weights)) != 1){
-  print("applying weights")
-  n_bins <- 50
-  df$age_bin <- cut(df$age_days, breaks = n_bins, include.lowest = TRUE)
-  
-  df <- df %>%
-    mutate(sex = as.factor(sexMale)) %>%
-    group_by(sex, age_bin) %>%
-    mutate(bin_count = n()) %>%
-    group_by(sex) %>%
-    mutate(
-      observed_prob = bin_count / sum(bin_count),
-      uniform_prob = 1 / n_bins,
-      raw_weight = uniform_prob / observed_prob,
-      weight = raw_weight * (n() / sum(raw_weight))
-    ) %>%
-    ungroup() %>%
-    select(-bin_count, -observed_prob, -uniform_prob, - raw_weight)
-}
-
 #sim data ONCE for centile fan plotting
 print("simulate data for plotting")
 sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
@@ -73,7 +46,9 @@ saveRDS(model, file=file_full)
 print("creating centile fan plot")
   fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
                                get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
-                               sim_data_list = sim_df)  +
+                               sim_data_list = sim_df,
+				remove_cent_effect="study_site",
+                             remove_point_effect = "study_site")  +
     labs(title=paste(pheno, "validation model"),
          x ="log Age (days)",
          color = "Sex=Male", fill="Sex=Male")
