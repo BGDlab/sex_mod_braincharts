@@ -405,4 +405,3 @@ gamlss_3lambda_etiv <- function(pheno, lambda=NULL,
   
   return(result)
 }
-
