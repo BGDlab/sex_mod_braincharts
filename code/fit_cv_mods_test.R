@@ -87,6 +87,7 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 
 ##################
 #FIT NULL MODEL
+print("fitting null model")
 null_model <- gamlss_3lambda_rep(base_mod, null_mod=TRUE)
 test_out <- LR.test(null_model, model, print=FALSE)
 
@@ -99,3 +100,4 @@ test_df <- data.frame(
 )
 fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
 
+print("SUCCESS")

@@ -170,8 +170,7 @@ gamlss_3lambda_rep <- function(og_mod,
     mu_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                    paste0("sexMale_x_logAge, lambda =", mu_lambdas[1]), mu_base)
   } else if (null_mod == TRUE) {
-    mu_base <- sub("pb\\(sexMale_x_logAge,\\s*control\\s*=\\s*pb\\.control\\(order\\s*=\\s*3\\)\\)\\s*\\+\\s*", 
-                   "", mu_base)
+    mu_base <- rm_sexage(mu_base)
   }
   
   mu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
@@ -189,8 +188,7 @@ gamlss_3lambda_rep <- function(og_mod,
     sig_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                     paste0("sexMale_x_logAge, lambda =", sig_lambdas[1]), sig_base)
   } else if (null_mod == TRUE) {
-    sig_base <- sub("pb\\(sexMale_x_logAge,\\s*control\\s*=\\s*pb\\.control\\(order\\s*=\\s*3\\)\\)\\s*\\+\\s*", 
-                   "", sig_base)
+    sig_base <- rm_sexage(sig_base)
   }
 
   sig_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
@@ -845,4 +843,14 @@ gamlss_csage <- function(pheno,
   }
   
   return(result)
+}
+
+
+#rm
+rm_sexage <- function(formula_string) {
+  sub(
+    pattern = 'pb\\(sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\), control = pb\\.control\\(order = 3\\)\\) \\+\\s*',
+    replacement = '',
+    x = formula_string
+  )
 }
