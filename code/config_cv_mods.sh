@@ -6,21 +6,33 @@
 data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
-log_scale="FALSE" #trying w/o scaling for now
 
-if [ "$#" -eq 0 ]; then
-  echo "No arguments provided. Need weighted TRUE/FALSE, total TRUE/FALSE"
-  exit 1
-  elif [ "$#" -ne 2 ]; then
-  echo "Need weighted TRUE/FALSE, total TRUE/FALSE"
+# Parse named arguments
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --log_pheno) log_pheno="$2"; shift 2 ;;
+    --total) total="$2"; shift 2 ;;
+    --log_age) log_age="$2"; shift 2 ;;
+    --sm) sm="$2"; shift 2 ;;
+    *) echo "Unknown parameter: $1"; exit 1 ;;
+  esac
+done
+
+# Check that all required arguments are provided
+if [[ -z "$log_pheno" || -z "$total" || -z "$log_age" || -z "$sm" ]]; then
+  echo "Missing arguments. Usage:"
+  echo "--log_pheno TRUE/FALSE --total TRUE/FALSE --log_age TRUE/FALSE --sm 'pb'/'cs'"
   exit 1
 fi
 
-echo "weighted = $1"
-echo "include total value = $2"
+# Print arguments
+echo "log scale pheno = $log_pheno"
+echo "include total value = $total"
+echo "log scale age = $log_age"
+echo "smooth = $sm"
 
 #LOOP THROUGH 1/2 CSVS
-for file in $(find $(realpath $data_path)  -type f -name "cv_sample*.csv")
+for file in $(find $(realpath $data_path)  -type f -name "cv_sample_?.csv") 
 do
   
   echo "prepping: $file"
@@ -40,7 +52,7 @@ do
   
     #CREATE OUTPUT DIRS
     #make config file dir or remove old file if necessary
-    config_file=$config_path/${filename}_${pheno_cat}_weight${1}_total${2}_config.txt
+    config_file=$config_path/${filename}_${pheno_cat}_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_config.txt
     if ! [ -d $config_path ]
     then
       mkdir $config_path
@@ -57,7 +69,12 @@ do
       then
         mkdir $save_dir
       fi
-      save_path=$save_dir/${filename}_${pheno_cat}_mods
+      #name subdir based on whether total is controlled for
+      if [[ $total == "TRUE" ]]; then
+        save_path=$save_dir/${pheno_cat}_total_logPheno${log_pheno}_logAge${log_age}_${sm}mods
+      elif [[ $total == "FALSE" ]]; then
+        save_path=$save_dir/${pheno_cat}_logPheno${log_pheno}_logAge${log_age}_${sm}mods
+      fi
       save_path=$(realpath $save_path) #get full paths
       if ! [ -d $save_path ]
       then
@@ -84,33 +101,38 @@ do
       else
         echo "can't find appropriate variables"
       fi
-    
-      #LOOP THROUGH LAMBDAS
-      for lambda in NULL #$(seq 100 100 50000)
-      do
+
       
-      if [[ $2 == "TRUE" ]]; then
+      if [[ $total == "TRUE" ]]; then
       
         #LOOP THROUGH PHENOS
         while read -r pheno_line
         do
+        
+        csv=$data_path/${filename}_dfs/${pheno_line}_totalTRUE_logPheno${log_pheno}_logAge${log_age}.csv
+        csv=$(realpath $csv)
+        
         # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$pheno_line\t$lambda\t$fs\t$tot\t$save_path\t$1\t$log_scale" >> "$config_file"
+          echo -e "$csv\t$pheno_line\t$fs\t$tot\t$save_path\t$log_pheno\t$log_age\t$sm" >> "$config_file"
         done < "$pheno_list"
       
-      elif [[ $2 == "FALSE" ]]; then
+      elif [[ $total == "FALSE" ]]; then
       
         #LOOP THROUGH PHENOS
         while read -r pheno_line
         do
+        
+        csv=$data_path/${filename}_dfs/${pheno_line}_totalFALSE_logPheno${log_pheno}_logAge${log_age}.csv
+         csv=$(realpath $csv)
+
         # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$pheno_line\t$lambda\t$fs\t$save_path\t$1\t$log_scale" >> "$config_file"
+          echo -e "$csv\t$pheno_line\t$fs\tNULL\t$save_path\t$log_pheno\t$log_age\t$sm" >> "$config_file"
         done < "$pheno_list"
       fi
-      
-      done
-      
-   #add numbering
+  
+  #add numbering
   nl "$config_file" > temp.txt && mv temp.txt "$config_file"
+      
   done
+
 done
