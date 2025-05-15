@@ -167,13 +167,15 @@ gamlss_3lambda_rep <- function(og_mod,
 
   #update lambdas
   if (null_mod == FALSE){
-    mu_base <- sub("sexMale_x_logAge", paste0("sexMale_x_logAge, lambda =", mu_lambdas[1]), mu_base)
+    mu_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
+                   paste0("sexMale_x_logAge, lambda =", mu_lambdas[1]), mu_base)
   } else if (null_mod == TRUE) {
     mu_base <- sub("pb\\(sexMale_x_logAge,\\s*control\\s*=\\s*pb\\.control\\(order\\s*=\\s*3\\)\\)\\s*\\+\\s*", 
                    "", mu_base)
   }
   
-  mu_base <- sub("logAge_days", paste0("logAge_days, lambda =", mu_lambdas[2]), mu_base)
+  mu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
+                 paste0("logAge_days, lambda =", mu_lambdas[2]), mu_base)
   mu_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", mu_lambdas[3], ")"), mu_base)
   
   mu_form <- paste0("safe_gamlss(formula =", pheno, "~", mu_base)
@@ -184,19 +186,26 @@ gamlss_3lambda_rep <- function(og_mod,
   
   #update lambdas
   if (null_mod == FALSE){
-    sig_base <- sub("sexMale_x_logAge", paste0("sexMale_x_logAge, lambda =", sig_lambdas[1]), sig_base)
+    sig_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
+                    paste0("sexMale_x_logAge, lambda =", sig_lambdas[1]), sig_base)
   } else if (null_mod == TRUE) {
     sig_base <- sub("pb\\(sexMale_x_logAge,\\s*control\\s*=\\s*pb\\.control\\(order\\s*=\\s*3\\)\\)\\s*\\+\\s*", 
                    "", sig_base)
   }
 
-  sig_base <- sub("logAge_days", paste0("logAge_days, lambda =", sig_lambdas[2]), sig_base)
+  sig_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
+                  paste0("logAge_days, lambda =", sig_lambdas[2]), sig_base)
   sig_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", sig_lambdas[3], ")"), sig_base)
   
   sig_form <- paste0("sigma.formula = ~", sig_base)
   
   #NU
   nu_base <- paste0(og_mod$nu.formula)[2]
+  if (!is.null(og_mod$nu.lambda)){
+    nu_lambdas <- og_mod$nu.lambda
+    nu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
+                    paste0("logAge_days, lambda =", nu_lambdas[1]), nu_base)
+  }
   nu_form <- paste0("nu.formula = ~", nu_base)
   
   control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")
