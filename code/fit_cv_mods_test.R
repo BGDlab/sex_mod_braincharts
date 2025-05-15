@@ -93,8 +93,8 @@ test_out <- LR.test(null_model, model, print=FALSE)
 
 #TEST
 test_df <- data.frame(
-  "AIC" = test_out$chi,
-  "BIC" = test_out$sbc,
+  "chi" = test_out$chi,
+  "df" = test_out$df,
   "p_val" = test_out$p.val,
   "pheno" = pheno
 )
