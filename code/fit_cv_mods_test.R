@@ -91,13 +91,16 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 #FIT NULL MODEL
 print("fitting null model")
 null_model <- gamlss_3lambda_rep(base_mod, null_mod=TRUE)
-test_out <- LR.test(null_model, model, print=FALSE)
+
+test_out <- LR.test(null_model, model, print=FALSE) #significance test
+f2 <- cohens_f2_local(model, null_model) #effect size
 
 #TEST
 test_df <- data.frame(
   "chi" = test_out$chi,
   "df" = test_out$df,
   "p_val" = test_out$p.val,
+  "fsq" = f2,
   "pheno" = pheno
 )
 fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
