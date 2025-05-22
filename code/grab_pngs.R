@@ -4,8 +4,8 @@ library(png)
 library(tools)
 
 # Define root directory
-#root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/*/global_vols_*")
-root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_train/*cortical*/*/") #cortical/subcort training mods
+#root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 
 # Get all PNGs from matching directories
 png_files <- unlist(lapply(root_dirs, function(dir) {
@@ -13,9 +13,10 @@ png_files <- unlist(lapply(root_dirs, function(dir) {
              #, recursive = TRUE
              )
 }))
+print(length(png_files))
 
 # Output PDF path
-output_pdf <- "global_vols_mods_adaptivespline_testing.pdf"
+output_pdf <- "cortical_subcortical_training_may21.pdf"
 
 # Create PDF
 pdf(output_pdf, width = 8, height = 10)
@@ -32,7 +33,8 @@ for (file in png_files) {
   if (!is.null(img)) {
     # Extract filename only (no path)
     filename <- basename(file)
-    
+    #print(filename)
+
     # Set up the layout
     grid.newpage()
     pushViewport(viewport(layout = grid.layout(2, 1, heights = unit(c(1, 9), "null"))))
@@ -49,3 +51,4 @@ for (file in png_files) {
 dev.off()
 
 message("PDF saved as: ", output_pdf)
+
