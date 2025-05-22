@@ -44,11 +44,13 @@ saveRDS(model, file=file_full)
 
 #CENTILE FAN PLOT
 print("creating centile fan plot")
+unscale <- function(x){10^x - 5} #unscale y axis for phenolog models
   fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
                                get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df,
 				remove_cent_effect="study_site",
-                             remove_point_effect = "study_site")  +
+                             remove_point_effect = "study_site",
+				y_scale=unscale)  +
     labs(title=paste(pheno, "validation model"),
          x ="log Age (days)",
          color = "Sex=Male", fill="Sex=Male")
@@ -64,6 +66,9 @@ print("creating centile fan plot")
   #COMPILE
     print("compiling stats")
     #centiles
+    model$call$data <- df
+    model$call$family <- model$family[[1]]
+
     results_df <- cent_cdf(model, df, "sexMale")
     
     #BIC & AIC
@@ -84,15 +89,20 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 
 ##################
 #FIT NULL MODEL
+print("fitting null model")
 null_model <- gamlss_3lambda_rep(base_mod, null_mod=TRUE)
-test_out <- LR.test(null_model, model, print=FALSE)
+
+test_out <- LR.test(null_model, model, print=FALSE) #significance test
+f2 <- cohens_f2_local(model, null_model) #effect size
 
 #TEST
 test_df <- data.frame(
-  "AIC" = test_out$chi,
-  "BIC" = test_out$sbc,
+  "chi" = test_out$chi,
+  "df" = test_out$df,
   "p_val" = test_out$p.val,
+  "fsq" = f2,
   "pheno" = pheno
 )
 fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
 
+print("SUCCESS")
