@@ -45,12 +45,16 @@ saveRDS(model, file=file_full)
 #CENTILE FAN PLOT
 print("creating centile fan plot")
 unscale <- function(x){10^x - 5} #unscale y axis for phenolog models
-  fan_plot <- make_centile_fan(gamlssModel=model, df=df, x_var="logAge_days", color_var="sexMale",
-                               get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
+  fan_plot <- make_centile_fan(gamlssModel=model, 
+                               df=df, 
+                               x_var="logAge_days", 
+                               color_var="sexMale",
+                               get_peaks=TRUE, 
+                               desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df,
-				remove_cent_effect="study_site",
-                             remove_point_effect = "study_site",
-				y_scale=unscale)  +
+                               remove_cent_effect="study_site",
+                               remove_point_effect = "study_site",
+                               y_scale=unscale)  +
     labs(title=paste(pheno, "validation model"),
          x ="log Age (days)",
          color = "Sex=Male", fill="Sex=Male")
@@ -69,7 +73,7 @@ unscale <- function(x){10^x - 5} #unscale y axis for phenolog models
     model$call$data <- df
     model$call$family <- model$family[[1]]
 
-    results_df <- cent_cdf(model, df, "sexMale")
+    results_df <- cent_cdf(model, df, plot=FALSE, group="sexMale")
     
     #BIC & AIC
     summary_df <- data.frame(

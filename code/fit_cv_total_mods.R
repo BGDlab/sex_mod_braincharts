@@ -14,7 +14,7 @@ print(args)
 df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 pheno <- as.character(args[2])
 fs <- as.character(args[3])
-total <- as.logical(args[4])
+total <- as.character(args[4])
 save_path <- as.character(args[5])
 log_pheno <- as.logical(args[6])
 log_age <- as.logical(args[7])
@@ -180,7 +180,7 @@ fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df, x_var="logAge_days", c
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
                              remove_cent_effect="study_site",
-                             remove_point_effect = c(total, "study_site")
+                             remove_point_effect = c(total, "study_site"),
                              y_scale=unscale) +
   labs(title=paste(pheno, ",", best_bic$m_name),
      x ="log Age (days)",
