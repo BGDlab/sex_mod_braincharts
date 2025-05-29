@@ -8,7 +8,13 @@ date: "2025-04-28"
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, gamlss, gamlssTools)
+
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+
+pacman::p_load(data.table, ggplot2, tidyverse, gamlss, gamlssTools, grid, gridExtra)
+# install.packages("devtools")
+devtools::install_github("BGDlab/gamlssTools")
+library(gamlssTools)
 set.seed(99999)
 source("code/gamlss_fit_funs.R")
 ```
@@ -30,59 +36,59 @@ dir_paths[[2]] <- list(
   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
   log_age=TRUE
 )
-dir_paths[[3]] <- list(
-  csv_dir = "data/cv_sample_A_dfs",
-  rds_dir = "cv_sample_A_train/subcortical_vols_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[4]] <- list(
-  csv_dir = "data/cv_sample_B_dfs",
-  rds_dir = "cv_sample_B_train/subcortical_vols_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[5]] <- list(
-  csv_dir = "data/cv_sample_A_dfs",
-  rds_dir = "cv_sample_A_train/cortical_surf_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[6]] <- list(
-  csv_dir = "data/cv_sample_B_dfs",
-  rds_dir = "cv_sample_B_train/cortical_surf_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[7]] <- list(
-  csv_dir = "data/cv_sample_A_dfs",
-  rds_dir = "cv_sample_A_train/cortical_vols_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[8]] <- list(
-  csv_dir = "data/cv_sample_B_dfs",
-  rds_dir = "cv_sample_B_train/cortical_vols_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[9]] <- list(
-  csv_dir = "data/cv_sample_A_dfs",
-  rds_dir = "cv_sample_A_train/cortical_thickness_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[10]] <- list(
-  csv_dir = "data/cv_sample_B_dfs",
-  rds_dir = "cv_sample_B_train/cortical_thickness_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
+# dir_paths[[3]] <- list(
+#   csv_dir = "data/cv_sample_A_dfs",
+#   rds_dir = "cv_sample_A_train/subcortical_vols_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[4]] <- list(
+#   csv_dir = "data/cv_sample_B_dfs",
+#   rds_dir = "cv_sample_B_train/subcortical_vols_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[5]] <- list(
+#   csv_dir = "data/cv_sample_A_dfs",
+#   rds_dir = "cv_sample_A_train/cortical_surf_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[6]] <- list(
+#   csv_dir = "data/cv_sample_B_dfs",
+#   rds_dir = "cv_sample_B_train/cortical_surf_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[7]] <- list(
+#   csv_dir = "data/cv_sample_A_dfs",
+#   rds_dir = "cv_sample_A_train/cortical_vols_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[8]] <- list(
+#   csv_dir = "data/cv_sample_B_dfs",
+#   rds_dir = "cv_sample_B_train/cortical_vols_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[9]] <- list(
+#   csv_dir = "data/cv_sample_A_dfs",
+#   rds_dir = "cv_sample_A_train/cortical_thickness_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[10]] <- list(
+#   csv_dir = "data/cv_sample_B_dfs",
+#   rds_dir = "cv_sample_B_train/cortical_thickness_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
 
 
 unscale <- function(x){10^x - 5}
 
-pdf("centile_plots_logPheno_logAge.pdf", width = 8.5, height = 11)  # Open PDF device
+pdf("centile_plots_test.pdf", width = 8.5, height = 11)  # Open PDF device
 
 for (paths in dir_paths){
 # List all .rds files ending with BestMod.rds
@@ -139,6 +145,9 @@ for (paths in dir_paths){
       st <- "sexMale_x_age = sexMale * age_days"
     }
     
+    model$call$data <- "df"
+    model$call$family <- "BCCG"
+    
     # Plot: predicted (line) + original (points)
     p <- make_centile_fan(model, df, 
                           x_var=xvar, 
@@ -150,10 +159,6 @@ for (paths in dir_paths){
                           y_scale=unscale)
     
     wp <- wp.taki(xvar=df[[xvar]], resid=resid(model))
-    
-    model$call$data <- "df"
-    model$call$family <- "BCCG"
-    
     
     results_df <- cent_cdf(model, df, plot=FALSE, group="sexMale")
     

@@ -4,3 +4,7 @@ code/jobfiles
 code/config_files
 test_models
 *.zip
+containers
+.RData
+.Rhistory
+cv_sample_*/
