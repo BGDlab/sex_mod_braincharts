@@ -1,6 +1,6 @@
 #!/bin/bash
 #script to write config file that will prep each 1/2 dataframe
-#run from outside code dir
+#run from outside code dir!!!!
 
 #PATHS
 data_path=./data
@@ -71,13 +71,13 @@ do
       
     if [[ $pheno_cat == *"global"* ]]; then
         fs="fs_version_GM"
-        tot="eTIV"
+        tot="TBV"
     elif [[ $pheno_cat == *"vols"* ]]; then
         fs="fs_version_GM"
         tot="TBV"
     elif [[ $pheno_cat == *"thickness"* ]]; then
         fs="fs_version_CT"
-        tot="total.CT"
+        tot="mean.CT"
     elif [[ $pheno_cat == *"surf"* ]]; then
         fs="fs_version_SA"
         tot="total.SA"
@@ -90,7 +90,7 @@ do
       #LOOP THROUGH PHENOS
       while read -r pheno_line
       do
-      # Write the CSV file path and the formula to the output file (tab-delimited)
+      # Write the CSV file path and the formula to the output file (tab-delimited) test
         echo -e "$file\t$pheno_line\t$fs\t$tot\t$log_pheno\t$log_age\t$save_path" >> "$config_file"
       done < "$pheno_list"
       
