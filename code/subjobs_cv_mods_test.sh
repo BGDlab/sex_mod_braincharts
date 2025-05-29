@@ -27,10 +27,12 @@ echo "SAVE_PATH: $SAVE_PATH"
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.1.1.sif"
 
-module load R/4.4.0
-
-Rscript $BASE/code/fit_cv_mods_test.R $DF $MODEL $SAVE_PATH
+singularity run --cleanenv \
+    -B $BASE \
+    $SINGULARITY_IMAGE \
+    Rscript $BASE/code/fit_cv_mods_test.R $DF $MODEL $SAVE_PATH
 
 # Done!
 echo "Job finished running!"

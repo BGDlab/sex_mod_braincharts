@@ -9,7 +9,7 @@
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_train/R-%A_%a.err
 
 # Singularity image path 
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.1.0.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.1.1.sif"
 
 #------------------
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/

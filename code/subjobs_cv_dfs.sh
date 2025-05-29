@@ -10,7 +10,6 @@
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_dfs/R-%A_%a.err
 
 CONFIGFN=$1
-#CONFIGFN=$(realpath $CONFIGFN)
 
 echo "Config file: $CONFIGFN"
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
@@ -35,10 +34,13 @@ echo "SAVE_PATH: $SAVE_PATH"
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.1.1.sif"
 
-module load R/4.4.0
-
-Rscript $BASE/code/prep_cv_dfs.R $DF $PHENO $FS $TOTAL $LOG_PHENO $LOG_AGE $SAVE_PATH
+singularity run --cleanenv \
+    -B $BASE \
+    $SINGULARITY_IMAGE \
+    Rscript $BASE/code/prep_cv_dfs.R \
+    $DF $PHENO $FS $TOTAL $LOG_PHENO $LOG_AGE $SAVE_PATH
 
 # Done!
 echo "Job finished running!"
