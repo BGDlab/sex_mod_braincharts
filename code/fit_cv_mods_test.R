@@ -6,7 +6,8 @@ library(dplyr)
 library(gamlss)
 library(gamlssTools)
 
-source("./code/gamlss_fit_funs.R")
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+source(paste0(base, "code/gamlss_fit_funs.R"))
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
@@ -16,11 +17,35 @@ base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 
 pheno <- base_mod$mu.terms[[2]] %>% as.character()
-fs <- list_predictors(base_mod)[grep("^fs_version", list_predictors(base_mod))]
+pred_list <- list_predictors(base_mod)
 
-#sim data ONCE for centile fan plotting
-print("simulate data for plotting")
-sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+#see if fs_version included as covariate
+fs <- pred_list[grep("^fs_version", pred_list)]
+if (length(fs) = 1){
+  resid_terms <- c(fs, "study_site")
+} else {
+  resid_terms <- "study_site"
+}
+
+#check if age is log-scaled
+if ("logAge_days" %in% pred_list){
+  age_var <- "logAge_days"
+  print("simulate data for plotting")
+  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+} else {
+  print("simulate data for plotting")
+  sim_df <- sim_data(df, "age_days", factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
+  age_var <- "age_days"
+}
+
+#check if pheno is log-scaled
+log_pheno <- gsub(".*_logPheno(TRUE|FALSE)_.*", "\\1", as.character(args[1])) %>%
+  as.logical()
+if (log_pheno==TRUE){
+  unscale_fun <- unscale
+} else {
+  unscale_fun <- NULL
+}
 
 #FIT BASIC MODEL
 model <- gamlss_3lambda_rep(base_mod, null_mod=FALSE)
@@ -44,17 +69,15 @@ saveRDS(model, file=file_full)
 
 #CENTILE FAN PLOT
 print("creating centile fan plot")
-unscale <- function(x){10^x - 5} #unscale y axis for phenolog models
   fan_plot <- make_centile_fan(gamlssModel=model, 
                                df=df, 
-                               x_var="logAge_days", 
+                               x_var=age_var, 
                                color_var="sexMale",
                                get_peaks=TRUE, 
                                desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df,
-                               remove_cent_effect="study_site",
-                               remove_point_effect = "study_site",
-                               y_scale=unscale)  +
+                               remove_point_effect = resid_terms,
+                               y_scale=unscale_fun)  +
     labs(title=paste(pheno, "validation model"),
          x ="log Age (days)",
          color = "Sex=Male", fill="Sex=Male")

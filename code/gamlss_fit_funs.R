@@ -854,3 +854,7 @@ rm_sexage <- function(formula_string) {
     x = formula_string
   )
 }
+
+#scaling/unscaling phenotype functions
+log_scale <- function(x){log(x + 5, base=10)}
+unscale <- function(x){10^x - 5}

@@ -50,7 +50,7 @@ if (log_pheno == TRUE){
   pheno_sym <- sym(pheno)
   
   df <- df %>%
-    mutate(!!pheno_sym := log(!!pheno_sym + 5, base=10)) #transform
+    mutate(!!pheno_sym := log_scale(!!pheno_sym)) #transform
 }
 
 #total name

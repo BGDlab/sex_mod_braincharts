@@ -6,7 +6,8 @@ library(dplyr)
 library(gamlss)
 library(gamlssTools)
 
-source("./code/gamlss_fit_funs.R")
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+source(paste0(base, "code/gamlss_fit_funs.R"))
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
@@ -194,14 +195,28 @@ if (log_age == TRUE){
   age_var <- "age_days"
 }
 
+#if fs_version is included in BestMod, residualize from plot
+if (fs %in% list_predictors(best_mod)){
+  print("controlling for fs version")
+  resid_terms <- c(fs, "study_site")
+} else {
+  resid_terms <- "study_site"
+}
 
+if (log_pheno==TRUE){
+  unscale_fun <- unscale
+} else {
+  unscale_fun <- NULL
+}
+
+#plot
 fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df,
                              x_var=age_var,
                              color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
-                             remove_cent_effect="study_site",
-                             remove_point_effect = "study_site") +
+                             remove_point_effect = resid_terms,
+                             y_scale=unscale_fun) +
   labs(title=paste(pheno, "\nsmoothed w/", sm, ",", best_bic$m_name),
        x = age_var,
        color = "Sex=Male", fill="Sex=Male")
