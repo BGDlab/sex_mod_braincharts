@@ -42,8 +42,18 @@ hist(df$MAD.Euler)
 
 write out lists of phenotypes by category
 ```{r}
+#cerebellum
+cerebel <- names(df)[grep("Cerebell|cerebell|CERE", names(df))]
+  df %>%
+  select(all_of(cerebel)) %>%
+  skim()
+
+#rename Cerebellum.all to CBV
+df <- df %>%
+  rename(CBV = Cerebellum.all)
+
 #global volumes
-glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF")
+glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF", "CBV")
 write_lines(glob_vol_list, "./pheno_lists/global_vols.txt")
 saveRDS(glob_vol_list, "./pheno_lists/global_vols.rds")
 
@@ -53,14 +63,19 @@ stopifnot(length(gmv_list) == 68)
 write_lines(gmv_list, "./pheno_lists/cortical_vols.txt")
 saveRDS(gmv_list, "./pheno_lists/cortical_vols.rds")
 
-#subcortical gmv
+#subcortical gmv - updated to include wm and csv vols as well!
 subcort <- names(df)[grep("SUBC\\.", names(df))]
-subcort_list <- subcort[-grep("Cerebellum|WM|Vent|choroid|vessel|hypointensities|CSF", subcort)] #drop WM, cerebellum, etc
-subcort_list <- subcort_list[-grep("Lentiform", subcort_list)] #drop segments only in infants
-subcort_list <- subcort_list[-grep("SUBC.CC", subcort_list)]
+subcort_list <- subcort[-grep("choroid|vessel|hypointensities|CSF|Chiasm", subcort)] #drop WM, cerebellum, etc
+subcort_list <- subcort_list[-grep("Lentiform|Inf.Lat.Vent", subcort_list)] #drop segments only in infants
+subcort_list <- subcort_list[subcort_list != "SUBC.CC"]
+subcort_list <- subcort_list[subcort_list != "SUBC.5th.Ventricle"] #too hard to segment
 length(subcort_list)
 write_lines(subcort_list, "./pheno_lists/subcortical_vols.txt")
 saveRDS(subcort_list, "./pheno_lists/subcortical_vols.rds")
+
+df %>%
+  select(all_of(subcort_list)) %>%
+  skim()
 
 #cortical thickness
 ct_list <- names(df)[grep("CT\\.", names(df))]
@@ -119,7 +134,7 @@ df_filt <- df_with_hbcd %>%
          logAge_days = log(age_days, base=10)) %>%
   mutate(logAge_days = ifelse(is.infinite(logAge_days),0.001, logAge_days)) %>% #make sure no inf values
   mutate(sexMale_x_logAge = sexMale * logAge_days, #add log-scaled ages
-         total.CT = rowSums(across(all_of(ct_list)), na.rm=FALSE),
+         mean.CT = rowMeans(across(all_of(ct_list)), na.rm=FALSE),
          total.SA = rowSums(across(all_of(sa_list)), na.rm=FALSE),
          study = as.factor(study),
          study_site = as.factor(paste0("study-", study, "_", "site-", site)),
@@ -134,84 +149,13 @@ covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale
                 "fs_version", "fs_version_SA", "fs_version_CT", "fs_version_GM",
                 "age_days", "logAge_days", "sexMale_x_logAge", "site", "country", "study_site", 
                 "QC.SS", "QC.RCA", "SurfaceHoles", 
-                "eTIV", "TBV", "total.CT", "total.SA")
+                "eTIV", "TBV", "mean.CT", "total.SA")
 
 df_select <- df_filt %>%
-  mutate(TBV = WMV + sGMV + GMV) %>%
+  mutate(TBV = WMV + sGMV + GMV + CBV) %>% #carriess forward NAs
   dplyr::select(all_of(c(pheno_list, covar_list)))
 
 skim(df_select)
-```
-
-look at IDPs=0
-```{r}
-df_zeros <- df_select %>%
-  filter(if_any(any_of(pheno_list), ~ . == 0))
-
-ggplot(df_zeros) +
-  geom_histogram(aes(x=age_days, fill=study))
-
-df_zeros %>%
-  filter(age_days < (280+365)) %>%
-  group_by(study) %>%
-  summarise(study = unique(study),
-            n=n())
-
-dhcp <- df_select %>%
-  filter(study=="dHCP-fetal")
-skim(dhcp)
-
-df_zeros %>%
-  filter(age_days <2500) %>% nrow()
-
-df_zeros_infant <- df_zeros %>%
-  filter(age_days <= 365.25 + 280) %>%
-  droplevels()
-nrow(df_zeros_infant)
-```
-
-looks like infant/fetal data have a lot of missing values
-looking if the rest of the IDPs seem to be in line with other studies of that age
-
-```{r, eval=FALSE}
-df_infant <- df_select %>%
-  filter(age_days < 365.25 + 280) %>%
-  droplevels()
-
-for (pheno in pheno_list){
-  plt <- ggplot() +
-    geom_point(aes(x=df_infant$age_days, y=df_infant[[pheno]], color=df_infant$study)) +
-    ggtitle(pheno)
-  
-  ggsave(paste0("./figs/", pheno, ".png"), plt)
-}
-
-```
-
-Going to remove phenotypes with 0s from infants (age_days <= 265+280) and remove ALL phenos from non-infant subjects with 0 phenos
-
-```{r}
-df_infant_nozero <- df_select %>%
-  dplyr::filter(age_days <= (365.25 + 280)) %>%
-  mutate(across(all_of(pheno_list), ~ifelse(.x==0, NA, .x)))
-
-skim(df_infant_nozero)
-
-stopifnot(df_infant_nozero %>%
-    filter(if_any(any_of(pheno_list), ~ . == 0)) %>% 
-      nrow() == 0)
-
-df_adult_nozero <- df_select %>%
-  dplyr::filter(age_days > (365.25 + 280)) %>%
-  filter(if_all(pheno_list, ~ is.na(.) | . != 0))
-
-stopifnot(df_adult_nozero %>%
-    filter(if_any(any_of(pheno_list), ~ . == 0)) %>% 
-      nrow() ==0)
-
-df_nozero <- rbind(df_infant_nozero, df_adult_nozero)
-nrow(df_select) - nrow(df_nozero)
-unique(df_infant_nozero$dx)
 ```
 
 ### Remove Psychosis Studies
@@ -220,7 +164,7 @@ set aside selected psychosis studies
 psych_dx_list <- c(unique(df$dx)[grepl("scz|sz|psych|schizo|cos", unique(df$dx), ignore.case=T)], "CN")
 psych_dx_list <- psych_dx_list[ !psych_dx_list == 'Psychological over-eating or binge-eating']
 
-unique(df_nozero$study)
+unique(df_select$study)
 df %>%
   dplyr::filter(dx %in% psych_dx_list) %>%
   group_by(study, dx) %>%
@@ -231,7 +175,7 @@ scz_study_list <- c("ALSPAC", "AMP-SCZ", "BHRCS", "COBRE_FS6_part1", "Dublin_FS6
                     "NDAR-SCZGlu", "NDAR-SocialBrainSchizoAutism", "NDAR_BSNIP", "NDAR_PARDIP", "NDAR_SCZIowa", "OpenNeuro_LA5c",
                     "SRPBS1600", "TOPSY", "NDAR_NIH-IRP") #NDAR_NIH-IRP = controls for Armin's COS dataset
 
-psychosis_df <- df_nozero %>%
+psychosis_df <- df_select %>%
   dplyr::filter(study %in% scz_study_list) %>%
   dplyr::filter(dx %in% psych_dx_list) %>%
   group_by(INDEX.ID) %>% #remove duplicate participants
@@ -255,7 +199,7 @@ FOR MORE SCZ STUDIES TO BE ADDED, SEE NDAR PROPOSAL GOOGLE DOC
 
 remove psychosis studies from main dataset so there's no data leakage
 ```{r}
-df_nopsych <- df_nozero %>%
+df_nopsych <- df_select %>%
   dplyr::filter(!(study %in% scz_study_list))
 ```
 
@@ -301,14 +245,91 @@ nrow(df_nopsych) - nrow(df_qc_filt)
 ```
 
 
+look at IDPs=0
+```{r}
+df_zeros <- df_qc_filt %>%
+  filter(if_any(any_of(pheno_list), ~ . == 0))
+
+df_zeros %>%
+  select(all_of(pheno_list)) %>%
+  map_int(~ sum(.x == 0, na.rm=TRUE))
+
+ggplot(df_zeros) +
+  geom_histogram(aes(x=age_days, fill=study)) +
+  theme(legend.position="none")
+
+df_zeros %>%
+  filter(age_days < (280+365)) %>%
+  group_by(study) %>%
+  summarise(study = unique(study),
+            n=n())
+
+dhcp <- df_select %>%
+  filter(study=="dHCP-fetal")
+skim(dhcp)
+
+df_zeros %>%
+  filter(age_days <2500) %>% nrow()
+
+df_zeros_infant <- df_zeros %>%
+  filter(age_days <= 365.25 + 280) %>%
+  droplevels()
+nrow(df_zeros_infant)
+```
+
+looks like infant/fetal data have a lot of missing values
+looking if the rest of the IDPs seem to be in line with other studies of that age
+
+```{r, eval=FALSE, message=FALSE}
+df_infant <- df_qc_filt %>%
+  filter(age_days < 365.25 + 280) %>%
+  droplevels()
+
+for (pheno in pheno_list){
+  plt <- ggplot() +
+    geom_point(aes(x=df_infant$age_days, y=df_infant[[pheno]], color=df_infant$study)) +
+    ggtitle(pheno)
+  
+  ggsave(paste0("./figs/", pheno, ".png"), plt)
+}
+
+```
+
+Going to remove phenotypes with 0s from infants (age_days <= 265+280) and remove ALL phenos from non-infant subjects with 0 phenos
+
+```{r}
+df_infant_nozero <- df_qc_filt %>%
+  dplyr::filter(age_days <= (365.25 + 280)) %>%
+  mutate(across(all_of(pheno_list), ~ifelse(.x==0, NA, .x)))
+
+skim(df_infant_nozero)
+
+stopifnot(df_infant_nozero %>%
+    filter(if_any(any_of(pheno_list), ~ . == 0)) %>% 
+      nrow() == 0)
+
+df_adult_nozero <- df_qc_filt %>%
+  dplyr::filter(age_days > (365.25 + 280)) %>%
+  filter(if_all(pheno_list, ~ is.na(.) | . != 0))
+
+stopifnot(df_adult_nozero %>%
+    filter(if_any(any_of(pheno_list), ~ . == 0)) %>% 
+      nrow() ==0)
+
+df_nozero <- rbind(df_infant_nozero, df_adult_nozero)
+nrow(df_qc_filt) - nrow(df_nozero)
+unique(df_infant_nozero$dx)
+```
+
+
 ### Final Filtering
 
 filter to just controls, single scan per subject, drop sites with fewer than 5 ppl
 
 ```{r}
-unique(df_qc_filt$dx)[grep("cn|control|none", unique(df_nopsych$dx), ignore.case=TRUE)]
+unique(df_nozero$dx)[grep("cn|control|none", unique(df_nopsych$dx), ignore.case=TRUE)]
 
-df_clean <- df_qc_filt %>%
+df_clean <- df_nozero %>%
   tidyr::drop_na(dx) %>%
   dplyr::filter(age_days <= (101*365.25)) %>%
   dplyr::filter(dx == "CN") %>%
@@ -449,7 +470,7 @@ fwrite(df_sa, "./data/csvs_by_pheno/cortical_surf.csv")
 
 #regional ct
 df_ct <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, ct_list, "fs_version_CT", "total.CT")))%>%
+  dplyr::select(all_of(c(covar_subset, ct_list, "fs_version_CT", "mean.CT")))%>%
   filter_at(ct_list, any_vars(complete.cases(.)))
 fwrite(df_ct, "./data/csvs_by_pheno/cortical_thickness.csv")
 
@@ -647,10 +668,10 @@ ggplot(df_clean, aes(y=TBV)) +
   geom_hline(yintercept = med_tbv + 8*mad_tbv) +
   scale_y_continuous(limits = c(0, NA))
 
-mad_ct <- mad(df_clean$total.CT, na.rm = T)
-med_ct <- median(df_clean$total.CT, na.rm = T)
+mad_ct <- mad(df_clean$mean.CT, na.rm = T)
+med_ct <- median(df_clean$mean.CT, na.rm = T)
 
-ggplot(df_clean, aes(y=total.CT)) + 
+ggplot(df_clean, aes(y=mean.CT)) + 
   geom_boxplot() +
   geom_hline(yintercept = med_ct + 8*mad_ct) +
   scale_y_continuous(limits = c(0, NA))
@@ -694,7 +715,7 @@ ggplot(df) +
 ###Cortical Thickness
 ```{r}
 ggplot(df_ct) + 
-  geom_point(aes(x=log(age_days), y=total.CT, color=as.factor(sexMale)), alpha=.4) +
+  geom_point(aes(x=log(age_days), y=mean.CT, color=as.factor(sexMale)), alpha=.4) +
   geom_vline(xintercept = log(280))+
   scale_y_continuous(limits = c(0, NA))
 

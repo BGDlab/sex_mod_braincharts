@@ -1,0 +1,74 @@
+---
+title: "Review Test Models"
+output: html_document
+date: "2024-10-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, gamlss, RESI)
+
+#devtools::install_github("BGDlab/gamlssTools", force=TRUE)
+library(gamlssTools)
+
+#ATLAS
+remotes::install_github("BGDlab/ggsegTissue")
+library(ggsegTissue)
+
+sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
+ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
+vol_list <- readRDS("./pheno_lists/cortical_vols.rds")
+global_list <- readRDS("./pheno_lists/global_vols.rds")
+sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
+```
+
+```{r}
+dir_paths <- Sys.glob("./cv_sample_?_test/*/model_sums")
+csv_files <- lapply(dir_paths, list.files, pattern = "LRtest.csv$", full.names = TRUE) %>% unlist()
+
+results_list <- list() #new empty list
+for (file in csv_files) {
+  print(paste("reading file", file))
+  # Read each CSV file
+    data <- fread(file)
+
+    # Bind the data to the combined dataframe
+    results_list[[file]] <- as.data.frame(data)
+    assign("results_list", results_list)
+}
+length(results_list)
+
+results_df <- bind_rows(results_list,.id="sample") %>%
+  mutate(sample = gsub(".*cv_sample_([A-Z])_test.*", "\\1", sample),
+         tissue_class = as.factor(case_when(pheno == "GMV" ~ "cGM",
+                                            pheno == "sGMV" ~ "sGM",
+                                            pheno == "WMV" ~ "WM",
+                                            TRUE ~ pheno)),
+         p.fdr = p.adjust(p_val, method="fdr", n = (length(pheno_list)*2)),
+         resi = fsq2S(fsq)) %>%
+  mutate(sig = as.factor(ifelse(p.fdr < 0.05, TRUE, FALSE)))
+```
+
+```{r}
+#quick plot
+ggplot(results_df) +
+  ggseg::geom_brain(atlas=aseg_cerebrum,
+                    aes(fill=fsq)) +
+  facet_wrap(~sample)
+
+ggplot(results_df) +
+  ggseg::geom_brain(atlas=aseg_cerebrum,
+                    aes(fill=resi)) +
+  facet_wrap(~sample)
+```
