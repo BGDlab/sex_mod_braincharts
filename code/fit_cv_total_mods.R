@@ -88,14 +88,15 @@ if (log_age == TRUE & sm == "pb"){
 moment_list <- c("none", "mu", "both", "all")
 
 #initialize empty lists
-mod_list <- c()
+mod_count <- 0
+first_mod <- NULL
 results_df <- data.frame()
 summary_df <- data.frame()
 
 #FIT MODEL
 for (fs_include in moment_list){
   
-  for (total_include in moment_list){
+  for (total_include in c("mu", "both", "all")){
 
     for (nu in nu_list){
     nu_name <- names(nu_list)[nu_list==nu]
@@ -110,7 +111,7 @@ for (fs_include in moment_list){
                             fs_ver=fs, fs_moment=fs_include, 
                             fam="BCCG",
                             nu_form=nu,
-                            start.from = "mod_list[[1]]") #use first model as starting point
+                            start.from = first_mod) #use first model as starting point
   
     #if model isn't fit, skip to next loop
     if (is.null(model)) {
@@ -118,12 +119,17 @@ for (fs_include in moment_list){
       next
     } else {
       message("model fit")
+      mod_count <- mod_count + 1
     }
     
+    #save
     m_name <- paste(paste0("fs", fs_include), nu_name, paste0("total", total_include), sep="_")
-    mod_list[[m_name]] <- model
-    
     saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds"))
+    
+    #retain first successful model
+    if (is.null(first_mod)){
+      first_mod <- model
+    }
   
    
     #COMPILE
@@ -137,13 +143,16 @@ for (fs_include in moment_list){
         "nu" = nu_name
       )
       summary_df <- rbind(summary_df, tmp_df)
+      
+    #get back memory
+    rm(model)
     }
   }
 }
-expected <- length(nu_list)*length(moment_list)*length(moment_list)
-print(paste(length(mod_list), "of", expected, "models fit"))
+expected <- length(nu_list)*length(moment_list)*3
+print(paste(mod_count, "of", expected, "models fit"))
 
-stopifnot(length(mod_list) > 0)
+stopifnot(mod_count > 0)
 
 #SAVE CSVs
 print("saving csvs")
@@ -161,13 +170,19 @@ best_bic$m_name <- paste(paste0("fs", best_bic$fs_moment),
 
 print(best_bic$m_name)
 
-best_mod <- mod_list[[best_bic$m_name]]
-
 #RENAME BEST MOD
+best_mod_file <- paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$m_name, "_BestMod.rds")
+print(paste("saving", best_mod_file))
 file.rename(paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$m_name, "_mod.rds"),
-            paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$m_name, "_BestMod.rds"))
+            best_mod_file)
 
 print("compiling stats")
+
+#READ BEST MOD BACK IN
+best_mod <- readRDS(best_mod_file)
+#re-write call info to be safe
+best_mod$call$data <- "df"
+best_mod$call$family <- "BCCG"
 
 #CENTILE FAN PLOT
 print("creating centile fan plots")
