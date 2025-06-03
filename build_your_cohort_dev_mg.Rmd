@@ -1,0 +1,271 @@
+---
+title: "Build Your Cohort"
+output: html_document
+author: 'Dabriel Zimmerman'
+date: "`r Sys.Date()`"
+---
+
+Script written by Dabriel and updated by Margaret to get data from 2025-03 Clinical Scans release.
+
+Prelude to this is to make sure pandas and numpy are installed. Run `pip install pandas, numpy` in a terminal
+```{r setup r, include=FALSE}
+
+# install.packages("librarian")
+
+librarian::shelf(ggplot2, readr, dplyr, data.table, MetBrewer, reticulate, gtsummary)
+
+basic <-  theme(axis.line = element_line(colour = "black"),
+                # panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                panel.border = element_blank(),
+                plot.title = element_text(size = 15, 
+                                          face = 'bold'),
+                axis.title = element_text(size = 10, 
+                                            face = 'bold'),
+                panel.background = element_blank(),
+                text = element_text(size = 14),
+                legend.title = element_text(size = 10, 
+                                            face = 'bold'),
+                axis.text.x = element_text(size = 10),
+                legend.text = element_text(size = 10))
+```
+
+```{python setup py, include=False}
+import re, os, os.path as op, glob, pandas as pd, numpy as np
+import warnings
+warnings.simplefilter(action='ignore', category=[FutureWarning,DeprecationWarning])
+
+df = pd.read_csv("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/BIDS/participants.tsv", sep = "\t")
+tot_subs = df.subject_id.nunique()
+tot_ses = df.session_id.nunique()
+print(f"This release contains {tot_subs} subjects and {tot_ses} sessions.")
+```
+
+# Create a cohort with filters
+
+Getting all SLIP participants
+
+## Set cohort filters
+
+-   Age range is inclusive
+-   Year of scan is inclusive
+
+```{python set filters}
+long = False          # Get subjects with longitudinal data
+slip_only = True      # Specify false to include sessions with grades < 1. Default is sessions matching SLIP criteria
+age_min = 0           # Specify min age in days (365.25 * age years).
+age_max = None        # Specify max age in days (365.25 * age years), or leave it as is (25 years old), or replace with None
+sex = None            # Specify 'Male' or 'Female'
+project = None # Specify a project listed in the projects.json
+standardMPR = False   # Specify True to only get sessions where there is a CHOP standard 3T MPR (used in SLIP models)
+highResT2 = False     # Specify True to only get sessions where there is a high res 3T T2w
+hasMPR = False        # Specify True to only get sessions where there is an MPRAGE
+hasT2 = False         # Specify True to only get sessions that have a T2w
+gestAge = False       # Specify True to get sessions where there is gestational age
+manufacturer = None   # Specify manufacturer 'Siemens' or 'GE'
+mfs = None            # Specify magnetic field strength '3T'or 1.5T'
+dsn = None            # Specify device serial number(s) using options listed in scanners.json. Single value as string or list of strings
+hasBW = None          # Specify True to only get sessions where birth weight is listed
+hasBL = None          # Specify True to only get sessions where birth length is listed
+rsample = 0           # Replace with an integer to get an n random sample of a larger cohort
+sample_group = None   # Specify a group to sample with a column name from the data dictionary
+yos_min = 2000        # Specify with a year minimum for session year
+yos_max = None        # Specify with a year maximum for session year
+   
+```
+
+### Set groups
+
+```{python set groups}
+set_groups = False                   # Specify True to create groups based on a study variable
+# grouping_var = 'year_of_scan'       # Specify study variable present in the data dictionary
+# group1_val = '<=2006'               # Specify the filter for group 1
+# group2_val = '>2006'               # Specify the filter for group 2
+# group1_name = 'old'                 # Specify the name for group 1
+# group2_name = 'new'                 # Specify the name for group 2
+```
+
+## Filter the release to get your cohort data
+
+```{python filtering}
+filters = [
+    None if not slip_only else f"(df['useable']==True",
+    None if not age_min > 0 else f"&(df['age_at_scan']>={age_min}",
+    None if not age_max or age_max is False else f"&(df['age_at_scan']<={age_max}",
+    None if not sex or sex is False else f"&(df['sex']=={sex}",
+    None if not project or project is False else f"&(df['project'].str.contains('{project}')==True",
+    None if not standardMPR or standardMPR is False else f"&(df['standardMPR']=={standardMPR}",
+    None if not highResT2 or highResT2 is False else f"&(df['highResT2']=={highResT2}",
+    None if not hasMPR or hasMPR is False else f"&(df['hasMPR']=={hasMPR}",
+    None if not hasT2 or hasT2 is False else f"&(df['hasT2']=={hasT2}",
+    None if not gestAge or gestAge is False else f"&(df['gestational_age'].notna()",
+    None if not manufacturer or manufacturer is False else f"&(df['manufacturer']=={manufacturer}",
+    None if not mfs or mfs is False else f"&(df['magnetic_field_strength']=={mfs}",
+    None if not dsn or dsn is False else f"&(df['device_serial_number']=={dsn}" if isinstance(dsn, str) else f"&(df['device_serial_number'].isin{dsn}",
+    None if not hasBW or hasBW is False else f"&(df['birth_weight_kg'].notna()",
+    None if not hasBL or hasBL is False else f"&(df['birth_length_cm'].notna()",
+    None if not yos_min or yos_min is False else f"&(df['year_of_scan']>=yos_min",
+    None if not yos_max or yos_max is False else f"&(df['year_of_scan']<=yos_max"
+  ]
+  
+filterStr = ")".join(filter(bool, filters)) + ")"
+filterStr = "filtered = df[" + re.sub(r'^&','',filterStr) + "]"
+    
+print(filterStr)
+exec(filterStr)
+myDf = filtered.copy()
+
+# Add session counter
+myDf['session_count'] = myDf.groupby('subject_id', sort=False)['subject_id'].transform('size')
+    
+if long is True:
+  myDf = myDf[myDf['session_count']>1]
+    
+n_subs = myDf.subject_id.nunique()
+n_ses = myDf.session_id.nunique()
+    
+print(f"After filtering data, {n_subs} subjects with {n_ses} sessions remain.")
+```
+
+```{r set groups, echo=FALSE}
+has_groups <- py$set_groups
+
+if (has_groups == TRUE){
+  myDf <- py$myDf |>
+  mutate(group = case_when(eval(parse(text=print(sprintf("%s %s", py$grouping_var,
+                              py$group1_val)))) ~ py$group1_name,
+                           eval(parse(text=print(sprintf("%s %s", py$grouping_var,
+                              py$group2_val)))) ~ py$group2_name))
+}
+
+
+
+```
+
+```{python sample data}
+if set_groups == True:
+    myDf = r.myDf
+    
+    n_subs_g1 = myDf[myDf['group']==group1_name].subject_id.nunique()
+    n_ses_g1 = myDf[myDf['group']==group1_name].session_id.nunique()
+    n_subs_g2 = myDf[myDf['group']==group2_name].subject_id.nunique()
+    n_ses_g2 = myDf[myDf['group']==group2_name].session_id.nunique()
+    print(f"There are {n_subs_g1} subjects with {n_ses_g1} sessions in group 1 and {n_subs_g2} subjects with {n_ses_g2} sessions in group 2.")
+    
+    
+# Get a random sample if specified
+if rsample != 0:
+    if sample_group is None:
+      myDf_sampled = myDf.sample(n=rsample, random_state=1)
+    else:
+      myDf_sampled = myDf.groupby(sample_group).sample(n=rsample, random_state=1),
+    n_subs_sample = myDf_sampled.subject_id.nunique(),
+    n_ses_sample = myDf_sampled.session_id.nunique(),
+    print(f"After sampling data, {n_subs_sample} subjects with {n_ses_sample} sessions remain")
+```
+
+At this point you now have a dataframe **myDf** containing the information for subjects with data matching your criteria. It includes (also see the participants.json for full data dictionary):
+
+## Grading relevant columns
+
+-   `avg_grade` average grade a session was given by the graders listed in `graders`
+-   `graded` Boolean value representing whether a session has been graded by at least 2 people (or 1 person and the NLP models) and the session was not given a 0 by anyone
+-   `useable` Boolean value representing if a session can be considered **SLIP**
+-   `project` Lists all projects a session belongs to. Multiple projects can be listed where a '; ' is used to separate them. If project was a specified filter then it will only contain the specified project.
+
+## Metrics
+
+-   `weight_at_enc` Weight in kg of subject at encounter close to or on the same date as the MRI scan
+-   `height_at_enc` Height in cm of subject at encounter close to or on the same date as the MRI scan
+-   `hc_at_enc` Head circumference in cm of subject at encounter close to or on the same date as the MRI scan
+-   `scan_hc_measure_age_diff` Difference in age between scan visit and visit where metrics (height, weight, head circumference) were taken.
+
+```{r write csv}
+output <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release.csv"
+myDf <- py$myDf 
+write_csv(myDf, output)
+```
+
+## Some Quick Stats/Viz
+```{r demo table}
+myDf_edited <- myDf |>
+    mutate(age_at_scan = (age_at_scan/365.25)*12,
+           hasMPR = ifelse(hasMPR==TRUE,TRUE,FALSE),
+           isLong = ifelse(session_count > 1, 
+                            TRUE, 
+                            FALSE))
+
+if (has_groups == TRUE){
+  demo_tbl <- myDf_edited |>
+    select(group, age_at_scan, 
+         sex, race, ethnicity,
+         hasMPR, isLong) |>
+    tbl_summary(
+      by = group,
+      include = c(age_at_scan, sex, 
+                race, ethnicity,
+                hasMPR, isLong),
+      label = list(age_at_scan = "Age at MRI Scan (months)",
+                 sex = "Sex",
+                 race = "Race",
+                 ethnicity = "Ethnicity",
+                 hasMPR = "Has MPRAGE",
+                 isLong = "Longtidunal"),
+      statistic = list(age_at_scan ~ "{median} ({p25}, {p75})",
+                     sex ~ "{n}",
+                     race ~ "{n}",
+                     ethnicity ~ "{n}",
+                     hasMPR ~ "{n}",
+                     isLong ~ "{n}")) |>
+    add_overall() |>
+    modify_header(label ~ "**Characteristic**") |>
+    modify_footnote_header("Median (IQR) or n", 
+                         columns = all_stat_cols()) |>
+    modify_caption("**Cohort Characteristics**")
+} else {
+  
+  demo_tbl <- myDf_edited |>
+    select(age_at_scan, 
+         sex, race, ethnicity,
+         hasMPR, isLong) |>
+    tbl_summary(
+      include = c(age_at_scan,sex, 
+                race, ethnicity,
+                hasMPR, isLong),
+      label = list(age_at_scan = "Age at MRI Scan (months)",
+                 sex = "Sex",
+                 race = "Race",
+                 ethnicity = "Ethnicity",
+                 hasMPR = "Has MPRAGE",
+                 isLong = "Longtidunal"),
+      statistic = list(age_at_scan ~ "{median} ({p25}, {p75})",
+                     sex ~ "{n}",
+                     race ~ "{n}",
+                     ethnicity ~ "{n}",
+                     hasMPR ~ "{n}",
+                     isLong ~ "{n}")) |>
+    modify_header(label ~ "**Characteristic**") |>
+    modify_footnote_header("Median (IQR) or n", 
+                         columns = all_stat_cols()) |>
+    modify_caption("**Cohort Characteristics**")
+}
+
+demo_tbl
+
+```
+
+```{r age/sex plot}
+myDf |>
+  ggplot(aes(x=age_at_scan)) +
+    geom_histogram(aes(fill = sex)) +
+    ggtitle("Distribution of Age at Scan By Sex") +
+    basic + xlab("Age (Days)") + ylab("Sessions") + labs(fill = 'Sex')
+```
+```{r year of scan plot}
+myDf |>
+  ggplot(aes(x=year_of_scan)) +
+    geom_histogram(aes(fill = sex)) +
+    ggtitle("Distribution of Year at Scan By Sex") +
+    basic + xlab("Year") + ylab("Sessions") + labs(fill = 'Sex')
+```
+
