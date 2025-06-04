@@ -12,7 +12,7 @@ Prelude to this is to make sure pandas and numpy are installed. Run `pip install
 
 # install.packages("librarian")
 
-librarian::shelf(ggplot2, readr, dplyr, data.table, MetBrewer, reticulate, gtsummary)
+librarian::shelf(ggplot2, readr, dplyr, data.table, MetBrewer, reticulate, gtsummary, purrr)
 
 basic <-  theme(axis.line = element_line(colour = "black"),
                 # panel.grid.major = element_blank(),
@@ -180,12 +180,6 @@ At this point you now have a dataframe **myDf** containing the information for s
 -   `hc_at_enc` Head circumference in cm of subject at encounter close to or on the same date as the MRI scan
 -   `scan_hc_measure_age_diff` Difference in age between scan visit and visit where metrics (height, weight, head circumference) were taken.
 
-```{r write csv}
-output <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release.csv"
-myDf <- py$myDf 
-write_csv(myDf, output)
-```
-
 ## Some Quick Stats/Viz
 ```{r demo table}
 myDf_edited <- myDf |>
@@ -269,3 +263,35 @@ myDf |>
     basic + xlab("Year") + ylab("Sessions") + labs(fill = 'Sex')
 ```
 
+## Add IDPs
+
+
+```{r}
+deriv_aparc <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-aparc.csv", fill=TRUE)
+names(deriv_aparc)
+
+deriv_global <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-global.csv", fill=TRUE)
+names(deriv_global)
+
+deriv_qc <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-qc.csv", fill=TRUE)
+names(deriv_qc)
+```
+
+remove curvature measures and merge
+
+```{r}
+deriv_aparc_filt <- deriv_aparc %>%
+  dplyr::select(-matches("^(MeanCurv|NumVert|GausCurv|FoldInd|CurvInd|ThickStd)"))
+
+#merge
+deriv_all <- reduce(list(deriv_aparc_filt, deriv_global, deriv_qc), full_join)
+skim(deriv_all)
+
+#filter to match df
+sample <- left_join(myDf, deriv_all, by=c("subject_id" = "subject_id", "session_id" = "scan_id"))
+stopifnot(nrow(myDf) == nrow(sample))
+```
+```{r write csv}
+output <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release.csv"
+write_csv(sample, output)
+```
