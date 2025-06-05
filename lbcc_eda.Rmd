@@ -57,6 +57,54 @@ glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF", "CBV")
 write_lines(glob_vol_list, "./pheno_lists/global_vols.txt")
 saveRDS(glob_vol_list, "./pheno_lists/global_vols.rds")
 
+
+```
+
+
+```{r, eval=FALSE}
+ss_subcort_list <- c("SUBC.Left.Thalamus.Proper", "SUBC.Right.Thalamus.Proper", 
+                     "SUBC.Left.Caudate", "SUBC.Right.Caudate",
+                     "SUBC.Left.Putamen", "SUBC.Right.Putamen",
+                     "SUBC.Left.Pallidum", "SUBC.Right.Pallidum",
+                     "SUBC.Left.Hippocampus", "SUBC.Right.Hippocampus",
+                     "SUBC.Left.Amygdala", "SUBC.Right.Amygdala",
+                     "SUBC.Left.Accumbens.area", "SUBC.Right.Accumbens.area")
+
+ss_ventricles_list <- c("SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle",
+                        "SUBC.Left.Inf.Lat.Vent", "SUBC.Right.Inf.Lat.Vent",
+                        "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
+
+#try to fill in missing global volumes with other cols
+df2 <- df %>%
+  mutate(GMV = case_when(!is.na(GMV) ~ GMV,
+                         !is.na(CortexVol) ~ CortexVol,
+                         !is.na(rhCortexVol) & !is.na(lhCortexVol) ~ rhCortexVol + lhCortexVol,
+                         TRUE ~ NA),
+         sGMV = case_when(!is.na(sGMV) ~ sGMV,
+            !is.na(SubCortGM) ~ SubCortGM,
+            TRUE ~  rowSums(across(all_of(ss_subcort_list)), na.rm=FALSE)),
+         WMV = case_when(!is.na(WMV) ~ WMV,
+            !is.na(CerebralWhiteMatterVol) ~ CerebralWhiteMatterVol,
+            !is.na(lhCerebralWhiteMatterVol) & !is.na(rhCerebralWhiteMatterVol) ~  lhCerebralWhiteMatterVol + rhCerebralWhiteMatterVol,
+            #!is.na(right.cerebral.white.matter) & !is.na(left.cerebral.white.matter) ~ right.cerebral.white.matter + left.cerebral.white.matter
+            ),
+         CSF = case_when(!is.na(CSF) ~ CSF,
+           !is.na(BrainSegVol) & !is.na(BrainSegVolNotVent) ~ 
+                           BrainSegVol - BrainSegVolNotVent,
+                          TRUE ~  rowSums(across(all_of(ss_ventricles_list)), na.rm=FALSE)),
+         eTIV = case_when(!is.na(eTIV) ~ eTIV,
+                          TRUE ~ EstimatedTotalIntraCranialVol)
+         )
+all.equal(df2, df)
+
+ggplot(df2) +
+  geom_point(aes(x=age_days, y=WMV), alpha=0.4)
+
+ggplot(df) +
+  geom_point(aes(x=age_days, y=WMV), alpha=0.4) #added a lot of bad data, not going to do this!
+```
+
+```{r}
 #cortical gmv
 gmv_list <- names(df)[grep("GM\\.", names(df))]
 stopifnot(length(gmv_list) == 68)
@@ -156,11 +204,86 @@ setdiff(names(slip_rename), names(df_with_hbcd))
 skim(slip_rename)
 ```
 
-rename cols as needed
+rename cols as needed:
+
+[1] "SUBC.Left.Lateral.Ventricle"        "SUBC.Left.Cerebellum.White.Matter"  "SUBC.Left.Cerebellum.Cortex"       
+ [4] "SUBC.Left.Thalamus.Proper"          "SUBC.Left.Caudate"                  "SUBC.Left.Putamen"                 
+ [7] "SUBC.Left.Pallidum"                 "SUBC.3rd.Ventricle"                 "SUBC.4th.Ventricle"                
+[10] "SUBC.Brain.Stem"                    "SUBC.Left.Hippocampus"              "SUBC.Left.Amygdala"                
+[13] "SUBC.Left.Accumbens.area"           "SUBC.Left.VentralDC"                "SUBC.Right.Cerebellum.White.Matter"
+[16] "SUBC.Right.Cerebellum.Cortex"       "SUBC.Right.Thalamus.Proper"         "SUBC.Right.Caudate"                
+[19] "SUBC.Right.Putamen"                 "SUBC.Right.Pallidum"                "SUBC.Right.Hippocampus"            
+[22] "SUBC.Right.Amygdala"                "SUBC.Right.Accumbens.area"          "SUBC.Right.VentralDC"              
+[25] "SUBC.Right.Lateral.Ventricle"       "SUBC.CC_Posterior"                  "SUBC.CC_Mid_Posterior"             
+[28] "SUBC.CC_Central"                    "SUBC.CC_Mid_Anterior"               "SUBC.CC_Anterior"                  
+[31] "SUBC.Left.Cerebellum"               "SUBC.Right.Cerebellum"
 
 ```{r}
+slip_rename2 <- slip_rename %>%
+  mutate(run = as.numeric(str_extract(scan_id, "(?<=run-)\\d+"))) %>%
+rename_with(
+    ~ .x %>%
+      str_replace_all("_|\\s+", " ") %>%     # Replace _ or space with single space
+      str_to_title() %>%                     # Capitalize each word
+      str_replace_all(" ", ".") %>%          # Replace spaces with .
+      paste0("SUBC.", .),                    # Add prefix
+    .cols = matches("^left_|^right_")
+  ) %>%
+  rename(CBV = CerebellumVolume,
+         SUBC.Left.Thalamus.Proper = SUBC.Left.Thalamus, ##check this!!!
+         SUBC.Right.Thalamus.Proper = SUBC.Right.Thalamus, ##check this!!!
+         SUBC.3rd.Ventricle = "3rd_ventricle",
+         SUBC.4th.Ventricle = "4th_ventricle",
+         SUBC.Brain.Stem = "brain-stem",
+         SUBC.Left.Accumbens.area = SUBC.Left.Accumbens.Area,
+         SUBC.Right.Accumbens.area = SUBC.Right.Accumbens.Area,
+         SUBC.Right.VentralDC = SUBC.Right.Ventral.Dc,
+         SUBC.Left.VentralDC = SUBC.Left.Ventral.Dc,
+         SUBC.Left.Cerebellum = SUBC.Left.Cerebellum.Cortex,
+         SUBC.Right.Cerebellum = SUBC.Right.Cerebellum.Cortex,
+         SUBC.Left.Inf.Lat.Vent = SUBC.Left.Inferior.Lateral.Ventricle,
+         SUBC.Right.Inf.Lat.Vent = SUBC.Right.Inferior.Lateral.Ventricle) %>%
+  mutate(GMV = case_when(!is.na(CortexVol) ~ CortexVol,
+                         !is.na(rhCortexVol) & !is.na(lhCortexVol) ~ rhCortexVol + lhCortexVol,
+                         TRUE ~ NA),
+         sGMV = case_when(!is.na(sGMV) ~ sGMV,
+            !is.na(SubCortGrayVol) ~ SubCortGrayVol,
+            TRUE ~  rowSums(across(all_of(ss_subcort_list)), na.rm=FALSE)),
+         WMV = case_when(!is.na(WMV) ~ WMV,
+            !is.na(CerebralWhiteMatterVol) ~ CerebralWhiteMatterVol,
+            !is.na(lhCerebralWhiteMatterVol) & !is.na(rhCerebralWhiteMatterVol) ~  lhCerebralWhiteMatterVol + rhCerebralWhiteMatterVol,
+            #!is.na(right.cerebral.white.matter) & !is.na(left.cerebral.white.matter) ~ right.cerebral.white.matter + left.cerebral.white.matter
+            ),
+         CSF = case_when(!is.na(BrainSegVol) & !is.na(BrainSegVolNotVent) ~ 
+                           BrainSegVol - BrainSegVolNotVent,
+                          TRUE ~  rowSums(across(all_of(ss_ventricles_list)), na.rm=FALSE)),
+         eTIV = case_when(!is.na(eTIV) ~ eTIV,
+                          !is.na(TCV) ~ TCV,
+                          TRUE ~ total_intracranial),
+         SUBC.Left.Cerebellum.Cortex = SUBC.Left.Cerebellum - SUBC.Left.Cerebellum.White.Matter,
+         SUBC.Right.Cerebellum.Cortex = SUBC.Right.Cerebellum - SUBC.Right.Cerebellum.White.Matter #check these
+         )
+
+slip_rename2$fs_version
+slip_rename2$fs_version_GM  
+slip_rename2$fs_version_SA    
+slip_rename2$fs_version_CT <-
+slip_rename2$study <- "SLIP"
 
 ```
+
+check that all cols included
+
+```{r}
+pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
+
+setdiff(pheno_list, names(slip_rename2))
+
+setdiff(names(df_with_hbcd), names(slip_rename2))
+setdiff(names(slip_rename2), names(df_with_hbcd))
+```
+
+Looks pretty good, going to remove old SLIP data and add new
 
 ## Data Cleaning
 
@@ -184,7 +307,7 @@ df_filt <- df_with_hbcd %>%
 keep only columns we need (phenotypes to model, covariates)
 
 ```{r}
-pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
+
 covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale_x_age",
                 "fs_version", "fs_version_SA", "fs_version_CT", "fs_version_GM",
                 "age_days", "logAge_days", "sexMale_x_logAge", "site", "country", "study_site", 
