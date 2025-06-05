@@ -11,7 +11,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr)
 ```
 
 load data - prelim version of LBCC 3.0, waiting on Lena to look into missing sex info
@@ -122,6 +122,46 @@ df_with_hbcd <- full_join(df, hbcd_rename)
 stopifnot(nrow(df_with_hbcd) == nrow(df) + nrow(hbcd_rename))
 ```
 
+## SLIP 2025-03
+
+csv created with `build_your_cohort_dev_mg.Rmd`
+
+```{r}
+slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release.csv")
+names(slip)
+skim(slip)
+
+unlist(unique(names(slip)[names(slip) %in% names(df_with_hbcd)]))
+setdiff(names(slip), names(df_with_hbcd))
+setdiff(names(df_with_hbcd), names(slip))
+```
+
+```{r}
+slip_rename <- slip %>%
+  rename_with(~ str_replace(.x, "^GrayVol\\.lh", "lh.GM")) %>%
+  rename_with(~ str_replace(.x, "^GrayVol\\.rh", "rh.GM")) %>%
+  rename_with(~ str_replace(.x, "^SurfArea\\.lh", "lh.SA")) %>%
+  rename_with(~ str_replace(.x, "^SurfArea\\.rh", "rh.SA")) %>%
+  rename_with(~ str_replace(.x, "^ThickAvg\\.lh", "lh.CT")) %>%
+  rename_with(~ str_replace(.x, "^ThickAvg\\.rh", "rh.CT")) %>%
+  rename(age_days = adjusted_age_in_days,
+         participant = participant_id,
+         session = session_id) %>%
+  filter(!is.na(device_serial_number)) %>%
+  mutate(site = gsub(" ", "", paste0("CHOP", device_serial_number)))
+
+setdiff(names(df_with_hbcd), names(slip_rename))
+setdiff(names(slip_rename), names(df_with_hbcd))
+
+skim(slip_rename)
+```
+
+rename cols as needed
+
+```{r}
+
+```
+
 ## Data Cleaning
 
 remove intersex subj, dummy-code sex and sex*age, add totals for CT and SA
@@ -129,8 +169,8 @@ remove intersex subj, dummy-code sex and sex*age, add totals for CT and SA
 ```{r}
 df_filt <- df_with_hbcd %>%
   dplyr::filter(sex != "intersex") %>%
-  mutate(sexMale = ifelse(sex=="male", 1, 0),
-         sexMale_x_age = ifelse(sex=="male", age_days, 0),
+  mutate(sexMale = ifelse(sex=="male" | sex == "Male", 1, 0),
+         sexMale_x_age = ifelse(sex=="male"| sex == "Male", age_days, 0),
          logAge_days = log(age_days, base=10)) %>%
   mutate(logAge_days = ifelse(is.infinite(logAge_days),0.001, logAge_days)) %>% #make sure no inf values
   mutate(sexMale_x_logAge = sexMale * logAge_days, #add log-scaled ages
@@ -239,7 +279,7 @@ left_join(df_nopsych, study_mad) %>%
 df_qc_filt <- left_join(df_nopsych, study_mad) %>%
   mutate(has_qc = ifelse(is.na(SurfaceHoles) & is.na(QC.SS) & is.na(QC.RCA),
                         FALSE, TRUE)) %>%
-  dplyr::filter(SurfaceHoles <= euler_threshold | QC.SS < 0.65 | QC.RCA < 0.65 | has_qc == FALSE) #using SS recommended threshold
+  dplyr::filter(SurfaceHoles <= euler_threshold | QC.SS > 0.65 | QC.RCA > 0.65 | has_qc == FALSE) #using SS recommended threshold
 
 nrow(df_nopsych) - nrow(df_qc_filt)
 ```
