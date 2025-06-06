@@ -36,6 +36,17 @@ imaging_df_filt <- imaging_df %>%
 colnames(imaging_df_filt) <- gsub("img_bibsnet_space-T2w_desc-aseg_volumes_", "", colnames(imaging_df_filt))
 ```
 
+```{r}
+ggplot(imaging_df) +
+  geom_point(aes(x=img_mriqc_T2w_candidate_age, y= img_mriqc_T1w_candidate_age))
+
+imaging_df %>%
+  rename(img_bibsnet_space_T2w_desc_aseg_volumes_candidate_age = "img_bibsnet_space-T2w_desc-aseg_volumes_candidate_age") %>%
+ggplot() +
+  geom_point(aes(x=img_mriqc_T2w_candidate_age, y=img_bibsnet_space_T2w_desc_aseg_volumes_candidate_age))
+```
+
+
 #M-CRIB Imaging Outputs
 need to compile across subject-specific dirs
 
@@ -98,7 +109,7 @@ n_unique(test_df$id)
 hbcd <- inner_join(demo_sub, test_df) %>%
   select_if(~!all(is.na(.))) %>% #drop col if all is empty
   drop_na(age, sex) %>%
-  mutate(age_days = 365.25*age) #confirmed age in years
+  mutate(age_days = 365.25*age + 280) #confirmed age years
 
 skim(hbcd)
 
