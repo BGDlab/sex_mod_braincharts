@@ -294,74 +294,36 @@ sample_full %>%
   ggplot() +
   geom_histogram(aes(x=QC.RCA))
 ```
-### Infants
-For infants < 1 year, take median IDP value across sequences w/in session
-
-```{r}
-lh_idps <- names(sample_full)[grep(".lh.|left_", names(sample_full))]
-rh_idps <- names(sample_full)[grep(".rh.|right_", names(sample_full))]
-vent <- names(sample_full)[grep("ventricle", names(sample_full))]
-glob <- c("eTIV", "BrainSegVol", "BrainSegVolNotVent", "BrainSegVolNotVentSurf", "CerebralWhiteMatterVol", "CortexVol", "MaskVol", "SubCortGrayVol", "SupraTentorialVol", "SupraTentorialVolNotVent", "SupraTentorialVolNotVentVox", "TotalGrayVol", "VentricleChoroidVol", "lhCerebralWhiteMatterVol", "lhCortexVol", "rhCerebralWhiteMatterVol", "rhCortexVol", "total_intracranial", "brain-stem", "csf", "TCV", "cGMV", "sGMV", "CerebellumVolume", "WMV", "Ventricles")
-idp_cols <- c(lh_idps, rh_idps, glob, vent)
-
-setdiff(names(sample_full), idp_cols)
-
-samp_inf <- sample_full %>%
-  dplyr::filter(age_at_scan <= 365.25 & QC.RCA > 0.65) %>%
-  group_by(subject_id, session_id) %>%
-  summarise(participant_id = unique(participant_id),
-            subject_id = unique(subject_id),
-            session_id = unique(session_id),
-            sex = unique(sex),
-            sub_ses = unique(sub_ses),
-            device_serial_number = unique(device_serial_number),
-            age_at_scan = unique(age_at_scan),
-            adjusted_age_in_days = unique(adjusted_age_in_days),
-            across(all_of(idp_cols), \(x) median(x, na.rm = TRUE)),
-            across(all_of(starts_with("QC")), \(x) min(x, na.rm = TRUE)),
-            .groups = "drop")
-stopifnot(n_unique(samp_inf$session_id) == nrow(samp_inf))
-skim(samp_inf)
-```
 
 ### Adults
 For all subjects > 1 year, take IDP value from T1w MPRAGE
 
 ```{r}
 samp_mpr <- sample_full %>%
-  dplyr::filter(age_at_scan > 365.25 & scan_seq == "T1w") %>%
-  dplyr::filter(str_detect(scan_id, 'MPRAGE')) %>%
-  dplyr::filter(QC.RCA > 0.65) #filter now to be consistent
-n_unique(samp_mpr$session_id) == nrow(samp_mpr)
-  
-samp_no_mpr <- sample_full %>%
-  dplyr::filter(age_at_scan > 365.25 & scan_seq == "T1w" & QC.RCA > 0.65) %>%
-  dplyr::filter(!str_detect(scan_id, 'MPRAGE')) %>%
-  dplyr::filter(!(session_id %in% samp_mpr$session_id)) %>%
-  group_by(subject_id, session_id) %>%
-  summarise(participant_id = unique(participant_id),
-            subject_id = unique(subject_id),
-            session_id = unique(session_id),
-            sex = unique(sex),
-            sub_ses = unique(sub_ses),
-            device_serial_number = unique(device_serial_number),
-            age_at_scan = unique(age_at_scan),
-            adjusted_age_in_days = unique(adjusted_age_in_days),
-            across(all_of(idp_cols), \(x) median(x, na.rm = TRUE)),
-            across(all_of(starts_with("QC")), \(x) min(x, na.rm = TRUE)),
-            .groups = "drop")
-stopifnot(n_unique(samp_no_mpr$session_id) == nrow(samp_no_mpr))
+  dplyr::filter(scan_seq == "T1w") %>%
+  dplyr::filter(str_detect(scan_id, 'MPRAGE'))
+
+nrow(samp_mpr) == n_unique(samp_mpr$session_id)
+(n_unique(sample_full$participant_id) - n_unique(samp_mpr$participant_id))/n_unique(sample_full$participant_id)
 ```
 
 ```{r}
-samp_final <- reduce(list(samp_inf, samp_mpr, samp_no_mpr), full_join)
-```
-```{r}
-ggplot(samp_final) +
+sample_full %>%
+  group_by(participant_id, session_id) %>%
+  slice(1) %>%
+  ungroup() %>%
+  ggplot() +
+  geom_histogram(aes(x=(age_at_scan/365.25), fill=sex))
+
+samp_mpr %>%
+  group_by(participant_id, session_id) %>%
+  slice(1) %>%
+  ungroup() %>%
+  ggplot() +
   geom_histogram(aes(x=(age_at_scan/365.25), fill=sex))
 ```
 
 ```{r write csv}
 output <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release.csv"
-write_csv(samp_final, output)
+write_csv(samp_mpr, output)
 ```
