@@ -28,5 +28,3 @@ SUBC.CC_Mid_Posterior
 SUBC.CC_Central
 SUBC.CC_Mid_Anterior
 SUBC.CC_Anterior
-SUBC.Left.Cerebellum
-SUBC.Right.Cerebellum

@@ -30,8 +30,7 @@ imaging_df %>%
   skim()
 
 imaging_df_filt <- imaging_df %>%
-  rename(age = img_mriqc_T2w_candidate_age) %>%
-  dplyr::select(!any_of(starts_with("img_mriqc"))) #dropping qc for now, since this is just the beta release
+  rename(age = img_mriqc_T2w_candidate_age)
 
 colnames(imaging_df_filt) <- gsub("img_bibsnet_space-T2w_desc-aseg_volumes_", "", colnames(imaging_df_filt))
 ```
