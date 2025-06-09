@@ -111,7 +111,7 @@ for (fs_include in moment_list){
                             fs_ver=fs, fs_moment=fs_include, 
                             fam="BCCG",
                             nu_form=nu,
-                            start.from = first_mod) #use first model as starting point
+                            start.from = "first_mod") #use first model as starting point
   
     #if model isn't fit, skip to next loop
     if (is.null(model)) {

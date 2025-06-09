@@ -4,7 +4,7 @@ library(png)
 library(tools)
 
 # Define root directory
-root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_train/*cortical*/*/") #cortical/subcort training mods
+root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/figs/") #cortical/subcort training mods
 #root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 
 # Get all PNGs from matching directories
@@ -16,7 +16,7 @@ png_files <- unlist(lapply(root_dirs, function(dir) {
 print(length(png_files))
 
 # Output PDF path
-output_pdf <- "cortical_subcortical_training_may21.pdf"
+output_pdf <- "samp_w_slip.pdf"
 
 # Create PDF
 pdf(output_pdf, width = 8, height = 10)
