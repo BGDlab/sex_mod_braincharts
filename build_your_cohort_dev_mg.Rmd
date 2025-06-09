@@ -295,8 +295,7 @@ sample_full %>%
   geom_histogram(aes(x=QC.RCA))
 ```
 
-### Adults
-For all subjects > 1 year, take IDP value from T1w MPRAGE
+take IDP value from T1w MPRAGE
 
 ```{r}
 samp_mpr <- sample_full %>%

@@ -92,6 +92,9 @@ df2 <- df %>%
            !is.na(BrainSegVol) & !is.na(BrainSegVolNotVent) ~ 
                            BrainSegVol - BrainSegVolNotVent,
                           TRUE ~  rowSums(across(all_of(ss_ventricles_list)), na.rm=FALSE)),
+         CSF.test = case_when(!is.na(BrainSegVol) & !is.na(BrainSegVolNotVent) ~ 
+                           BrainSegVol - BrainSegVolNotVent,
+                          TRUE ~  rowSums(across(all_of(ss_ventricles_list)), na.rm=FALSE)),
          eTIV = case_when(!is.na(eTIV) ~ eTIV,
                           TRUE ~ EstimatedTotalIntraCranialVol)
          )
@@ -102,6 +105,9 @@ ggplot(df2) +
 
 ggplot(df) +
   geom_point(aes(x=age_days, y=WMV), alpha=0.4) #added a lot of bad data, not going to do this!
+
+ggplot(df2) +
+  geom_point(aes(x=CSF, y=CSF.test, color=fs_version), alpha=0.4)
 ```
 
 ```{r}
@@ -117,6 +123,8 @@ subcort_list <- subcort[-grep("choroid|vessel|hypointensities|CSF|Chiasm", subco
 subcort_list <- subcort_list[-grep("Lentiform|Inf.Lat.Vent", subcort_list)] #drop segments only in infants
 subcort_list <- subcort_list[subcort_list != "SUBC.CC"]
 subcort_list <- subcort_list[subcort_list != "SUBC.5th.Ventricle"] #too hard to segment
+subcort_list <- subcort_list[subcort_list != "SUBC.Left.Cerebellum"]
+subcort_list <- subcort_list[subcort_list != "SUBC.Right.Cerebellum"]#only in a couple studies, use SUBC.Left.Cerebellum.Cortex
 length(subcort_list)
 write_lines(subcort_list, "./pheno_lists/subcortical_vols.txt")
 saveRDS(subcort_list, "./pheno_lists/subcortical_vols.rds")
@@ -179,9 +187,9 @@ slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/s
 names(slip)
 skim(slip)
 
-unlist(unique(names(slip)[names(slip) %in% names(df_with_hbcd)]))
-setdiff(names(slip), names(df_with_hbcd))
-setdiff(names(df_with_hbcd), names(slip))
+# unlist(unique(names(slip)[names(slip) %in% names(df_with_hbcd)]))
+# setdiff(names(slip), names(df_with_hbcd))
+# setdiff(names(df_with_hbcd), names(slip))
 ```
 
 ```{r}
@@ -196,12 +204,11 @@ slip_rename <- slip %>%
          participant = participant_id,
          session = session_id) %>%
   filter(!is.na(device_serial_number)) %>%
-  mutate(site = gsub(" ", "", paste0("CHOP", device_serial_number)))
+  mutate(site = gsub(" ", "", paste0("CHOP", device_serial_number)),
+         QC.RCA = do.call(pmin, c(across(starts_with("QC")), na.rm = TRUE)))
 
-setdiff(names(df_with_hbcd), names(slip_rename))
-setdiff(names(slip_rename), names(df_with_hbcd))
-
-skim(slip_rename)
+# setdiff(names(df_with_hbcd), names(slip_rename))
+# setdiff(names(slip_rename), names(df_with_hbcd))
 ```
 
 rename cols as needed:
@@ -216,7 +223,6 @@ rename cols as needed:
 [22] "SUBC.Right.Amygdala"                "SUBC.Right.Accumbens.area"          "SUBC.Right.VentralDC"              
 [25] "SUBC.Right.Lateral.Ventricle"       "SUBC.CC_Posterior"                  "SUBC.CC_Mid_Posterior"             
 [28] "SUBC.CC_Central"                    "SUBC.CC_Mid_Anterior"               "SUBC.CC_Anterior"                  
-[31] "SUBC.Left.Cerebellum"               "SUBC.Right.Cerebellum"
 
 ```{r}
 slip_rename2 <- slip_rename %>%
@@ -230,8 +236,8 @@ rename_with(
     .cols = matches("^left_|^right_")
   ) %>%
   rename(CBV = CerebellumVolume,
-         SUBC.Left.Thalamus.Proper = SUBC.Left.Thalamus, ##check this!!!
-         SUBC.Right.Thalamus.Proper = SUBC.Right.Thalamus, ##check this!!!
+         SUBC.Left.Thalamus.Proper = SUBC.Left.Thalamus,
+         SUBC.Right.Thalamus.Proper = SUBC.Right.Thalamus,
          SUBC.3rd.Ventricle = "3rd_ventricle",
          SUBC.4th.Ventricle = "4th_ventricle",
          SUBC.Brain.Stem = "brain-stem",
@@ -239,37 +245,66 @@ rename_with(
          SUBC.Right.Accumbens.area = SUBC.Right.Accumbens.Area,
          SUBC.Right.VentralDC = SUBC.Right.Ventral.Dc,
          SUBC.Left.VentralDC = SUBC.Left.Ventral.Dc,
-         SUBC.Left.Cerebellum = SUBC.Left.Cerebellum.Cortex,
-         SUBC.Right.Cerebellum = SUBC.Right.Cerebellum.Cortex,
          SUBC.Left.Inf.Lat.Vent = SUBC.Left.Inferior.Lateral.Ventricle,
-         SUBC.Right.Inf.Lat.Vent = SUBC.Right.Inferior.Lateral.Ventricle) %>%
+         SUBC.Right.Inf.Lat.Vent = SUBC.Right.Inferior.Lateral.Ventricle,
+         slip_session = session) 
+```
+
+```{r}
+ss_ventricles_list <- c("SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle",
+                        "SUBC.Left.Inf.Lat.Vent", "SUBC.Right.Inf.Lat.Vent",
+                        "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
+
+vent_test <- slip_rename2 %>%
+  mutate(diff = case_when((!is.na(BrainSegVol) & !is.na(BrainSegVolNotVent)) ~
+                            BrainSegVol - BrainSegVolNotVent,
+                          TRUE ~ NA),
+         vent_sum = rowSums(across(all_of(ss_ventricles_list)), na.rm=FALSE))
+
+ggplot(vent_test) +
+  geom_point(aes(x=vent_sum, y=Ventricles))
+ggplot(vent_test) +
+  geom_point(aes(x=diff, y=Ventricles))
+
+range(vent_test$Ventricles)
+```
+
+Trying Ventricles for CSF for SLIP based on suggestions from Aaron
+
+```{r}
+slip_glob <- slip_rename2 %>%
   mutate(GMV = case_when(!is.na(CortexVol) ~ CortexVol,
                          !is.na(rhCortexVol) & !is.na(lhCortexVol) ~ rhCortexVol + lhCortexVol,
                          TRUE ~ NA),
          sGMV = case_when(!is.na(sGMV) ~ sGMV,
             !is.na(SubCortGrayVol) ~ SubCortGrayVol,
-            TRUE ~  rowSums(across(all_of(ss_subcort_list)), na.rm=FALSE)),
+            TRUE ~ NA),
+            #TRUE ~  rowSums(across(all_of(ss_subcort_list)), na.rm=FALSE)),
          WMV = case_when(!is.na(WMV) ~ WMV,
             !is.na(CerebralWhiteMatterVol) ~ CerebralWhiteMatterVol,
             !is.na(lhCerebralWhiteMatterVol) & !is.na(rhCerebralWhiteMatterVol) ~  lhCerebralWhiteMatterVol + rhCerebralWhiteMatterVol,
+            TRUE ~ NA
             #!is.na(right.cerebral.white.matter) & !is.na(left.cerebral.white.matter) ~ right.cerebral.white.matter + left.cerebral.white.matter
             ),
-         CSF = case_when(!is.na(BrainSegVol) & !is.na(BrainSegVolNotVent) ~ 
-                           BrainSegVol - BrainSegVolNotVent,
-                          TRUE ~  rowSums(across(all_of(ss_ventricles_list)), na.rm=FALSE)),
+         CSF = Ventricles,
          eTIV = case_when(!is.na(eTIV) ~ eTIV,
                           !is.na(TCV) ~ TCV,
-                          TRUE ~ total_intracranial),
-         SUBC.Left.Cerebellum.Cortex = SUBC.Left.Cerebellum - SUBC.Left.Cerebellum.White.Matter,
-         SUBC.Right.Cerebellum.Cortex = SUBC.Right.Cerebellum - SUBC.Right.Cerebellum.White.Matter #check these
-         )
+                          TRUE ~ total_intracranial))
 
-slip_rename2$fs_version
-slip_rename2$fs_version_GM  
-slip_rename2$fs_version_SA    
-slip_rename2$fs_version_CT <-
-slip_rename2$study <- "SLIP"
 
+#TEMPORARY LABELING OF FS VERSION
+slip_glob$fs_version <- "TEMP"
+slip_glob$fs_version_GM <- "TEMP"
+slip_glob$fs_version_SA  <- "TEMP"  
+slip_glob$fs_version_CT <- "TEMP"
+slip_glob$study <- "SLIP"
+slip_glob$dx <- "CN"
+```
+
+```{r}
+slip_glob %>%
+  ggplot() +
+  geom_point(aes(x=age_days, y=CSF))
 ```
 
 check that all cols included
@@ -277,21 +312,38 @@ check that all cols included
 ```{r}
 pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
 
-setdiff(pheno_list, names(slip_rename2))
+setdiff(pheno_list, names(slip_glob))
 
-setdiff(names(df_with_hbcd), names(slip_rename2))
-setdiff(names(slip_rename2), names(df_with_hbcd))
+# setdiff(names(df_with_hbcd), names(slip_glob))
+# setdiff(names(slip_glob), names(df_with_hbcd))
 ```
 
 Looks pretty good, going to remove old SLIP data and add new
+
+```{r}
+drp_slip <- df_with_hbcd %>%
+  dplyr::filter(study != "SLIP")
+
+df_with_slip <- full_join(drp_slip, slip_glob)
+stopifnot(nrow(df_with_slip) == sum(nrow(drp_slip), nrow(slip_glob)))
+```
+
+```{r}
+df_with_slip %>%
+  ggplot() +
+  geom_point(aes(x=age_days, y=CSF))
+```
 
 ## Data Cleaning
 
 remove intersex subj, dummy-code sex and sex*age, add totals for CT and SA
 
 ```{r}
-df_filt <- df_with_hbcd %>%
-  dplyr::filter(sex != "intersex") %>%
+unique(df_with_slip$sex)
+sum(is.na(df_with_slip$sex))
+
+df_filt <- df_with_slip %>%
+  dplyr::filter(sex != "intersex" & sex != "Unknown") %>%
   mutate(sexMale = ifelse(sex=="male" | sex == "Male", 1, 0),
          sexMale_x_age = ifelse(sex=="male"| sex == "Male", age_days, 0),
          logAge_days = log(age_days, base=10)) %>%
@@ -302,12 +354,13 @@ df_filt <- df_with_hbcd %>%
          study = as.factor(study),
          study_site = as.factor(paste0("study-", study, "_", "site-", site)),
          INDEX.ID = paste(study, participant, sex, sep="|"))
+
+#skim(df_filt)
 ```
 
 keep only columns we need (phenotypes to model, covariates)
 
 ```{r}
-
 covar_list <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale_x_age",
                 "fs_version", "fs_version_SA", "fs_version_CT", "fs_version_GM",
                 "age_days", "logAge_days", "sexMale_x_logAge", "site", "country", "study_site", 
@@ -420,68 +473,14 @@ df_zeros %>%
 ggplot(df_zeros) +
   geom_histogram(aes(x=age_days, fill=study)) +
   theme(legend.position="none")
-
-df_zeros %>%
-  filter(age_days < (280+365)) %>%
-  group_by(study) %>%
-  summarise(study = unique(study),
-            n=n())
-
-dhcp <- df_select %>%
-  filter(study=="dHCP-fetal")
-skim(dhcp)
-
-df_zeros %>%
-  filter(age_days <2500) %>% nrow()
-
-df_zeros_infant <- df_zeros %>%
-  filter(age_days <= 365.25 + 280) %>%
-  droplevels()
-nrow(df_zeros_infant)
 ```
 
-looks like infant/fetal data have a lot of missing values
-looking if the rest of the IDPs seem to be in line with other studies of that age
-
-```{r, eval=FALSE, message=FALSE}
-df_infant <- df_qc_filt %>%
-  filter(age_days < 365.25 + 280) %>%
-  droplevels()
-
-for (pheno in pheno_list){
-  plt <- ggplot() +
-    geom_point(aes(x=df_infant$age_days, y=df_infant[[pheno]], color=df_infant$study)) +
-    ggtitle(pheno)
-  
-  ggsave(paste0("./figs/", pheno, ".png"), plt)
-}
-
-```
-
-Going to remove phenotypes with 0s from infants (age_days <= 265+280) and remove ALL phenos from non-infant subjects with 0 phenos
+Going to remove all subjects with 0s
 
 ```{r}
-df_infant_nozero <- df_qc_filt %>%
-  dplyr::filter(age_days <= (365.25 + 280)) %>%
-  mutate(across(all_of(pheno_list), ~ifelse(.x==0, NA, .x)))
-
-skim(df_infant_nozero)
-
-stopifnot(df_infant_nozero %>%
-    filter(if_any(any_of(pheno_list), ~ . == 0)) %>% 
-      nrow() == 0)
-
-df_adult_nozero <- df_qc_filt %>%
-  dplyr::filter(age_days > (365.25 + 280)) %>%
+df_nozero <- df_qc_filt %>%
   filter(if_all(pheno_list, ~ is.na(.) | . != 0))
-
-stopifnot(df_adult_nozero %>%
-    filter(if_any(any_of(pheno_list), ~ . == 0)) %>% 
-      nrow() ==0)
-
-df_nozero <- rbind(df_infant_nozero, df_adult_nozero)
-nrow(df_qc_filt) - nrow(df_nozero)
-unique(df_infant_nozero$dx)
+stopifnot((nrow(df_qc_filt) - nrow(df_nozero)) == nrow(df_zeros))
 ```
 
 
@@ -490,7 +489,7 @@ unique(df_infant_nozero$dx)
 filter to just controls, single scan per subject, drop sites with fewer than 5 ppl
 
 ```{r}
-unique(df_nozero$dx)[grep("cn|control|none", unique(df_nopsych$dx), ignore.case=TRUE)]
+unique(df_nozero$dx)[grep("cn|control|none", unique(df_nozero$dx), ignore.case=TRUE)]
 
 df_clean <- df_nozero %>%
   tidyr::drop_na(dx) %>%
@@ -518,6 +517,40 @@ df_clean %>%
 
 nrow(df_clean)
 
+df_clean %>%
+  ggplot() +
+  geom_histogram(aes(x=age_days, fill=as.factor(sexMale)), position="identity", alpha=0.4)
+```
+
+visualize IDPs for consistency 
+
+```{r, eval=FALSE, message=FALSE}
+for (pheno in pheno_list){
+  plt <- ggplot(df_clean) +
+    geom_point(aes(x=logAge_days, y=.data[[pheno]], color=study)) +
+    theme(legend.position="none") +
+    ggtitle(pheno)
+  
+  print(plt)
+  
+  ggsave(paste0("./figs/", pheno, "logAge.png"), plt)
+}
+```
+
+
+```{r}
+df_clean %>%
+  filter(CSF > 2e5) %>%
+  summarise(study = unique(study))
+
+df_clean %>%
+  filter(logAge_days > 3 & CBV < 50000) %>%
+  summarise(study=unique(study))
+
+df_clean %>%
+  mutate(is.study = ifelse(study=="OpenNeuro_Wang", TRUE, FALSE)) %>%
+  ggplot() +
+  geom_point(aes(x=logAge_days, y=CBV, color=is.study))
 ```
 
 write out full dataframe
