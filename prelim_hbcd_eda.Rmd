@@ -31,9 +31,29 @@ imaging_df %>%
 
 imaging_df_filt <- imaging_df %>%
   rename(age = img_mriqc_T2w_candidate_age)
+skim(imaging_df_filt)
 
 colnames(imaging_df_filt) <- gsub("img_bibsnet_space-T2w_desc-aseg_volumes_", "", colnames(imaging_df_filt))
 ```
+
+```{r}
+imaging_df_filt %>%
+  select(starts_with("img_mriqc_T2w")) %>%
+  dplyr::select(where(is.numeric)) %>%
+  select(-contains("summary")) %>%
+  pivot_longer(cols = everything(),
+               names_to = "IQM",
+               values_to = "value") %>%
+  mutate(IQM = gsub("img_mriqc_T2w_", "", IQM)) %>%
+  ggplot() +
+  geom_histogram(aes(x = value, fill = IQM), position = "identity", bins = 30) +
+  theme_minimal() +
+  facet_wrap(~IQM, scales="free") +
+  theme(legend.position = "none") +
+  ggtitle("T2w Scan IQMs")
+
+```
+
 
 ```{r}
 ggplot(imaging_df) +
@@ -75,8 +95,10 @@ test merge
 test_df <- full_join(imaging_df_filt, mcrib_df)
 names(test_df)
 
-ggplot(test_df) +
-  geom_point(aes(x=age, y=CSF), alpha=.4)
+test_df %>% filter(is.na(img_mriqc_T1w_candidate_age))
+
+# ggplot(test_df) +
+#   geom_point(aes(x=age, y=CSF), alpha=.4)
 ggplot(test_df) +
   geom_point(aes(x=age, y=`Right-Amygdala`), alpha=.4)
 ggplot(test_df) +
@@ -115,5 +137,32 @@ skim(hbcd)
 n_unique(hbcd$id)
 
 length(intersect(demo_sub$id, mcrib_df$id))
+```
+
+Add minimal QC filter (T2w CJV) based on slack convo
+
+```{r}
+cjv_mad = mad(hbcd$img_mriqc_T2w_cjv, na.rm = T)
+cjv_med = median(hbcd$img_mriqc_T2w_cjv, na.rm=T)
+thresh <- cjv_med + 4*cjv_mad
+
+ggplot(hbcd) +
+  geom_histogram(aes(x=img_mriqc_T1w_cjv)) +
+  geom_vline(xintercept = cjv_med, color="blue") +
+  geom_vline(xintercept = thresh, color="red")
+
+qi2_mad = mad(hbcd$img_mriqc_T2w_qi_2, na.rm = T)
+qi2_med = median(hbcd$img_mriqc_T2w_qi_2, na.rm=T)
+thresh <- qi2_med + 4*qi2_mad
+
+ggplot(hbcd) +
+  geom_histogram(aes(x=img_mriqc_T2w_qi_2)) +
+  geom_vline(xintercept = qi2_med, color="blue") +
+  geom_vline(xintercept = thresh, color="red")
+```
+
+using 4 MAD threshold for CJV excludes no one. going to err on the side of being more inclusive, might circle back to remove scans based on lower threshold and/or QI2 as necessary
+
+````{r}
 fwrite(hbcd, "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/beta_hbcd.csv")
 ```
