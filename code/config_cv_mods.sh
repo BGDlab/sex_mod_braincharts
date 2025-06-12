@@ -31,6 +31,18 @@ echo "include total value = $total"
 echo "log scale age = $log_age"
 echo "smooth = $sm"
 
+
+#make config file dir or remove old file if necessary
+  config_file=$config_path/cv_mods_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_config.txt
+    if ! [ -d $config_path ]
+    then
+      mkdir $config_path
+    elif [ -f $config_file ]
+    then
+      rm -rf $config_file
+    fi
+
+
 #LOOP THROUGH 1/2 CSVS
 for file in $(find $(realpath $data_path)  -type f -name "cv_sample_?.csv") 
 do
@@ -40,19 +52,7 @@ do
   #get filename
   filename=$(basename -- "$file")
   filename="${filename%.*}"
-  
-  #make config file dir or remove old file if necessary
-  config_file=$config_path/${filename}_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_config.txt
-    if ! [ -d $config_path ]
-    then
-      mkdir $config_path
-    elif [ -f $config_file ]
-    then
-      rm -rf $config_file
-    fi
-  
-    touch $config_file
-  
+   
   #LOOP THROUGH PHENO CATEGORIES
   for pheno_list in $(find $(realpath $pheno_lists) -type f -name "*.txt")
   do
@@ -127,8 +127,6 @@ do
       fi
   
   done
-  
-  #add numbering
-  nl "$config_file" > temp.txt && mv temp.txt "$config_file"
-      
-done
+done  
+#add numbering
+nl "$config_file" > temp.txt && mv temp.txt "$config_file"
