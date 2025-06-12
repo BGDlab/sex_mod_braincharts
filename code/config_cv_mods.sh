@@ -41,6 +41,18 @@ do
   filename=$(basename -- "$file")
   filename="${filename%.*}"
   
+  #make config file dir or remove old file if necessary
+  config_file=$config_path/${filename}_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_config.txt
+    if ! [ -d $config_path ]
+    then
+      mkdir $config_path
+    elif [ -f $config_file ]
+    then
+      rm -rf $config_file
+    fi
+  
+    touch $config_file
+  
   #LOOP THROUGH PHENO CATEGORIES
   for pheno_list in $(find $(realpath $pheno_lists) -type f -name "*.txt")
   do
@@ -51,18 +63,6 @@ do
     pheno_cat="${pheno_cat%.*}"
   
     #CREATE OUTPUT DIRS
-    #make config file dir or remove old file if necessary
-    config_file=$config_path/${filename}_${pheno_cat}_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_config.txt
-    if ! [ -d $config_path ]
-    then
-      mkdir $config_path
-    elif [ -f $config_file ]
-    then
-      rm -rf $config_file
-    fi
-  
-    touch $config_file
-    
     #make output dir
       save_dir=./${filename}_train
       if ! [ -d $save_dir ]
@@ -119,16 +119,16 @@ do
         do
         
         csv=$data_path/${filename}_dfs/${pheno_line}_totalFALSE_logPheno${log_pheno}_logAge${log_age}.csv
-         csv=$(realpath $csv)
+        csv=$(realpath $csv)
 
         # Write the CSV file path and the formula to the output file (tab-delimited)
           echo -e "$csv\t$pheno_line\t$fs\tNULL\t$save_path\t$log_pheno\t$log_age\t$sm" >> "$config_file"
         done < "$pheno_list"
       fi
   
+  done
+  
   #add numbering
   nl "$config_file" > temp.txt && mv temp.txt "$config_file"
       
-  done
-
 done
