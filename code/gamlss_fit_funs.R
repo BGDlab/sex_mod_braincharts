@@ -156,13 +156,13 @@ gamlss_3lambda_rep <- function(og_mod,
                                start.from=NULL,
                                weight=FALSE){
   
-  pheno <- paste0(og_mod$mu.formula)[2]
+  pheno <- paste0(og_mod$mu.formula)[[2]]
   fam <- og_mod$family[1]
 
   #define formulas for each moment
   
   #MU
-  mu_base <- paste0(og_mod$mu.formula)[3]
+  mu_base <- paste0(og_mod$mu.formula)[[3]]
   mu_lambdas <- og_mod$mu.lambda
 
   #update lambdas
@@ -180,7 +180,7 @@ gamlss_3lambda_rep <- function(og_mod,
   mu_form <- paste0("safe_gamlss(formula =", pheno, "~", mu_base)
   
   #SIGMA
-  sig_base <- paste0(og_mod$sigma.formula)[2]
+  sig_base <- paste0(og_mod$sigma.formula)[[2]]
   sig_lambdas <- og_mod$sigma.lambda
   
   #update lambdas
@@ -198,7 +198,7 @@ gamlss_3lambda_rep <- function(og_mod,
   sig_form <- paste0("sigma.formula = ~", sig_base)
   
   #NU
-  nu_base <- paste0(og_mod$nu.formula)[2]
+  nu_base <- paste0(og_mod$nu.formula)[[2]]
   if (!is.null(og_mod$nu.lambda)){
     nu_lambdas <- og_mod$nu.lambda
     nu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 

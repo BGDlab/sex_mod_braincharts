@@ -21,7 +21,7 @@ pred_list <- list_predictors(base_mod)
 
 #see if fs_version included as covariate
 fs <- pred_list[grep("^fs_version", pred_list)]
-if (length(fs) = 1){
+if (length(fs) == 1){
   resid_terms <- c(fs, "study_site")
 } else {
   resid_terms <- "study_site"

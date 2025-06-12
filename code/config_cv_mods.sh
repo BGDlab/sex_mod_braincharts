@@ -70,11 +70,7 @@ do
         mkdir $save_dir
       fi
       #name subdir based on whether total is controlled for
-      if [[ $total == "TRUE" ]]; then
-        save_path=$save_dir/${pheno_cat}_total_logPheno${log_pheno}_logAge${log_age}_${sm}mods
-      elif [[ $total == "FALSE" ]]; then
-        save_path=$save_dir/${pheno_cat}_logPheno${log_pheno}_logAge${log_age}_${sm}mods
-      fi
+      save_path=$save_dir/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods
       save_path=$(realpath $save_path) #get full paths
       if ! [ -d $save_path ]
       then
