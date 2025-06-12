@@ -1,4 +1,4 @@
-#!/bin/bash
+'#!/bin/bash
 #
 #SBATCH --job-name=cv_mods
 #SBATCH --time=336:00:00
@@ -46,6 +46,8 @@ singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
     Rscript $script $DF $PHENO $FS $TOTAL $SAVE_PATH $LOG_PHENO $LOG_AGE $SMOOTH
+
+chmod 777 -R $SAVE_PATH
 
 # Done!
 echo "Job finished running!"
