@@ -38,12 +38,7 @@ echo "SMOOTH: $SMOOTH"
 
 SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.1.1.sif"
 
-if [ $TOTAL == "NULL" ] 
-then
-  script=$BASE/code/fit_cv_mods.R
-else
-  script=$BASE/code/fit_cv_total_mods.R
-fi
+script=$BASE/code/fit_cv_mods.R
 
 echo "SCRIPT: $script"
 
