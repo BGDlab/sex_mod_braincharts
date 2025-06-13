@@ -3,8 +3,8 @@
 #SBATCH --job-name=cv_mods
 #SBATCH --time=336:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=8G
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=1.5G
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_total_train/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_total_train/R-%A_%a.err
 
@@ -36,7 +36,7 @@ echo "SMOOTH: $SMOOTH"
 
 #------------------
 
-SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.1.1.sif"
+SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.1.2.sif"
 
 script=$BASE/code/fit_cv_total_mods.R
 

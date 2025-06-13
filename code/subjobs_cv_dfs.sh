@@ -1,4 +1,4 @@
-#!/bin/bash
+]#!/bin/bash
 #
 #SBATCH --job-name=cv_dfs
 #SBATCH --time=03:00:00
@@ -34,7 +34,7 @@ echo "SAVE_PATH: $SAVE_PATH"
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.1.1.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.1.2.sif"
 
 singularity run --cleanenv \
     -B $BASE \
