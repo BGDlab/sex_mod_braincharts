@@ -25,18 +25,19 @@ stopifnot(!is.null(total))
 
 #loop over nu terms
 if (log_age == TRUE & sm == "pb"){
-  nu_list <- list(int = "1", 
-                  site = "study_site", 
-                  sex = "sexMale",
-                  age = "logAge_days",
-                  sexAge = "sexMale + logAge_days",
-                  siteAge = "study_site + logAge_days", 
-                  siteSex = "study_site + sexMale", 
-                  siteAgeSex = "study_site + logAge_days + sexMale",
-                  pbage = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                  sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                  site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                  site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
+  nu_list <- list(
+    # int = "1", 
+    #               site = "study_site", 
+    #               sex = "sexMale",
+    #               age = "logAge_days",
+    #               sexAge = "sexMale + logAge_days",
+    #               siteAge = "study_site + logAge_days", 
+    #               siteSex = "study_site + sexMale", 
+    #               siteAgeSex = "study_site + logAge_days + sexMale",
+    #               pbAge = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                  sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))"
+                  # site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+                  # site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
   )
   
 } else if (log_age == TRUE & sm == "cs"){
@@ -85,7 +86,7 @@ if (log_age == TRUE & sm == "pb"){
 }
 
 #loop over fs moments
-moment_list <- c("none", "mu", "both", "all")
+moment_list <- c("all") #c("none", "mu", "both", "all")
 
 #initialize empty lists
 mod_count <- 0
@@ -96,7 +97,7 @@ summary_df <- data.frame()
 #FIT MODEL
 for (fs_include in moment_list){
   
-  for (total_include in c("mu", "both", "all")){
+  for (total_include in moment_list){
 
     for (nu in nu_list){
     nu_name <- names(nu_list)[nu_list==nu]
