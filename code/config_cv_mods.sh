@@ -84,13 +84,13 @@ do
       
       if [[ $pheno_cat == *"global"* ]]; then
         fs="fs_version_GM"
-        tot="eTIV"
+        tot="TBV"
       elif [[ $pheno_cat == *"vols"* ]]; then
         fs="fs_version_GM"
         tot="TBV"
       elif [[ $pheno_cat == *"thickness"* ]]; then
         fs="fs_version_CT"
-        tot="total.CT"
+        tot="mean.CT"
       elif [[ $pheno_cat == *"surf"* ]]; then
         fs="fs_version_SA"
         tot="total.SA"
