@@ -168,9 +168,9 @@ demo_sub <- demo_df %>%
 Merge!
 ```{r}
 n_unique(demo_sub$id)
-n_unique(test_df$id)
+n_unique(mri_df$id)
 
-hbcd <- inner_join(demo_sub, test_df) %>%
+hbcd <- inner_join(demo_sub, mri_df) %>%
   select_if(~!all(is.na(.))) %>% #drop col if all is empty
   drop_na(age, sex) %>%
   mutate(age_days = 365.25*age + 280) #confirmed age years
