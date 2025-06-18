@@ -20,7 +20,7 @@ pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, para
 #tabular imaging df
 
 ```{r}
-imaging_df <- fread("/mnt/isilon/bgdlab_processing/Data/HBCD/HBCD_tabular_downloads/imaging/bibset_segmentation/data.csv", na.strings = c("", NA))
+imaging_df <- fread("/mnt/isilon/bgdlab_processing/Data/HBCD/HBCD_tabular_downloads/imaging/bibset_segmentation/data.csv", na.strings = c(" ", NA, NaN, "NaN"))
 #names(imaging_df)
 names(imaging_df)[grep("age", names(imaging_df))]
 skim(imaging_df$img_mriqc_T2w_candidate_age)
@@ -34,6 +34,23 @@ imaging_df_filt <- imaging_df %>%
 skim(imaging_df_filt)
 
 colnames(imaging_df_filt) <- gsub("img_bibsnet_space-T2w_desc-aseg_volumes_", "", colnames(imaging_df_filt))
+```
+
+look between visits 2 and 3
+
+```{r}
+unique(imaging_df_filt$visit_label)
+v2 <- imaging_df_filt %>% filter(visit_label == "ses-V02") %>%
+  select(!starts_with("img_mriqc")) %>%
+  dplyr::filter(!is.na(candidate_age))
+v3 <- imaging_df_filt %>% filter(visit_label == "ses-V03")%>%
+  select(!starts_with("img_mriqc"))%>%
+  filter(!is.na(candidate_age))
+
+n_unique(v2$id)
+n_unique(v3$id)
+both_visits <- intersect(unique(v2$id), unique(v3$id))
+v3_only <- dplyr::setdiff(unique(v3$id), unique(v2$id))
 ```
 
 ```{r}
@@ -72,6 +89,9 @@ need to compile across subject-specific dirs
 ```{r}
 mcrib_df <- fread("/mnt/isilon/bgdlab_processing/Data/HBCD/HBCD_justMCRIB_21March2025/HBCD_beta_MCRIB_freesurfer_aparcaseg_volumes.csv")
 skim(mcrib_df)
+names(mcrib_df)[1:24]
+names(imaging_df)
+imaging_df%>% select(starts_with("img_bibsnet")) %>% names()
 
 mcrib_df <- mcrib_df %>%
   rename("id" = "subject") %>%
@@ -86,26 +106,49 @@ n_unique(imaging_df_filt$id)
 
 intersect(names(imaging_df_filt), names(mcrib_df))
 
+intersect(unique(mcrib_df$id), both_visits)
+stopifnot(length(intersect(unique(mcrib_df$id), unique(v2$id))) == nrow(mcrib_df)) #all mcrib data corresponds to v2 data
+
 skim(mcrib_df)
 skim(imaging_df_filt)
 ```
 
 test merge
 ```{r}
-test_df <- full_join(imaging_df_filt, mcrib_df)
+test_df <- full_join(imaging_df_filt, mcrib_df, by="id")
 names(test_df)
+skim(test_df)
 
 test_df %>% filter(is.na(img_mriqc_T1w_candidate_age))
 
 # ggplot(test_df) +
 #   geom_point(aes(x=age, y=CSF), alpha=.4)
 ggplot(test_df) +
-  geom_point(aes(x=age, y=`Right-Amygdala`), alpha=.4)
+  geom_point(aes(x=`Right-Amygdala.x`, y=`Right-Amygdala.y`), alpha=.4)
 ggplot(test_df) +
-  geom_point(aes(x=age, y=`Right-Lateral-Ventricle`), alpha=.4)
+  geom_point(aes(x=`Right-Lateral-Ventricle.y`, y=`Right-Lateral-Ventricle.x`), alpha=.4)
+
+test_df %>%
+  filter(visit_label=="ses-V02") %>%
+  ggplot() +
+   geom_point(aes(x=`Right-Amygdala.x`, y=`Right-Amygdala.y`), alpha=.4)
+
+test_df %>%
+  filter(visit_label=="ses-V02") %>%
+  ggplot() +
+   geom_point(aes(x=`Right-Amygdala.x`, y=`Right-Amygdala.y`), alpha=.4)
 ```
 
-looks pretty reasonable
+confirm that cortical data is from v2 scans - removing V3 for subjects who have V2
+
+```{r}
+mri_df <- full_join(imaging_df_filt, mcrib_df) %>%
+  dplyr::filter(visit_label == "ses-V02" | id %in% v3_only)
+
+v3_data <- mri_df %>%
+  filter(visit_label == "ses-V03") %>% nrow()
+stopifnot(length(v3_only) == v3_data)
+```
 
 #Demographics
 
