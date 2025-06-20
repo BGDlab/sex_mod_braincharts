@@ -1,11 +1,11 @@
-]#!/bin/bash
+#!/bin/bash
 #
 #SBATCH --job-name=cv_dfs
 #SBATCH --time=03:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
-#SBATCH --array=1-224%20 #total count = 224
+#SBATCH --array=1-239%20 #total count = 239
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_dfs/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_dfs/R-%A_%a.err
 

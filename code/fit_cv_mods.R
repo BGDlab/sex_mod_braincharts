@@ -184,6 +184,10 @@ file.rename(paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$m_na
 
 print("compiling stats")
 
+#re-write call info to be safe
+best_mod$call$data <- "df"
+best_mod$call$family <- "BCCG"
+
 #CENTILE FAN PLOT
 #sim data ONCE for centile fan plotting
 print("creating centile fan plot")
