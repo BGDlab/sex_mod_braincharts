@@ -157,14 +157,20 @@ hbcd_rename <- hbcd %>%
   rename_with(~ paste0("SUBC.", .), c(-participant, -visit_label, -cohort, 
                                       -site, -sex, -age, -age_days, -candidate_age,
                                       -CSF, -gestational_age, -Vermis)) %>%
-  rename(lhCortexVol = SUBC.Left.Cerebral.Cortex,
-         rhCortexVol = SUBC.Right.Cerebral.Cortex,
-         lhCerebralWhiteMatterVol = SUBC.Left.Cerebral.White.Matter,
-         rhCerebralWhiteMatterVol = SUBC.Right.Cerebral.White.Matter) %>%
+  # rename(lhCortexVol = SUBC.Left.Cerebral.Cortex,
+  #        rhCortexVol = SUBC.Right.Cerebral.Cortex,
+  #        lhCerebralWhiteMatterVol = SUBC.Left.Cerebral.White.Matter,
+  #        rhCerebralWhiteMatterVol = SUBC.Right.Cerebral.White.Matter) %>%
   mutate(sex = ifelse(sex=="Male", "male", "female"))
 
 hbcd_rename$study <- "HBCD"
 hbcd_rename$dx <- "CN"
+
+#LABEL FS VERSION
+hbcd_rename$fs_version <- "FSInfant"
+hbcd_rename$fs_version_GM <- "FSInfant"
+hbcd_rename$fs_version_SA  <- "FSInfant"  
+hbcd_rename$fs_version_CT <- "FSInfant"
   
 names(hbcd_rename)
 setdiff(names(hbcd_rename), names(df))
@@ -302,11 +308,11 @@ slip_glob <- slip_rename2 %>%
                           TRUE ~ total_intracranial))
 
 
-#TEMPORARY LABELING OF FS VERSION
-slip_glob$fs_version <- "TEMP"
-slip_glob$fs_version_GM <- "TEMP"
-slip_glob$fs_version_SA  <- "TEMP"  
-slip_glob$fs_version_CT <- "TEMP"
+#LABEL FS VERSION
+slip_glob$fs_version <- "synthseg-robust"
+slip_glob$fs_version_GM <- "synthseg-robust"
+slip_glob$fs_version_SA  <- "synthseg-robust"  
+slip_glob$fs_version_CT <- "synthseg-robust"
 slip_glob$study <- "SLIP"
 slip_glob$dx <- "CN"
 ```
