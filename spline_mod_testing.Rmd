@@ -110,24 +110,83 @@ make_centile_fan(test_mod, df, x_var="logAge_days", color_var="sexMale")
 ```
 
 ```{r}
-df2 <- fread("data/cv_sample_A_dfs/sGMV_totalFALSE_logPhenoFALSE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+df2 <- fread("data/cv_sample_A_dfs/sGMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
 
 #make_centile_fan(sGMV_none_int_mod, df2, x_var="logAge_days", color_var="sexMale")
 
-df2_test <- df2 %>% mutate(sGMV = sGMV+1000)
-
-test_mod2 <- gamlss(sGMV ~ ga(~s(sexMale_x_logAge, k=20, bs="ad") + 
-                                s(logAge_days, k=20, bs="ad") + 
+test_mod2 <- gamlss(sGMV ~ ga(~s(sexMale_x_logAge, k=10, bs="ad", m=3) + 
+                                s(logAge_days, k=10, bs="ad", m=3) + 
                                 sexMale + random(study_site), method = 'ML'),
-                    sigma.formula= ~ga(~s(sexMale_x_logAge, k=20, bs="ad") + 
-                                s(logAge_days, k=20, bs="ad") + 
+                    sigma.formula= ~ga(~s(sexMale_x_logAge, k=10, bs="ad", m=3) + 
+                                s(logAge_days, k=10, bs="ad", m=3) + 
                                 sexMale + random(study_site), method = 'ML'), 
     nu.formula=~logAge_days,
     family="BCCG", 
-    data=df2_test,
+    data=df2,
     control=gamlss.control(n.cyc = 200)
     # start.from=linear_mod
     )
+
+make_centile_fan(test_mod2, df2, x_var="logAge_days", color_var="sexMale",
+                 desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
+                 special_term = "sexMale_x_logAge = sexMale * logAge_days",
+                 #remove_point_effect = "study_site"
+                 y_scale=unscale
+                 )
+```
+
+```{r}
+df3 <- fread("data/cv_sample_B_dfs/lh.GM.isthmuscingulate_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+
+#make_centile_fan(sGMV_none_int_mod, df2, x_var="logAge_days", color_var="sexMale")
+
+test_mod3 <- gamlss(lh.GM.isthmuscingulate ~ ga(~s(sexMale_x_logAge, k=10, bs="ad", m=3) + 
+                                s(logAge_days, k=10, bs="ad", m=3) + 
+                                sexMale + random(study_site), method = 'ML'),
+                    sigma.formula= ~ga(~s(sexMale_x_logAge, k=10, bs="ad", m=3) + 
+                                s(logAge_days, k=10, bs="ad", m=3) + 
+                                sexMale + random(study_site), method = 'ML'), 
+    nu.formula=~logAge_days,
+    family="BCCG", 
+    data=df3,
+    control=gamlss.control(n.cyc = 200)
+    # start.from=linear_mod
+    )
+
+make_centile_fan(test_mod3, df3, x_var="logAge_days", color_var="sexMale",
+                 desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
+                 special_term = "sexMale_x_logAge = sexMale * logAge_days",
+                 #remove_point_effect = "study_site",
+                 y_scale=unscale
+                 )
+```
+
+
+
+```{r}
+df4 <- fread("data/cv_sample_B_dfs/rh.SA.precuneus_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+
+#make_centile_fan(sGMV_none_int_mod, df2, x_var="logAge_days", color_var="sexMale")
+
+test_mod4 <- gamlss(rh.SA.precuneus ~ ga(~s(sexMale_x_logAge, k=10, bs="ad", m=3) + 
+                                s(logAge_days, k=10, bs="ad", m=3) + 
+                                sexMale + random(study_site), method = 'ML'),
+                    sigma.formula= ~ga(~s(sexMale_x_logAge, k=10, bs="ad", m=3) + 
+                                s(logAge_days, k=10, bs="ad", m=3) + 
+                                sexMale + random(study_site), method = 'ML'), 
+    nu.formula=~logAge_days,
+    family="BCCG", 
+    data=df4,
+    control=gamlss.control(n.cyc = 200)
+    # start.from=linear_mod
+    )
+
+make_centile_fan(test_mod4, df4, x_var="logAge_days", color_var="sexMale",
+                 desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
+                 special_term = "sexMale_x_logAge = sexMale * logAge_days",
+                 #remove_point_effect = "study_site",
+                 y_scale=unscale
+                 )
 ```
 
 can also play around with order (m), method, etc
