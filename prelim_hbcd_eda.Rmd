@@ -108,41 +108,53 @@ intersect(names(imaging_df_filt), names(mcrib_df))
 
 intersect(unique(mcrib_df$id), both_visits)
 stopifnot(length(intersect(unique(mcrib_df$id), unique(v2$id))) == nrow(mcrib_df)) #all mcrib data corresponds to v2 data
-
-skim(mcrib_df)
-skim(imaging_df_filt)
 ```
 
-test merge
 ```{r}
-test_df <- full_join(imaging_df_filt, mcrib_df, by="id")
-names(test_df)
-skim(test_df)
+mcrib_df$visit_label <- "ses-V02"
 
-test_df %>% filter(is.na(img_mriqc_T1w_candidate_age))
+#find overlapping cols
+overlap_cols <- intersect(names(imaging_df_filt), names(mcrib_df))
+#remove id and visit_label
+overlap_image_cols <- overlap_cols[!overlap_cols %in% c("id", "visit_label")]
 
-# ggplot(test_df) +
-#   geom_point(aes(x=age, y=CSF), alpha=.4)
-ggplot(test_df) +
-  geom_point(aes(x=`Right-Amygdala.x`, y=`Right-Amygdala.y`), alpha=.4)
-ggplot(test_df) +
-  geom_point(aes(x=`Right-Lateral-Ventricle.y`, y=`Right-Lateral-Ventricle.x`), alpha=.4)
+test_merge <- full_join(imaging_df_filt, mcrib_df, by=c("id", "visit_label"))
 
-test_df %>%
-  filter(visit_label=="ses-V02") %>%
-  ggplot() +
-   geom_point(aes(x=`Right-Amygdala.x`, y=`Right-Amygdala.y`), alpha=.4)
+image_x <- paste(overlap_image_cols, "x", sep=".")
+image_y <- paste(overlap_image_cols, "y", sep=".")
 
-test_df %>%
-  filter(visit_label=="ses-V02") %>%
-  ggplot() +
-   geom_point(aes(x=`Right-Amygdala.x`, y=`Right-Amygdala.y`), alpha=.4)
+#make sure the values are ~ equal
+for (n in seq(1:length(overlap_image_cols))) {
+  x <- image_x[[n]]
+  y <- image_y[[n]]
+  p <- ggplot() +
+    geom_point(aes(x=test_merge[[x]], y=test_merge[[y]])) +
+    ggtitle(x)
+  print(p)
+}
 ```
 
-confirm that cortical data is from v2 scans - removing V3 for subjects who have V2
+
+confirm that cortical data is from v2 scans - removing V3 for subjects who have V2 & removing IDPs from BIBSNET data
 
 ```{r}
-mri_df <- full_join(imaging_df_filt, mcrib_df) %>%
+imaging_df_noidp <- imaging_df_filt %>%
+  select(!any_of(c("3rd-Ventricle", "4th-Ventricle",
+                 "Brain-Stem", "CSF",
+                 "Left-Accumbens-area", "Left-Amygdala",
+                 "Left-Caudate", "Left-Cerebellum-Cortex",
+                 "Left-Cerebral-Cortex", "Left-Cerebral-White-Matter",
+                 "Left-Hippocampus", "Left-Lateral-Ventricle",
+                 "Left-Pallidum", "Left-Putamen",
+                 "Left-Thalamus-Proper", "Left-VentralDC",
+                 "Right-Accumbens-area", "Right-Amygdala",
+                 "Right-Caudate", "Right-Cerebellum-Cortex",
+                 "Right-Cerebral-Cortex", "Right-Cerebral-White-Matter",
+                 "Right-Hippocampus", "Right-Lateral-Ventricle",
+                 "Right-Pallidum", "Right-Putamen",
+                 "Right-Thalamus-Proper", "Right-VentralDC", "Vermis")))
+
+mri_df <- full_join(imaging_df_noidp, mcrib_df) %>%
   dplyr::filter(visit_label == "ses-V02" | id %in% v3_only)
 
 v3_data <- mri_df %>%
