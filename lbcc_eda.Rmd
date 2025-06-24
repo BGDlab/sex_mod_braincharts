@@ -207,6 +207,16 @@ slip_rename <- slip %>%
   mutate(site = gsub(" ", "", paste0("CHOP", device_serial_number)),
          QC.RCA = do.call(pmin, c(across(starts_with("QC")), na.rm = TRUE)))
 
+slip_rename %>%
+  summarise(n_pass = sum(QC.RCA > 0.65),
+            pct_pass = sum(QC.RCA > 0.65)/n())
+
+slip_rename %>%
+  filter(age_days <= 280 + (365.25/2)) %>%
+  summarise(n_pass = sum(QC.RCA > 0.65),
+            pct_pass = sum(QC.RCA > 0.65)/n(),
+            n_total=n())
+
 # setdiff(names(df_with_hbcd), names(slip_rename))
 # setdiff(names(slip_rename), names(df_with_hbcd))
 ```
@@ -687,6 +697,40 @@ fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 # ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
 # sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
 # pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
+```
+
+```{r}
+for (pheno in glob_vol_list){
+  df <- df_clean %>%
+  dplyr::select(all_of(c(pheno, "fs_version_GM", "logAge_days", "sexMale_x_logAge", "sexMale", "study_site"))) %>%
+    na.omit() %>%
+    trunc_coverage("logAge_days")
+  
+    pheno_sym <- sym(pheno)
+  
+  df <- df %>%
+    mutate(!!pheno_sym := log_scale(!!pheno_sym))
+    
+  
+  model <- gamlss_3lambda(pheno,
+                          fs_ver="fs_version_GM",
+                          fs_moment="all",
+                          fam="BCCG",
+                          nu_form="sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))")
+  
+  model$call$data <- "df"
+model$call$family <- "BCCG"
+  
+  fan_plot <- make_centile_fan(gamlssModel=model, df=df,
+                             x_var="logAge_days",
+                             color_var="sexMale",
+                             get_peaks=FALSE, 
+                             desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
+                             remove_point_effect = "study_site",
+                             y_scale=unscale)
+  print(fan_plot)
+}
+
 ```
 
 check ranges

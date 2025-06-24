@@ -107,3 +107,5 @@ do
   #add numbering
   nl "$config_file" > temp.txt && mv temp.txt "$config_file"
 done
+
+chmod 777 -R $save_path
