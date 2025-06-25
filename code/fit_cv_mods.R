@@ -26,18 +26,18 @@ stopifnot(total == "NULL")
 #loop over nu terms
 if (log_age == TRUE & sm == "pb"){
   nu_list <- list(
-    int = "1",
-    site = "study_site",
-    sex = "sexMale",
-    age = "logAge_days",
-    sexAge = "sexMale + logAge_days",
-    siteAge = "study_site + logAge_days",
-    siteSex = "study_site + sexMale",
-    siteAgeSex = "study_site + logAge_days + sexMale",
-    pbAge = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-    sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-    site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-    site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
+    # int = "1",
+    # site = "study_site",
+    # sex = "sexMale",
+    # age = "logAge_days",
+    # sexAge = "sexMale + logAge_days",
+    # siteAge = "study_site + logAge_days",
+    # siteSex = "study_site + sexMale",
+    # siteAgeSex = "study_site + logAge_days + sexMale",
+    # pbAge = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+    sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))"
+    # site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+    # site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
   )
 
 } else if (log_age == TRUE & sm == "cs"){
@@ -87,10 +87,11 @@ if (log_age == TRUE & sm == "pb"){
 
 
 #loop over fs moments
-fs_moment_list <- c("none", "mu", "both", "all")
+fs_moment_list <- c("all") #c("none", "mu", "both", "all")
 
 #initialize empty lists
-mod_list <- c()
+mod_count <- 0
+first_mod <- NULL
 results_df <- data.frame()
 summary_df <- data.frame()
 
@@ -108,7 +109,7 @@ for (fs_include in fs_moment_list){
                             fs_moment=fs_include,
                             fam="BCCG",
                             nu_form=nu,
-                            start.from = "mod_list[[1]]") #use first model as starting point
+                            start.from = "first_mod") #use first model as starting point
     
   } else if (sm == "pb" & log_age == FALSE) {
     model <- gamlss_age(pheno,
@@ -116,7 +117,7 @@ for (fs_include in fs_moment_list){
                         fs_moment=fs_include,
                         fam="BCCG",
                         nu_form=nu,
-                        start.from = "mod_list[[1]]") #use first model as starting point
+                        start.from = "first_mod") #use first model as starting point
     
   } else if (sm == "cs" & log_age == TRUE){
     model <- gamlss_cs(pheno,
@@ -124,14 +125,14 @@ for (fs_include in fs_moment_list){
                        fs_moment=fs_include,
                        fam="BCCG",
                        nu_form=nu,
-                       start.from = "mod_list[[1]]") #use first model as starting point
+                       start.from = "first_mod") #use first model as starting point
   } else if (sm == "cs" & log_age == FALSE){
     model <- gamlss_csage(pheno,
                        fs_ver=fs,
                        fs_moment=fs_include,
                        fam="BCCG",
                        nu_form=nu,
-                       start.from = "mod_list[[1]]") #use first model as starting point
+                       start.from = "first_mod") #use first model as starting point
   }
 
   #if model isn't fit, skip to next loop
@@ -140,12 +141,16 @@ for (fs_include in fs_moment_list){
     next
   } else {
     message("model fit")
+    mod_count <- mod_count + 1
   }
 
   m_name <- paste(fs_include, nu_name, sep="_")
-  mod_list[[m_name]] <- model
-
   saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds"))
+  
+  #retain first successful model
+  if (is.null(first_mod)){
+    first_mod <- model
+  }
 
   #COMPILE
     #BIC & AIC
@@ -157,12 +162,15 @@ for (fs_include in fs_moment_list){
       "nu" = nu_name
     )
     summary_df <- rbind(summary_df, tmp_df)
+    
+    #get back memory
+    rm(model)
   }
 }
 expected <- length(nu_list)*length(fs_moment_list)
-print(paste(length(mod_list), "of", expected, "models fit"))
+print(paste(mod_count, "of", expected, "models fit"))
 
-stopifnot(length(mod_list) > 0)
+stopifnot(mod_count > 0)
 
 #SAVE CSVs
 print("saving csvs")
@@ -179,11 +187,14 @@ print(best_bic$m_name)
 best_mod <- mod_list[[best_bic$m_name]]
 
 #RENAME BEST MOD
+best_mod_file <- paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$m_name, "_BestMod.rds")
 file.rename(paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$m_name, "_mod.rds"),
-            paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$m_name, "_BestMod.rds"))
+            best_mod_file)
 
 print("compiling stats")
 
+#READ BEST MOD BACK IN
+best_mod <- readRDS(best_mod_file)
 #re-write call info to be safe
 best_mod$call$data <- "df"
 best_mod$call$family <- "BCCG"
