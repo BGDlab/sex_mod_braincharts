@@ -26,18 +26,18 @@ stopifnot(total == "NULL")
 #loop over nu terms
 if (log_age == TRUE & sm == "pb"){
   nu_list <- list(
-    # int = "1",
-    # site = "study_site",
-    # sex = "sexMale",
-    # age = "logAge_days",
-    # sexAge = "sexMale + logAge_days",
-    # siteAge = "study_site + logAge_days",
-    # siteSex = "study_site + sexMale",
-    # siteAgeSex = "study_site + logAge_days + sexMale",
-    # pbAge = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-    sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))"
-    # site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-    # site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
+    int = "1",
+    site = "study_site",
+    sex = "sexMale",
+    age = "logAge_days",
+    sexAge = "sexMale + logAge_days",
+    siteAge = "study_site + logAge_days",
+    siteSex = "study_site + sexMale",
+    siteAgeSex = "study_site + logAge_days + sexMale",
+    pbAge = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+    sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+    site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
+    site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
   )
 
 } else if (log_age == TRUE & sm == "cs"){
@@ -87,7 +87,7 @@ if (log_age == TRUE & sm == "pb"){
 
 
 #loop over fs moments
-fs_moment_list <- c("all") #c("none", "mu", "both", "all")
+fs_moment_list <- c("none", "mu", "both", "all")
 
 #initialize empty lists
 mod_count <- 0
@@ -183,8 +183,6 @@ best_bic <- summary_df %>%
   tidyr::unite(m_name, c(fs_moment, nu))
 
 print(best_bic$m_name)
-
-best_mod <- mod_list[[best_bic$m_name]]
 
 #RENAME BEST MOD
 best_mod_file <- paste0(save_path, "/model_objs/", best_bic$pheno, "_", best_bic$m_name, "_BestMod.rds")

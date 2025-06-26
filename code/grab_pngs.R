@@ -15,7 +15,7 @@ png_files <- unlist(lapply(root_dirs, function(dir) {
 print(length(png_files))
 
 # Output PDF path
-output_pdf <- "centile_fans_retry.pdf"
+output_pdf <- "centile_fans_062625.pdf"
 
 # Create PDF
 pdf(output_pdf, width = 8, height = 10)
