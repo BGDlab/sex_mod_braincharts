@@ -1,66 +1,45 @@
 #!/bin/bash
 
-#script to search for failed R jobs via "Error in"
+# Script to search for failed R jobs via error patterns in any .err files in code/jobfiles and subdirectories
 
-#check arg
 if [ $# -eq 0 ]; then
-    >&2 echo "provide search string for error file name, e.g. 'name_jobnumber'"
+    >&2 echo "provide one or more search strings for error file names, e.g. 'name_jobnumber' or multiple patterns separated by space"
     exit 1
 fi
 
-#function
+# Find all .err files in code/jobfiles and subdirectories matching any of the patterns
+err_files=()
+for pattern in "$@"; do
+    while IFS= read -r file; do
+        err_files+=("$file")
+    done < <(find ./code/jobfiles -type f -name "*${pattern}*.err")
+done
 
-grep -RH --after-context=2 "Error in" ./code/jobfiles/*$1*.err  | awk '
-BEGIN { filename = "" }
-/^--$/ { next }
-{
-  if ($1 ~ /\.err:/) {
-    newfile = substr($1, 1, index($1, ":")-1)
-    if (newfile != filename) {
-      filename = newfile
-      print "\nFile: " filename
-    }
-    # remove filename from line
-    $1=""
-    sub(/^:/,"") #remove :
-  }
-  print $0
-}'
+# Remove duplicates
+err_files=( $(printf "%s\n" "${err_files[@]}" | sort -u) )
 
-grep -RH --after-context=2 "Killed" ./code/jobfiles/*$1*.err  | awk '
-BEGIN { filename = "" }
-/^--$/ { next }
-{
-  if ($1 ~ /\.err:/) {
-    newfile = substr($1, 1, index($1, ":")-1)
-    if (newfile != filename) {
-      filename = newfile
-      print "\nFile: " filename
-    }
-    # remove filename from line
-    $1=""
-    sub(/^:/,"") #remove :
-  }
-  print $0
-}'
+if [ ${#err_files[@]} -eq 0 ]; then
+    echo "No matching .err files found for the given patterns."
+    exit 0
+fi
 
-
-grep -RH --after-context=2 "halted" ./code/jobfiles/*$1*.err  | awk '
-BEGIN { filename = "" }
-/^--$/ { next }
-{
-  if ($1 ~ /\.err:/) {
-    newfile = substr($1, 1, index($1, ":")-1)
-    if (newfile != filename) {
-      filename = newfile
-      print "\nFile: " filename
-    }
-    # remove filename from line
-    $1=""
-    sub(/^:/,"") #remove :
-  }
-  print $0
-}'
+for error_pattern in "Error in" "Killed" "halted"; do
+    grep -RH --after-context=2 "$error_pattern" "${err_files[@]}" 2>/dev/null | awk '
+    BEGIN { filename = "" }
+    /^--$/ { next }
+    {
+      if ($1 ~ /\.err:/) {
+        newfile = substr($1, 1, index($1, ":")-1)
+        if (newfile != filename) {
+          filename = newfile
+          print "\nFile: " filename
+        }
+        $1=""
+        sub(/^:/,"")
+      }
+      print $0
+    }'
+done
 
 
 
