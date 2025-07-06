@@ -101,11 +101,9 @@ do
       csv=$(realpath $csv)
       
       #get models from 1/2 data sets
-      modA=./cv_sample_A_train/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods/model_objs/${pheno_line}_*_BestMod.rds
-      modA=$(realpath $modA)
-      modB=./cv_sample_B_train/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods/model_objs/${pheno_line}_*_BestMod.rds
-      modB=$(realpath $modB)
-        
+      modA=$(find $(realpath ./cv_sample_A_train/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods/) -type f -name "${pheno_line}_*_BestMod.rds")
+      modB=$(find $(realpath ./cv_sample_B_train/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods/) -type f -name "${pheno_line}_*_BestMod.rds")
+      
       # Write the CSV file path and the formula to the output file (tab-delimited)
       echo -e "$pheno_line\t$csv\t$modA\t$modB\t$save_path" >> "$config_file"
       done < "$pheno_list"

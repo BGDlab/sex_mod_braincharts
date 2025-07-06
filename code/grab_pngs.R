@@ -4,8 +4,11 @@ library(png)
 library(tools)
 
 # Define root directory
-root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_train/*/centile_plots")
+root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_train/*/*")
 #root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+
+args <- commandArgs(trailingOnly=TRUE)
+fname <- as.character(args[1])
 
 # Get all PNGs from matching directories
 png_files <- unlist(lapply(root_dirs, function(dir) {
@@ -15,7 +18,7 @@ png_files <- unlist(lapply(root_dirs, function(dir) {
 print(length(png_files))
 
 # Output PDF path
-output_pdf <- "centile_fans_062625.pdf"
+output_pdf <- paste0("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/", fname, ".pdf")
 
 # Create PDF
 pdf(output_pdf, width = 8, height = 10)
