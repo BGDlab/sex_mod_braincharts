@@ -326,3 +326,22 @@ samp_mpr %>%
 output <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release.csv"
 write_csv(samp_mpr, output)
 ```
+
+## CT Review
+
+
+```{r}
+ct_list <- names(sample_full)[grep("ThickAvg", names(sample_full))]
+
+sample_full <- sample_full %>%
+  mutate(contrast = as.factor(str_extract(scan_id, '[^_]+$')))
+
+for (pheno in ct_list){
+  p <- ggplot(sample_full)+
+    geom_point(aes(x=log(age_at_scan, base=10), y=sample_full[[pheno]], color=contrast), alpha=0.1) +
+     geom_smooth(method = "gam", aes(x=log(age_at_scan, base=10), y=sample_full[[pheno]], color=contrast))
+  
+  print(p)
+}
+
+```
