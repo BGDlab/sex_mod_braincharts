@@ -68,6 +68,9 @@ file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
 print (paste("saving to", file_full))
 saveRDS(model, file=file_full)
 
+model$call$data <- df
+model$call$family <- model$family[[1]]
+
 #CENTILE FAN PLOT
 print("creating centile fan plot")
   fan_plot <- make_centile_fan(gamlssModel=model, 
@@ -94,9 +97,6 @@ print("creating centile fan plot")
   #COMPILE
     print("compiling stats")
     #centiles
-    model$call$data <- df
-    model$call$family <- model$family[[1]]
-
     results_df <- cent_cdf(model, df, plot=FALSE, group="sexMale")
     
     #BIC & AIC
