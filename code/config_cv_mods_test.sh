@@ -30,6 +30,18 @@ do
   
   echo "prepping: $split"
   
+    #make config file dir or remove old file if necessary
+    config_file=$config_path/cv_sample_${split}_logPheno${log_pheno}_total${total}_logAge${log_age}_test_config.txt
+    if ! [ -d $config_path ]
+    then
+      mkdir $config_path
+    elif [ -f $config_file ]
+    then
+      rm -rf $config_file
+    fi
+  
+    touch $config_file
+  
   #LOOP THROUGH PHENO CATEGORIES
   for pheno_list in $(find $(realpath $pheno_lists) -type f -name "*.txt")
   do
@@ -40,17 +52,6 @@ do
     pheno_cat="${pheno_cat%.*}"
   
     #CREATE OUTPUT DIRS
-    #make config file dir or remove old file if necessary
-    config_file=$config_path/cv_sample_${split}_${pheno_cat}_logPheno${log_pheno}_total${total}_logAge${log_age}_test_config.txt
-    if ! [ -d $config_path ]
-    then
-      mkdir $config_path
-    elif [ -f $config_file ]
-    then
-      rm -rf $config_file
-    fi
-  
-    touch $config_file
     
     #make output dir
       save_dir=./cv_sample_${split}_test
