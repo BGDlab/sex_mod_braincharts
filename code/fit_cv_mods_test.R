@@ -16,6 +16,7 @@ df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 
+base_mod$call$data <- "df"
 pheno <- base_mod$mu.terms[[2]] %>% as.character()
 pred_list <- list_predictors(base_mod)
 

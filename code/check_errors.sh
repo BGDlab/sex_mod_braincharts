@@ -21,6 +21,8 @@ err_files=( $(printf "%s\n" "${err_files[@]}" | sort -u) )
 if [ ${#err_files[@]} -eq 0 ]; then
     echo "No matching .err files found for the given patterns."
     exit 0
+    else
+    echo "${#err_files[@]} files found, checking..."
 fi
 
 for error_pattern in "Error in" "Killed" "halted"; do

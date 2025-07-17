@@ -31,7 +31,7 @@ do
   echo "prepping: $split"
   
   #LOOP THROUGH PHENO CATEGORIES
-  for pheno_list in $(find $(realpath $pheno_lists) -type f -name "global_vols.txt") #just global vols to start
+  for pheno_list in $(find $(realpath $pheno_lists) -type f -name "*.txt")
   do
     echo "pheno list: $pheno_list"
 
@@ -58,7 +58,7 @@ do
       then
         mkdir $save_dir
       fi
-      save_path=$save_dir/${pheno_cat}_logPheno${log_pheno}_logAge${log_age}_pbmods
+      save_path=$save_dir/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_pbmods
       #save_path=$(realpath $save_path) #get full paths
       if ! [ -d $save_path ]
       then

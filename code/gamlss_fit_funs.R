@@ -152,7 +152,8 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
 #gamlss_3lambda_rep
 #rep model with lambdas from another model obj
 gamlss_3lambda_rep <- function(og_mod, 
-                               null_mod=FALSE, 
+                               null_mod=FALSE,
+                               keep_lambdas=TRUE,
                                start.from=NULL,
                                weight=FALSE){
   
@@ -166,16 +167,18 @@ gamlss_3lambda_rep <- function(og_mod,
   mu_lambdas <- og_mod$mu.lambda
 
   #update lambdas
-  if (null_mod == FALSE){
+  if (keep_lambdas == TRUE & null_mod == FALSE){
     mu_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                    paste0("sexMale_x_logAge, lambda =", mu_lambdas[1]), mu_base)
   } else if (null_mod == TRUE) {
     mu_base <- rm_sexage(mu_base)
   }
   
-  mu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                 paste0("logAge_days, lambda =", mu_lambdas[2]), mu_base)
-  mu_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", mu_lambdas[3], ")"), mu_base)
+  if (keep_lambdas == TRUE){
+    mu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
+                   paste0("logAge_days, lambda =", mu_lambdas[2]), mu_base)
+    mu_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", mu_lambdas[3], ")"), mu_base)
+  }
   
   mu_form <- paste0("safe_gamlss(formula =", pheno, "~", mu_base)
   
@@ -184,22 +187,24 @@ gamlss_3lambda_rep <- function(og_mod,
   sig_lambdas <- og_mod$sigma.lambda
   
   #update lambdas
-  if (null_mod == FALSE){
+  if (keep_lambdas == TRUE & null_mod == FALSE){
     sig_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                     paste0("sexMale_x_logAge, lambda =", sig_lambdas[1]), sig_base)
   } else if (null_mod == TRUE) {
     sig_base <- rm_sexage(sig_base)
   }
-
-  sig_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                  paste0("logAge_days, lambda =", sig_lambdas[2]), sig_base)
-  sig_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", sig_lambdas[3], ")"), sig_base)
+  
+  if (keep_lambdas==TRUE){
+    sig_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
+                    paste0("logAge_days, lambda =", sig_lambdas[2]), sig_base)
+    sig_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", sig_lambdas[3], ")"), sig_base)
+  }
   
   sig_form <- paste0("sigma.formula = ~", sig_base)
   
   #NU
   nu_base <- paste0(og_mod$nu.formula)[[2]]
-  if (!is.null(og_mod$nu.lambda)){
+  if (!is.null(og_mod$nu.lambda) & keep_lambdas==TRUE){
     nu_lambdas <- og_mod$nu.lambda
     nu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                     paste0("logAge_days, lambda =", nu_lambdas[1]), nu_base)
@@ -858,6 +863,16 @@ rm_sexage <- function(formula_string) {
 #scaling/unscaling phenotype functions
 log_scale <- function(x){log(x + 5, base=10)}
 unscale <- function(x){10^x - 5}
+
+rm_lambdas <- function(formula_string){
+  text_clean <- gsub(
+    pattern = "lambda\\s*=\\s*[0-9.]+\\s*(?=[),])",
+    replacement = "lambda = NULL",
+    x = formula_string,
+    perl = TRUE
+  )
+  return(text_clean)
+}
 
 
 #gamlss_3lambda
