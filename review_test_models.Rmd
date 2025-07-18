@@ -16,115 +16,137 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, gamlss)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
+library(ggsegTissue)
 
 sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
 ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
 vol_list <- readRDS("./pheno_lists/cortical_vols.rds")
 global_list <- readRDS("./pheno_lists/global_vols.rds")
 sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
+test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*/model_sums/"
+
+# install.packages("remotes")
+remotes::install_github("BGDlab/ggsegTissue")
 ```
 
-## Test Models
+# read csvs
 ```{r}
-glob_df <- fread("./data/csvs_by_pheno/global_vols.csv")
-source("./code/gamlss_fit_funs.R")
-knots <- readRDS("./code/knot_lists.RDS")
+# Use Sys.glob to expand wildcard paths
+paths <- Sys.glob(file.path(test_path, "*LRtest.csv"))
+
+# Read all matching CSVs
+output_fread <- lapply(paths, fread)
+length(output_fread)
+names(output_fread) <- stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
+
+LR.df <- bind_rows(output_fread, .id="cv_sample")
 ```
 
+Correct for multiple comparisons, get RESI effect size
+
 ```{r}
-df <- glob_df %>%
-  select(c("sGMV", "logAge_days", "sexMale", "fs_version", "study_site", "sexMale_x_logAge")) %>%
-  na.omit()
+LR.df2 <- LR.df %>%
+  mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
+  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE),
+         resi = fsq2S(fsq),
+         pheno_cat = factor(case_when(
+    pheno %in% global_list ~ "Global Volume",
+    pheno %in% vol_list ~ "Regional Volume",
+    pheno %in% sub_list ~ "Subcortical Volume",
+    pheno %in% sa_list ~ "Regional SA",
+    pheno %in% ct_list ~ "Regional CT",
+    TRUE ~ NA_character_)),
+) %>%
+  mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
+         sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
 
-mod1 <- gamlss_mod_knots("sGMV", knots$df3, knots$df3, fam="NO")
+table(LR.df2$sig_fdr)
 
-wp.taki(mod1)
-
-list_predictors(mod1)
+ggplot(LR.df2) +
+  geom_histogram(aes(x=sig_resi, fill=pheno_cat), position='identity', alpha=0.6) +
+  facet_wrap(~cv_sample)
 ```
 
-#
-read csvs
+plot
+add dk w/o medial wall to ggsegTissue,
+need to split out CC, etc. make sure ALL REGIONS are plotted!
+
 ```{r}
-output_fread <- 
-    list.files(path="test_models", pattern = "\\.csv$", full.names=TRUE) %>% 
-    lapply(fread)
-names(output_fread[[1]])
+# sub_list
+# unique(aseg$data$label)
+
+LR.df_plot <- LR.df2 %>%
+  mutate(label = case_when(
+    pheno %in% sub_list ~ gsub("^SUBC\\.", "", pheno),
+    TRUE ~ gsub("\\.(SA|GM|CT)\\.", "_", pheno))) %>%
+  mutate(label = gsub("\\.", "-", label)) %>%
+  mutate(label = ifelse(label == "3rd-Ventricle", "x3rd-ventricle", label)) %>%
+  mutate(label = ifelse(label == "4th-Ventricle", "x4th-ventricle", label)) %>%
+  mutate(tissue_class = case_when(
+    pheno == "sGMV" ~ "sGM",
+    pheno == "GMV" ~ "cGM",
+    pheno == "WMV" ~ "WM",
+    pheno == "CSF" ~ "CSF",
+    pheno == "CBV" ~ "Cerebellum",
+    pheno == "SUBC.Brain.Stem" ~ "Brainstem",
+    TRUE ~ NA_character_
+  ))
+
+
+#check cortical
+setdiff(unique(dk$data$label), unique(LR.df_plot$label)) #corpus callosum is subdivided - remove from dk plots
+
+#check subcortical
+setdiff(unique(aseg$data$label), unique(LR.df_plot$label)) # all included
+
+#check global
+setdiff(unique(aseg_all$data$tissue_class), unique(LR.df_plot$tissue_class)) # all included
+
+#see what's not included anywhere
+setdiff(unique(LR.df_plot$label), c(unique(dk$data$label), unique(aseg$data$label)))
 ```
 
-Find lowest BICs
+**ADD "Left-Accumbens-area"          "Left-Cerebellum-Cortex"       "Left-Cerebellum-White-Matter" "Right-Accumbens-area"
 
 ```{r}
-#functions
-clean_outputs <- function(df){
-  #also getting category
-  df <- df %>%
-    mutate(pheno = as.character(pheno)) %>%
-    mutate(pheno_cat = case_when(pheno %in% sa_list ~ "SA",
-                                 pheno %in% ct_list ~ "CT",
-                                 pheno %in% vol_list ~ "Vol",
-                                 pheno %in% global_list ~ "Global",
-                                 pheno %in% sub_list ~ "Subcort"
-                                 )) %>%
-    unite("dfs", degree:sigma_degree, sep="_") 
-}
+LR.df_plot %>%
+  filter(pheno_cat == "Regional Volume" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = dk, 
+             position = position_brain(hemi ~ side),
+            aes(fill=sig_resi)) +
+  facet_grid(cv_sample ~ pheno_cat)
 
-lowest_BICs <- function(df, number){
-  df <- df %>%
-    arrange(BIC) %>%
-    slice_head(n = number)
-}
-```
 
-```{r}
-dataframe_list <- lapply(output_fread, clean_outputs)
+LR.df_plot %>%
+  filter(pheno_cat == "Regional Volume" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = dk, 
+             position = position_brain(hemi ~ side),
+            aes(fill=sig_fsq)) +
+  facet_grid(cv_sample ~ pheno_cat)
 
-lowest_bics <- lapply(dataframe_list, lowest_BICs, number=5) %>%
-  bind_rows()
+LR.df_plot %>%
+  filter(pheno_cat == "Subcortical Volume") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = aseg, 
+            aes(fill=sig_resi)) +
+  facet_grid(cv_sample ~ pheno_cat)
 
-#filter further within pheno categories
-lowest_bics %>%
-  group_by(pheno_cat) %>%
-  count(dfs) %>%
-  arrange(desc(n)) %>%
-  slice_head(n=5) %>%
-  mutate(dfs=paste0("mu", sub("_", "sig", dfs)))
-```
-
-select pngs to view
-```{r}
-sa_sub <- sample(sa_list, 10)
-sa_png_list <- c(paste(sa_sub, "mu10sig5.png", sep="_"), 
-                 paste(sa_sub, "mu12sig6.png", sep="_"), 
-                 paste(sa_sub, "mu8sig4.png", sep="_"))
-write_lines(sa_png_list, "./test_models/top_sa_plots.txt")
-
-ct_sub <- sample(ct_list, 10)
-ct_png_list <- c(paste(ct_sub, "mu16sig16.png", sep="_"), 
-                 paste(ct_sub, "mu18sig18.png", sep="_"), 
-                 paste(ct_sub, "mu20sig20.png", sep="_"))
-write_lines(ct_png_list, "./test_models/top_ct_plots.txt")
-
-vol_sub <- sample(vol_list, 10)
-vol_png_list <- c(paste(vol_sub, "mu16sig8.png", sep="_"), 
-                 paste(vol_sub, "mu12sig6.png", sep="_"), 
-                 paste(vol_sub, "mu14sig7.png", sep="_"))
-write_lines(vol_png_list, "./test_models/top_vol_plots.txt")
-
-glob_png_list <- c(paste(global_list, "mu10sig5.png", sep="_"), 
-                 paste(global_list, "mu12sig6.png", sep="_"),
-                 paste(global_list, "mu10sig10.png", sep="_"),
-                 paste(global_list, "mu14sig7.png", sep="_"))
-write_lines(glob_png_list, "./test_models/top_glob_plots.txt")
-
-sub_sub <- sample(sub_list, 10)
-sub_png_list <- c(paste(sub_sub, "mu16sig8.png", sep="_"), 
-                 paste(sub_sub, "mu12sig6.png", sep="_"), 
-                 paste(sub_sub, "mu20sig10.png", sep="_"),
-                 paste(sub_sub, "mu22sig11.png", sep="_"))
-write_lines(sub_png_list, "./test_models/top_sub_plots.txt")
+LR.df_plot_glob <- inner_join(LR.df_plot, aseg_all$data, by="tissue_class")
+LR.df_plot_glob %>%
+  #filter(pheno_cat == "Subcortical Volume") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = aseg_all, 
+            aes(fill=sig_resi)) +
+  facet_wrap(~cv_sample)
 ```
