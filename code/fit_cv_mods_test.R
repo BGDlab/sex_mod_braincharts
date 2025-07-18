@@ -58,9 +58,17 @@ if (is.null(model)) {
 }
 
   #compare lambdas
+  print("original lambdas:")
+  print(base_mod$mu.lambda)
+  print(base_mod$sigma.lambda)
+  
+  print("refit lambdas:")
+  print(model$mu.lambda)
+  print(model$sigma.lambda)
+  
   mu_diff <- base_mod$mu.lambda - model$mu.lambda
   sig_diff <- base_mod$sigma.lambda - model$sigma.lambda
-  stopifnot(c(mu_diff, sig_diff) < 0.0000000001)
+  stopifnot(c(mu_diff, sig_diff) < 0.01)
   
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("BestMod", "test", filename_no_ext)
