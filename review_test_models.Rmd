@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -32,6 +32,8 @@ test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_samp
 
 # install.packages("remotes")
 remotes::install_github("BGDlab/ggsegTissue")
+# install.packages("remotes")
+remotes::install_github("ggseg/ggsegExtra")
 ```
 
 # read csvs
@@ -96,7 +98,7 @@ LR.df_plot <- LR.df2 %>%
     pheno == "SUBC.Brain.Stem" ~ "Brainstem",
     TRUE ~ NA_character_
   ))
-
+LR.df_plot$cv_sample <- factor(LR.df_plot$cv_sample, levels = c("A", "B"))
 
 #check cortical
 setdiff(unique(dk$data$label), unique(LR.df_plot$label)) #corpus callosum is subdivided - remove from dk plots
@@ -111,42 +113,66 @@ setdiff(unique(aseg_all$data$tissue_class), unique(LR.df_plot$tissue_class)) # a
 setdiff(unique(LR.df_plot$label), c(unique(dk$data$label), unique(aseg$data$label)))
 ```
 
-**ADD "Left-Accumbens-area"          "Left-Cerebellum-Cortex"       "Left-Cerebellum-White-Matter" "Right-Accumbens-area"
+"Left-Accumbens-area", "Right-Accumbens-area", "Left-Cerebellum-Cortex" &"Left-Cerebellum-White-Matter" aren't in field of view for aseg atlas
+
 
 ```{r}
-LR.df_plot %>%
+#clean up atlases to remove non-modeled phenos
+#write out new dk atlas w/o medial wall
+dk_clean <- dk
+dk_clean$data <- dk_clean$data %>%
+  dplyr::filter(!is.na(region) & region !="corpus callosum")
+
+aseg_clean <- aseg
+aseg_clean$data <- aseg_clean$data %>%
+  dplyr::filter(!is.na(label))
+
+aseg_all_clean <- aseg_all
+aseg_all_clean$data <- aseg_all_clean$data %>%
+  dplyr::filter(label != "Brain-Stem")
+```
+
+
+
+```{r}
+cort_plt <- LR.df_plot %>%
   filter(pheno_cat == "Regional Volume" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
-  ggseg::geom_brain(atlas = dk, 
+  ggseg::geom_brain(atlas = dk_clean, 
              position = position_brain(hemi ~ side),
             aes(fill=sig_resi)) +
-  facet_grid(cv_sample ~ pheno_cat)
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
+  facet_grid(pheno_cat ~ cv_sample) 
 
-
-LR.df_plot %>%
-  filter(pheno_cat == "Regional Volume" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
-  ggplot() +
-  theme_linedraw(base_size=12) +
-  ggseg::geom_brain(atlas = dk, 
-             position = position_brain(hemi ~ side),
-            aes(fill=sig_fsq)) +
-  facet_grid(cv_sample ~ pheno_cat)
-
-LR.df_plot %>%
+sub_plt <- LR.df_plot %>%
   filter(pheno_cat == "Subcortical Volume") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
-  ggseg::geom_brain(atlas = aseg, 
+  ggseg::geom_brain(atlas = aseg_clean, 
             aes(fill=sig_resi)) +
-  facet_grid(cv_sample ~ pheno_cat)
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
+  facet_grid(pheno_cat ~ cv_sample)
 
-LR.df_plot_glob <- inner_join(LR.df_plot, aseg_all$data, by="tissue_class")
-LR.df_plot_glob %>%
-  #filter(pheno_cat == "Subcortical Volume") %>%
+LR.df_plot_glob <- inner_join(LR.df_plot, aseg_all_clean$data, by="tissue_class")
+glob_plt <- LR.df_plot_glob %>%
+  filter(pheno_cat == "Global Volume") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
-  ggseg::geom_brain(atlas = aseg_all, 
+  ggseg::geom_brain(atlas = aseg_all_clean, 
             aes(fill=sig_resi)) +
-  facet_wrap(~cv_sample)
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
+  facet_grid(pheno_cat ~ cv_sample)
+```
+
+```{r}
+glob_plt
+cort_plt
+sub_plt
+
+glob_plt / cort_plt / sub_plt +
+  plot_layout(guides = 'collect', heights = unit(c(1, 4, 1), c('in', 'in', 'in')))
 ```
