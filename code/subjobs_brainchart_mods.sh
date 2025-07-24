@@ -3,9 +3,9 @@
 #SBATCH --job-name=bc_mods
 #SBATCH --time=10:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=4G #TEST THIS
-#SBATCH --array=1-239%30
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=2G #TEST THIS
+#SBATCH --array=1-4#239%30
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/bc_mods/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/bc_mods/R-%A_%a.err
 

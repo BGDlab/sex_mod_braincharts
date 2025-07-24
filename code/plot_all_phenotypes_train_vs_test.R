@@ -30,7 +30,8 @@ plot_rows <- lapply(common_phenos, function(pheno) {
 
 # Combine all rows into one big plot (2 columns, n rows)
 big_plot <- wrap_plots(plot_rows, ncol = 1) +
-  plot_annotation(title = "All Phenotypes: Train (left) vs Test (right)")
+  plot_layout(guides = "collect") + 
+  plot_annotation(title = "Global Phenotypes Train (left) vs Test (right)")
 
 # Save
 out_file <- "all_phenotypes_train_vs_test.png"

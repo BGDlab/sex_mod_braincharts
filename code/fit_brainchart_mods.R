@@ -42,18 +42,22 @@ if (length(term_list_A) == length(term_list_B)) {
   
   #pick random mod
   random_mod <- sample(c("A", "B"), 1)
-  print("randomly selecting model", rand_mod)
-  mod_to_fit <- cv_mod_list[[random_mod]]
-  
+  print(paste("randomly selecting model", random_mod))
+  if (random_mod == "A"){
+    mod_to_fit <- mod_A
+  } else {
+    mod_to_fit <- mod_B
+  }
+
 } else if (length(term_list_A) < length(term_list_B)) {
   # use mod A
   print("using model A")
-  mod_to_fit <- cv_mod_list[["A"]]
+  mod_to_fit <- mod_A
   
 } else if (length(term_list_A) > length(term_list_B)){
   # use mod B
   print("using model B")
-  mod_to_fit <- cv_mod_list[["B"]]
+  mod_to_fit <- mod_B
   
 } else {
   stop("can't find simpler model")
@@ -61,7 +65,7 @@ if (length(term_list_A) == length(term_list_B)) {
 
 ######### FIT MODEL #########
 
-mode <- gamlss_3lambda_rep(mod_to_fit,
+model <- gamlss_3lambda_rep(mod_to_fit,
                    null_mod=FALSE,
                    keep_lambdas=FALSE,
                    start.from=NULL,
@@ -81,6 +85,26 @@ model$call$data <- df
 model$call$family <- model$family[[1]]
 
 ######### PLOTS #########
+pred_list <- list_predictors(model)
+#see if fs_version included as covariate
+fs <- pred_list[grep("^fs_version", pred_list)]
+if (length(fs) == 1){
+  resid_terms <- c(fs, "study_site")
+} else {
+  resid_terms <- "study_site"
+}
+
+#check if age is log-scaled
+if ("logAge_days" %in% pred_list){
+  age_var <- "logAge_days"
+  print("simulate data for plotting")
+  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+} else {
+  print("simulate data for plotting")
+  sim_df <- sim_data(df, "age_days", factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
+  age_var <- "age_days"
+}
+
 
 #CENTILE FAN PLOT
 print("creating centile fan plot")
@@ -92,7 +116,7 @@ fan_plot <- make_centile_fan(gamlssModel=model,
                              desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
                              remove_point_effect = resid_terms,
-                             y_scale=unscale_fun)  +
+                             y_scale=unscale)  +
   labs(title=paste(pheno, "brainchart"),
        x ="log Age (days)",
        color = "Sex=Male", fill="Sex=Male")

@@ -72,6 +72,9 @@ table(LR.df2$sig_fdr)
 ggplot(LR.df2) +
   geom_histogram(aes(x=sig_resi, fill=pheno_cat), position='identity', alpha=0.6) +
   facet_wrap(~cv_sample)
+
+range(LR.df2$sig_fsq, na.rm=T)
+range(LR.df2$sig_resi, na.rm=T)
 ```
 
 plot
@@ -113,7 +116,7 @@ setdiff(unique(aseg_all$data$tissue_class), unique(LR.df_plot$tissue_class)) # a
 setdiff(unique(LR.df_plot$label), c(unique(dk$data$label), unique(aseg$data$label)))
 ```
 
-"Left-Accumbens-area", "Right-Accumbens-area", "Left-Cerebellum-Cortex" &"Left-Cerebellum-White-Matter" aren't in field of view for aseg atlas
+"Left-Accumbens-area", "Right-Accumbens-area", "Left-Cerebellum-Cortex" & "Left-Cerebellum-White-Matter" aren't in field of view for aseg atlas
 
 
 ```{r}
@@ -173,6 +176,8 @@ glob_plt
 cort_plt
 sub_plt
 
-glob_plt / cort_plt / sub_plt +
-  plot_layout(guides = 'collect', heights = unit(c(1, 4, 1), c('in', 'in', 'in')))
+full_plt <- glob_plt /plot_spacer()/ cort_plt / plot_spacer()/sub_plt +
+  plot_layout(guides = 'collect', heights = unit(c(3, -1.2, 6, -1.2, 3), c('in', 'in', 'in')))
+
+ggsave("resi.png", full_plt, width=7, height=10)
 ```
