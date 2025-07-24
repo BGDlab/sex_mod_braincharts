@@ -27,7 +27,7 @@ echo "SAVE_PATH: $SAVE_PATH"
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.1.2.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.1.3.sif"
 
 singularity run --cleanenv \
     -B $BASE \

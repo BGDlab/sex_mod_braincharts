@@ -81,10 +81,11 @@ print(paste("saving", pheno, "model"))
 file_full <- paste0(save_path, "/model_objs/", pheno, "_brainchart.rds")
 saveRDS(model, file=file_full)
 
-model$call$data <- df
+model$call$data <- "df"
 model$call$family <- model$family[[1]]
 
 ######### PLOTS #########
+birth <- log(280, base=10)
 pred_list <- list_predictors(model)
 #see if fs_version included as covariate
 fs <- pred_list[grep("^fs_version", pred_list)]
@@ -117,22 +118,25 @@ fan_plot <- make_centile_fan(gamlssModel=model,
                              sim_data_list = sim_df,
                              remove_point_effect = resid_terms,
                              y_scale=unscale)  +
+  theme_linedraw() +
+  scale_color_discrete(name = "Sex", labels = c("Female", "Male")) +
+  guides(fill=FALSE) +
+  geom_vline(xintercept=birth)
   labs(title=paste(pheno, "brainchart"),
-       x ="log Age (days)",
-       color = "Sex=Male", fill="Sex=Male")
+       x ="Age (log days)")
 
 ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_centilefan.png"), fan_plot)
 
 #WORM PLOT
 print("creating worm plot")
-wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=8) +
+wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=10) 
+wp_plot <- wp$plot +
   ggtitle(paste(pheno, "validation model"))
-ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_wp.png"), wp)
+ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_wp.png"), wp_plot)
+fwrite(wp$outliers, file=paste0(save_path, "/worm_plots/", pheno, "_outliers.csv"))
 
 #COMPILE
 print("compiling stats")
-#centiles
-
 results_df <- cent_cdf(model, df, plot=FALSE, group="sexMale")
 
 #BIC & AIC

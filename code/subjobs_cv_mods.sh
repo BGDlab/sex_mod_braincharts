@@ -36,7 +36,7 @@ echo "SMOOTH: $SMOOTH"
 
 #------------------
 
-SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.1.2.sif"
+SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.1.3.sif"
 
 script=$BASE/code/fit_cv_mods.R
 

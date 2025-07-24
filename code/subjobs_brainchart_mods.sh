@@ -30,7 +30,7 @@ echo "SAVE_PATH: $SAVE_PATH"
 
 #------------------
 
-SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.1.2.sif"
+SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.1.3.sif"
 
 script=$BASE/code/fit_brainchart_mods.R
 
