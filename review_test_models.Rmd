@@ -44,9 +44,13 @@ paths <- Sys.glob(file.path(test_path, "*LRtest.csv"))
 # Read all matching CSVs
 output_fread <- lapply(paths, fread)
 length(output_fread)
-names(output_fread) <- stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
+names(output_fread) <- paths
+#stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
 
-LR.df <- bind_rows(output_fread, .id="cv_sample")
+LR.df <- bind_rows(output_fread, .id="file") %>%
+  mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+         total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)")) %>%
+  select(!file)
 ```
 
 Correct for multiple comparisons, get RESI effect size
