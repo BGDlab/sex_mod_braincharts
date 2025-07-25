@@ -178,6 +178,12 @@ gamlss_3lambda_rep <- function(og_mod,
     mu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                    paste0("logAge_days, lambda =", mu_lambdas[2]), mu_base)
     mu_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", mu_lambdas[3], ")"), mu_base)
+    
+    #replace TBV or other pbs if needed
+    if (length(mu_lambdas)=4){
+      mu_base <- sub('method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
+                     paste0("lambda =", mu_lambdas[4]), mu_base)
+    }
   }
   
   mu_form <- paste0("safe_gamlss(formula =", pheno, "~", mu_base)
@@ -198,6 +204,12 @@ gamlss_3lambda_rep <- function(og_mod,
     sig_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                     paste0("logAge_days, lambda =", sig_lambdas[2]), sig_base)
     sig_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", sig_lambdas[3], ")"), sig_base)
+    
+    #replace TBV or other pbs if needed
+    if (length(sig_lambdas)=4){
+      sig_base <- sub('method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
+                     paste0("lambda =", sig_lambdas[4]), sig_base)
+    }
   }
   
   sig_form <- paste0("sigma.formula = ~", sig_base)
