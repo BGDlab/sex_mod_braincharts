@@ -130,9 +130,9 @@ ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_centilefan.png"), fan_
 #WORM PLOT
 print("creating worm plot")
 wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=10) 
-wp_plot <- wp$plot +
-  ggtitle(paste(pheno, "validation model"))
-ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_wp.png"), wp_plot)
+plt <- wp$plot
+ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_wp.png"), plt)
+print(wp$outliers)
 fwrite(wp$outliers, file=paste0(save_path, "/worm_plots/", pheno, "_outliers.csv"))
 
 #COMPILE

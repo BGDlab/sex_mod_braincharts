@@ -368,9 +368,9 @@ df_filt <- df_with_slip %>%
          mean.CT = rowMeans(across(all_of(ct_list)), na.rm=FALSE),
          total.SA = rowSums(across(all_of(sa_list)), na.rm=FALSE),
          study = as.factor(study),
-         study_site = as.factor(paste0("study-", study, "_", "site-", site)),
+         study_site = paste0("study-", study, "_", "site-", site),
          INDEX.ID = paste(study, participant, sex, sep="|")) %>%
-  mutate(study_site = grep("site-site-", study_site, "site-")) #remove duplicates
+  mutate(study_site = as.factor(stringr::str_replace(study_site, "site-site-", "site-"))) #remove duplicates
 
 #skim(df_filt)
 ```

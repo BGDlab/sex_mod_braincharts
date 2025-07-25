@@ -4,8 +4,8 @@
 #SBATCH --time=10:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=2G #TEST THIS
-#SBATCH --array=1-4#239%30
+#SBATCH --mem-per-cpu=1500M
+#SBATCH --array=1-239%40
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/bc_mods/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/bc_mods/R-%A_%a.err
 
@@ -30,7 +30,7 @@ echo "SAVE_PATH: $SAVE_PATH"
 
 #------------------
 
-SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.1.3.sif"
+SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.0.sif"
 
 script=$BASE/code/fit_brainchart_mods.R
 
