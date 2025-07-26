@@ -152,13 +152,14 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
 #gamlss_3lambda_rep
 #rep model with lambdas from another model obj
 gamlss_3lambda_rep <- function(og_mod, 
-                               null_mod=FALSE,
+                               null_mod=c(FALSE, TRUE, "allSex"),
                                keep_lambdas=TRUE,
                                start.from=NULL,
                                weight=FALSE){
   
   pheno <- paste0(og_mod$mu.formula)[[2]]
   fam <- og_mod$family[1]
+  null_mod <- match.arg(null_mod)
 
   #define formulas for each moment
   
@@ -170,9 +171,13 @@ gamlss_3lambda_rep <- function(og_mod,
   if (keep_lambdas == TRUE & null_mod == FALSE){
     mu_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                    paste0("sexMale_x_logAge, lambda =", mu_lambdas[1]), mu_base)
-  } else if (null_mod == TRUE) {
+  } else if (null_mod != FALSE) {
     mu_base <- rm_sexage(mu_base)
-  }
+    if (null_mod == "allSex"){
+      #remove sex intercept
+      mu_base <- sub('+ sexMale', '', mu_base)
+    }
+  } 
   
   if (keep_lambdas == TRUE){
     mu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
@@ -180,7 +185,7 @@ gamlss_3lambda_rep <- function(og_mod,
     mu_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", mu_lambdas[3], ")"), mu_base)
     
     #replace TBV or other pbs if needed
-    if (length(mu_lambdas)=4){
+    if (length(mu_lambdas)==4){
       mu_base <- sub('method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                      paste0("lambda =", mu_lambdas[4]), mu_base)
     }
@@ -196,8 +201,12 @@ gamlss_3lambda_rep <- function(og_mod,
   if (keep_lambdas == TRUE & null_mod == FALSE){
     sig_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                     paste0("sexMale_x_logAge, lambda =", sig_lambdas[1]), sig_base)
-  } else if (null_mod == TRUE) {
+  } else if (null_mod != FALSE) {
     sig_base <- rm_sexage(sig_base)
+    if (null_mod == "allSex"){
+      #remove sex intercept
+      sig_base <- sub('+ sexMale', '', sig_base)
+    }
   }
   
   if (keep_lambdas==TRUE){
@@ -206,7 +215,7 @@ gamlss_3lambda_rep <- function(og_mod,
     sig_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", sig_lambdas[3], ")"), sig_base)
     
     #replace TBV or other pbs if needed
-    if (length(sig_lambdas)=4){
+    if (length(sig_lambdas)==4){
       sig_base <- sub('method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                      paste0("lambda =", sig_lambdas[4]), sig_base)
     }
@@ -221,6 +230,12 @@ gamlss_3lambda_rep <- function(og_mod,
     nu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                     paste0("logAge_days, lambda =", nu_lambdas[1]), nu_base)
   }
+  
+  if (null_mod == "allSex"){
+    #remove sex intercept
+    nu_base <- sub('+ sexMale', '', nu_base)
+  }
+  
   nu_form <- paste0("nu.formula = ~", nu_base)
   
   control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")

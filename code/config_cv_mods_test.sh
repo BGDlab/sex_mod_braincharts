@@ -84,17 +84,19 @@ do
 	file=$(find $(realpath $data_path/cv_sample_${split}_dfs) -type f -name "${pheno_line}_total${total}_logPheno${log_pheno}_logAge${log_age}.csv")
 	
 	# find training BestModel in other csv
-        matches=$(find "$search_path" -type f -name "${pheno_line}_*BestMod.rds")
+        mapfile -t matches < <(find "$search_path" -type f -name "${pheno_line}_*BestMod.rds")
         if [ ${#matches[@]} -eq 1 ]; then
           og_mod="${matches[0]}"
           
           # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$og_mod\t$save_path" >> "$config_file"
+          echo -e "$file\t$og_mod\t$save_path\t$total" >> "$config_file"
         elif [ ${#matches[@]} -eq 0 ]; then
           echo "Warning: No matching file found in '$search_path' for prefix '$pheno_line' and suffix 'BestMod.rds'" >&2
+          #exit 1
         else
           echo "Warning: Multiple matching files found in '$search_path':" >&2
           printf '%s\n' "${matches[@]}" >&2
+          #exit 1
         fi
       done < "$pheno_list"
 

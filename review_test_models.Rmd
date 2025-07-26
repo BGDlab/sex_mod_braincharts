@@ -36,7 +36,7 @@ remotes::install_github("BGDlab/ggsegTissue")
 remotes::install_github("ggseg/ggsegExtra")
 ```
 
-# read csvs
+#Read & Prep CSVs
 ```{r}
 # Use Sys.glob to expand wildcard paths
 paths <- Sys.glob(file.path(test_path, "*LRtest.csv"))
@@ -47,19 +47,18 @@ length(output_fread)
 names(output_fread) <- paths
 #stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
 
+
 LR.df <- bind_rows(output_fread, .id="file") %>%
   mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)")) %>%
   select(!file)
 ```
 
-Correct for multiple comparisons, get RESI effect size
+Get RESI effect size
 
 ```{r}
 LR.df2 <- LR.df %>%
-  mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
-  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE),
-         resi = fsq2S(fsq),
+  mutate(resi = fsq2S(fsq),
          pheno_cat = factor(case_when(
     pheno %in% global_list ~ "Global Volume",
     pheno %in% vol_list ~ "Regional Volume",
@@ -67,23 +66,26 @@ LR.df2 <- LR.df %>%
     pheno %in% sa_list ~ "Regional SA",
     pheno %in% ct_list ~ "Regional CT",
     TRUE ~ NA_character_)),
-) %>%
-  mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
-         sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
-
-table(LR.df2$sig_fdr)
-
-ggplot(LR.df2) +
-  geom_histogram(aes(x=sig_resi, fill=pheno_cat), position='identity', alpha=0.6) +
-  facet_wrap(~cv_sample)
-
-range(LR.df2$sig_fsq, na.rm=T)
-range(LR.df2$sig_resi, na.rm=T)
+)
 ```
 
-plot
-add dk w/o medial wall to ggsegTissue,
-need to split out CC, etc. make sure ALL REGIONS are plotted!
+Prep atlases for plotting
+
+```{r}
+#clean up atlases to remove non-modeled phenos
+#write out new dk atlas w/o medial wall
+dk_clean <- dk
+dk_clean$data <- dk_clean$data %>%
+  dplyr::filter(!is.na(region) & region !="corpus callosum")
+
+aseg_clean <- aseg
+aseg_clean$data <- aseg_clean$data %>%
+  dplyr::filter(!is.na(label))
+
+aseg_all_clean <- aseg_all
+aseg_all_clean$data <- aseg_all_clean$data %>%
+  dplyr::filter(label != "Brain-Stem")
+```
 
 ```{r}
 # sub_list
@@ -122,27 +124,29 @@ setdiff(unique(LR.df_plot$label), c(unique(dk$data$label), unique(aseg$data$labe
 
 "Left-Accumbens-area", "Right-Accumbens-area", "Left-Cerebellum-Cortex" & "Left-Cerebellum-White-Matter" aren't in field of view for aseg atlas
 
+#Non-Corrected Model
 
 ```{r}
-#clean up atlases to remove non-modeled phenos
-#write out new dk atlas w/o medial wall
-dk_clean <- dk
-dk_clean$data <- dk_clean$data %>%
-  dplyr::filter(!is.na(region) & region !="corpus callosum")
+LR.df_uncor <- LR.df_plot %>%
+  dplyr::filter(total==FALSE) %>%
+  mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
+  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
+  mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
+         sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
 
-aseg_clean <- aseg
-aseg_clean$data <- aseg_clean$data %>%
-  dplyr::filter(!is.na(label))
+table(LR.df_uncor$sig_fdr)
 
-aseg_all_clean <- aseg_all
-aseg_all_clean$data <- aseg_all_clean$data %>%
-  dplyr::filter(label != "Brain-Stem")
+ggplot(LR.df_uncor) +
+  geom_histogram(aes(x=sig_resi, fill=pheno_cat), position='identity', alpha=0.6) +
+  facet_wrap(~cv_sample)
+
+range(LR.df_uncor$sig_fsq, na.rm=T)
+range(LR.df_uncor$sig_resi, na.rm=T)
 ```
 
 
-
 ```{r}
-cort_plt <- LR.df_plot %>%
+cort_plt_uncor <- LR.df_uncor %>%
   filter(pheno_cat == "Regional Volume" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
@@ -153,7 +157,7 @@ cort_plt <- LR.df_plot %>%
   paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
   facet_grid(pheno_cat ~ cv_sample) 
 
-sub_plt <- LR.df_plot %>%
+sub_plt_uncor <- LR.df_uncor %>%
   filter(pheno_cat == "Subcortical Volume") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
@@ -163,8 +167,8 @@ sub_plt <- LR.df_plot %>%
   paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
   facet_grid(pheno_cat ~ cv_sample)
 
-LR.df_plot_glob <- inner_join(LR.df_plot, aseg_all_clean$data, by="tissue_class")
-glob_plt <- LR.df_plot_glob %>%
+LR.df_plot_glob_uncor <- inner_join(LR.df_uncor, aseg_all_clean$data, by="tissue_class")
+glob_plt_uncor <- LR.df_plot_glob_uncor %>%
   filter(pheno_cat == "Global Volume") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
@@ -176,12 +180,69 @@ glob_plt <- LR.df_plot_glob %>%
 ```
 
 ```{r}
-glob_plt
-cort_plt
-sub_plt
-
-full_plt <- glob_plt /plot_spacer()/ cort_plt / plot_spacer()/sub_plt +
+full_plt_uncor <- glob_plt_uncor /plot_spacer()/ cort_plt_uncor / plot_spacer()/ sub_plt_uncor +
   plot_layout(guides = 'collect', heights = unit(c(3, -1.2, 6, -1.2, 3), c('in', 'in', 'in')))
 
-ggsave("resi.png", full_plt, width=7, height=10)
+ggsave("figs/resi_uncorrected.png", full_plt_uncor, width=7, height=10)
+```
+
+#TBV-Corrected Models
+
+```{r}
+LR.df_tot <- LR.df_plot %>%
+  dplyr::filter(total==TRUE) %>%
+  mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
+  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
+  mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
+         sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
+
+table(LR.df_tot$sig_fdr)
+
+ggplot(LR.df_tot) +
+  geom_histogram(aes(x=sig_resi, fill=pheno_cat), position='identity', alpha=0.6) +
+  facet_wrap(~cv_sample)
+
+range(LR.df_tot$sig_fsq, na.rm=T)
+range(LR.df_tot$sig_resi, na.rm=T)
+```
+
+```{r}
+cort_plt_tot <- LR.df_tot %>%
+  filter(pheno_cat == "Regional Volume" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = dk_clean, 
+             position = position_brain(hemi ~ side),
+            aes(fill=sig_resi)) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
+  facet_grid(pheno_cat ~ cv_sample) 
+
+sub_plt_tot <- LR.df_tot %>%
+  filter(pheno_cat == "Subcortical Volume") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = aseg_clean, 
+            aes(fill=sig_resi)) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
+  facet_grid(pheno_cat ~ cv_sample)
+
+LR.df_plot_glob_tot <- inner_join(LR.df_tot, aseg_all_clean$data, by="tissue_class")
+glob_plt_tot <- LR.df_plot_glob_tot %>%
+  filter(pheno_cat == "Global Volume") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = aseg_all_clean, 
+            aes(fill=sig_resi)) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
+  facet_grid(pheno_cat ~ cv_sample)
+```
+
+```{r}
+full_plt_tot <- glob_plt_tot /plot_spacer()/ cort_plt_tot / plot_spacer()/ sub_plt_tot +
+  plot_layout(guides = 'collect', heights = unit(c(3, -1.2, 6, -1.2, 3), c('in', 'in', 'in')))
+full_plt_tot
+ggsave("figs/resi_tbv.png", full_plt_tot, width=7, height=10)
 ```

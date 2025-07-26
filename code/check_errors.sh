@@ -25,7 +25,7 @@ if [ ${#err_files[@]} -eq 0 ]; then
     echo "${#err_files[@]} files found, checking..."
 fi
 
-for error_pattern in "Error in" "Killed" "halted"; do
+for error_pattern in "Error in" "Killed" "halted" "error"; do
     grep -RH --after-context=2 "$error_pattern" "${err_files[@]}" 2>/dev/null | awk -v pat="$error_pattern" '
     BEGIN { filename = "" }
     /^--$/ { next }

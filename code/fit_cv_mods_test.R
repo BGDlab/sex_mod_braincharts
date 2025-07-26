@@ -15,6 +15,7 @@ print(args)
 df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
+total <- as.logical(args[4])
 
 base_mod$call$data <- "df"
 pheno <- base_mod$mu.terms[[2]] %>% as.character()
@@ -137,8 +138,33 @@ test_df <- data.frame(
   "df" = test_out$df,
   "p_val" = test_out$p.val,
   "fsq" = f2,
-  "pheno" = pheno
+  "pheno" = pheno,
+  "effect" = "sex_age"
 )
+
+##################
+#FIT NULL MODEL WITH NO SEX-EFFECT FOR TBV-CORRECTED MODELS
+if (total == TRUE) {
+  print("fitting null model of all sex effects")
+  null_model2 <- gamlss_3lambda_rep(base_mod, null_mod="allSex")
+  
+  test_out2 <- LR.test(null_model2, model, print=FALSE) #significance test
+  f2_2 <- cohens_f2_local(model, null_model2) #effect size
+  
+  #TEST
+  test_df2 <- data.frame(
+    "chi" = test_out2$chi,
+    "df" = test_out2$df,
+    "p_val" = test_out2$p.val,
+    "fsq" = f2_2,
+    "pheno" = pheno,
+    "effect" = "sex_all"
+  )
+  
+  test_df <- rbind(test_df, test_df2)
+  
+}
+
 fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
 
 print("SUCCESS")
