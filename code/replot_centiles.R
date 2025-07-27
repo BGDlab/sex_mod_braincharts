@@ -8,78 +8,52 @@ library(gridExtra)
 library(ggplot2)
 library(dplyr)
 library(gamlss)
+devtools::install_github("BGDlab/gamlssTools", force=TRUE, upgrade=FALSE)
 library(gamlssTools)
 
 base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 
 # paths
+# paths
 dir_paths <- list()
 dir_paths[[1]] <- list(
-  csv_dir = paste0(base, "data/cv_sample_A_dfs"),
-  rds_dir = paste0(base,"cv_sample_A_train/global_vols_logPhenoTRUE_logAgeTRUE_pbmods"),
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/cortical_surf_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
   log_age=TRUE
 )
 dir_paths[[2]] <- list(
-  csv_dir = paste0(base,"data/cv_sample_B_dfs"),
-  rds_dir = paste0(base,"cv_sample_B_train/global_vols_logPhenoTRUE_logAgeTRUE_pbmods"),
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/cortical_thickness_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
   log_age=TRUE
 )
 dir_paths[[3]] <- list(
-  csv_dir = paste0(base,"data/cv_sample_A_dfs"),
-  rds_dir = paste0(base,"cv_sample_A_train/subcortical_vols_logPhenoTRUE_logAgeTRUE_pbmods"),
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/cortical_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
   log_age=TRUE
 )
 dir_paths[[4]] <- list(
-  csv_dir = paste0(base,"data/cv_sample_B_dfs"),
-  rds_dir = paste0(base,"cv_sample_B_train/subcortical_vols_logPhenoTRUE_logAgeTRUE_pbmods"),
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
   log_age=TRUE
 )
 dir_paths[[5]] <- list(
-  csv_dir = paste0(base,"data/cv_sample_A_dfs"),
-  rds_dir = paste0(base,"cv_sample_A_train/cortical_surf_logPhenoTRUE_logAgeTRUE_pbmods"),
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[6]] <- list(
-  csv_dir = paste0(base,"data/cv_sample_B_dfs"),
-  rds_dir = paste0(base,"cv_sample_B_train/cortical_surf_logPhenoTRUE_logAgeTRUE_pbmods"),
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[7]] <- list(
-  csv_dir = paste0(base,"data/cv_sample_A_dfs"),
-  rds_dir = paste0(base,"cv_sample_A_train/cortical_vols_logPhenoTRUE_logAgeTRUE_pbmods"),
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[8]] <- list(
-  csv_dir = paste0(base,"data/cv_sample_B_dfs"),
-  rds_dir = paste0(base,"cv_sample_B_train/cortical_vols_logPhenoTRUE_logAgeTRUE_pbmods"),
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[9]] <- list(
-  csv_dir = paste0(base,"data/cv_sample_A_dfs"),
-  rds_dir = paste0(base,"cv_sample_A_train/cortical_thickness_logPhenoTRUE_logAgeTRUE_pbmods"),
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[10]] <- list(
-  csv_dir = paste0(base,"data/cv_sample_B_dfs"),
-  rds_dir = paste0(base,"cv_sample_B_train/cortical_thickness_logPhenoTRUE_logAgeTRUE_pbmods"),
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/subcortical_vols_totalTRUE_logPhenoTRUE_logAgeTRUE_pbmods",
+  csv_path = "totalTRUE_logPhenoTRUE_logAgeTRUE\\.csv$",
   log_age=TRUE
 )
 
+
+birth <- log(280, base=10)
 
 unscale <- function(x){10^x - 5}
 
-pdf(paste0(base,"centile_plots_logPheno_logAge.pdf"), width = 8.5, height = 11)  # Open PDF device
+pdf(paste0(base,"braincharts_centiles_unscaledAge_july25.pdf"), width = 8.5, height = 11)  # Open PDF device
 
 for (paths in dir_paths){
   # List all .rds files ending with BestMod.rds
@@ -144,23 +118,27 @@ for (paths in dir_paths){
                           special_term = st,
                           remove_cent_effect="study_site",
                           remove_point_effect = "study_site",
-                          y_scale=unscale)
-    
-    wp <- wp.taki(xvar=df[[xvar]], resid=resid(model))
+                          y_scale=unscale,
+                          x_scale=un_log) +
+      theme_linedraw() +
+      theme(plot.title = element_blank()) +
+      xlab("Age (log days)") +
+      scale_color_discrete(name = "Sex", labels = c("Female", "Male")) +
+      guides(fill=FALSE) +
+      geom_vline(xintercept=birth)
     
     model$call$data <- "df"
     model$call$family <- "BCCG"
     
     
-    results_df <- cent_cdf(model, df, plot=FALSE, group="sexMale")
-    
-    tbl <- tableGrob(results_df)
+    # results_df <- cent_cdf(model, df, plot=FALSE, group="sexMale")
+    # 
+    # tbl <- tableGrob(results_df)
     
     print(p)
-    print(wp)
     grid.newpage()
-    grid.draw(tbl)
-    # ggsave(filename = file.path(plot_dir, paste0(prefix, "_plot.png")), plot = p, width = 8, height = 5)
+    # grid.draw(tbl)
+    ggsave(filename = file.path(plot_dir, paste0(prefix, "_plot.png")), plot = p, width = 8, height = 5)
     
   }
 }
