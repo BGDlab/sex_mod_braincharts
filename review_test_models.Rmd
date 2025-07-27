@@ -60,13 +60,15 @@ Get RESI effect size
 LR.df2 <- LR.df %>%
   mutate(resi = fsq2S(fsq),
          pheno_cat = factor(case_when(
-    pheno %in% global_list ~ "Global Volume",
-    pheno %in% vol_list ~ "Regional Volume",
-    pheno %in% sub_list ~ "Subcortical Volume",
+    pheno %in% global_list ~ "Global Vol",
+    pheno %in% vol_list ~ "Regional Vol",
+    pheno %in% sub_list ~ "Subcortical Vol",
     pheno %in% sa_list ~ "Regional SA",
     pheno %in% ct_list ~ "Regional CT",
     TRUE ~ NA_character_)),
 )
+
+table(LR.df2$effect, LR.df2$total)
 ```
 
 Prep atlases for plotting
@@ -147,7 +149,7 @@ range(LR.df_uncor$sig_resi, na.rm=T)
 
 ```{r}
 cort_plt_uncor <- LR.df_uncor %>%
-  filter(pheno_cat == "Regional Volume" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
+  filter(pheno_cat == "Regional Vol" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
   ggseg::geom_brain(atlas = dk_clean, 
@@ -158,7 +160,7 @@ cort_plt_uncor <- LR.df_uncor %>%
   facet_grid(pheno_cat ~ cv_sample) 
 
 sub_plt_uncor <- LR.df_uncor %>%
-  filter(pheno_cat == "Subcortical Volume") %>%
+  filter(pheno_cat == "Subcortical Vol") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
   ggseg::geom_brain(atlas = aseg_clean, 
@@ -169,7 +171,7 @@ sub_plt_uncor <- LR.df_uncor %>%
 
 LR.df_plot_glob_uncor <- inner_join(LR.df_uncor, aseg_all_clean$data, by="tissue_class")
 glob_plt_uncor <- LR.df_plot_glob_uncor %>%
-  filter(pheno_cat == "Global Volume") %>%
+  filter(pheno_cat == "Global Vol") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
   ggseg::geom_brain(atlas = aseg_all_clean, 
@@ -188,9 +190,11 @@ ggsave("figs/resi_uncorrected.png", full_plt_uncor, width=7, height=10)
 
 #TBV-Corrected Models
 
+##Age*Sex Effect
+
 ```{r}
 LR.df_tot <- LR.df_plot %>%
-  dplyr::filter(total==TRUE) %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
   mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
   mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
   mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
@@ -208,7 +212,7 @@ range(LR.df_tot$sig_resi, na.rm=T)
 
 ```{r}
 cort_plt_tot <- LR.df_tot %>%
-  filter(pheno_cat == "Regional Volume" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
+  filter(pheno_cat == "Regional Vol" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
   ggseg::geom_brain(atlas = dk_clean, 
@@ -219,7 +223,7 @@ cort_plt_tot <- LR.df_tot %>%
   facet_grid(pheno_cat ~ cv_sample) 
 
 sub_plt_tot <- LR.df_tot %>%
-  filter(pheno_cat == "Subcortical Volume") %>%
+  filter(pheno_cat == "Subcortical Vol") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
   ggseg::geom_brain(atlas = aseg_clean, 
@@ -230,7 +234,7 @@ sub_plt_tot <- LR.df_tot %>%
 
 LR.df_plot_glob_tot <- inner_join(LR.df_tot, aseg_all_clean$data, by="tissue_class")
 glob_plt_tot <- LR.df_plot_glob_tot %>%
-  filter(pheno_cat == "Global Volume") %>%
+  filter(pheno_cat == "Global Vol") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
   ggseg::geom_brain(atlas = aseg_all_clean, 
@@ -245,4 +249,65 @@ full_plt_tot <- glob_plt_tot /plot_spacer()/ cort_plt_tot / plot_spacer()/ sub_p
   plot_layout(guides = 'collect', heights = unit(c(3, -1.2, 6, -1.2, 3), c('in', 'in', 'in')))
 full_plt_tot
 ggsave("figs/resi_tbv.png", full_plt_tot, width=7, height=10)
+```
+
+##Sex Effect
+
+```{r}
+LR.df_tot_sex <- LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_all") %>%
+  mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
+  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
+  mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
+         sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
+
+table(LR.df_tot_sex$sig_fdr)
+
+ggplot(LR.df_tot_sex) +
+  geom_histogram(aes(x=sig_resi, fill=pheno_cat), position='identity', alpha=0.6) +
+  facet_wrap(~cv_sample)
+
+range(LR.df_tot_sex$sig_fsq, na.rm=T)
+range(LR.df_tot_sex$sig_resi, na.rm=T)
+```
+
+```{r}
+cort_plt_tot_sex <- LR.df_tot_sex %>%
+  filter(pheno_cat == "Regional Vol" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = dk_clean, 
+             position = position_brain(hemi ~ side),
+            aes(fill=sig_resi)) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Purple-Blue", name = "RESI", limits = c(0, 0.3), direction = -1) +
+  facet_grid(pheno_cat ~ cv_sample) 
+
+sub_plt_tot_sex <- LR.df_tot_sex %>%
+  filter(pheno_cat == "Subcortical Vol") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = aseg_clean, 
+            aes(fill=sig_resi)) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Purple-Blue", name = "RESI", limits = c(0, 0.3), direction = -1) +
+  facet_grid(pheno_cat ~ cv_sample)
+
+LR.df_plot_glob_tot_sex <- inner_join(LR.df_tot_sex, aseg_all_clean$data, by="tissue_class")
+glob_plt_tot_sex <- LR.df_plot_glob_tot_sex %>%
+  filter(pheno_cat == "Global Vol") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = aseg_all_clean, 
+            aes(fill=sig_resi)) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Purple-Blue", name = "RESI", limits = c(0, 0.3), direction = -1) +
+  facet_grid(pheno_cat ~ cv_sample)
+```
+
+```{r}
+full_plt_tot_sex <- glob_plt_tot_sex /plot_spacer()/ cort_plt_tot_sex / plot_spacer()/ sub_plt_tot_sex +
+  plot_layout(guides = 'collect', heights = unit(c(3, -1.2, 6, -1.2, 3), c('in', 'in', 'in')))
+full_plt_tot_sex
+ggsave("figs/resi_tbv_allsex.png", full_plt_tot_sex, width=7, height=10)
 ```

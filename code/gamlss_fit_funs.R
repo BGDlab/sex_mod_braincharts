@@ -152,7 +152,7 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
 #gamlss_3lambda_rep
 #rep model with lambdas from another model obj
 gamlss_3lambda_rep <- function(og_mod, 
-                               null_mod=c(FALSE, TRUE, "allSex"),
+                               null_mod=c("false", "true", "allSex"),
                                keep_lambdas=TRUE,
                                start.from=NULL,
                                weight=FALSE){
@@ -168,10 +168,10 @@ gamlss_3lambda_rep <- function(og_mod,
   mu_lambdas <- og_mod$mu.lambda
 
   #update lambdas
-  if (keep_lambdas == TRUE & null_mod == FALSE){
+  if (keep_lambdas == TRUE & null_mod == "false"){
     mu_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                    paste0("sexMale_x_logAge, lambda =", mu_lambdas[1]), mu_base)
-  } else if (null_mod != FALSE) {
+  } else if (null_mod != "false") {
     mu_base <- rm_sexage(mu_base)
     if (null_mod == "allSex"){
       #remove sex intercept
@@ -198,10 +198,10 @@ gamlss_3lambda_rep <- function(og_mod,
   sig_lambdas <- og_mod$sigma.lambda
   
   #update lambdas
-  if (keep_lambdas == TRUE & null_mod == FALSE){
+  if (keep_lambdas == TRUE & null_mod == "false"){
     sig_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
                     paste0("sexMale_x_logAge, lambda =", sig_lambdas[1]), sig_base)
-  } else if (null_mod != FALSE) {
+  } else if (null_mod != "false") {
     sig_base <- rm_sexage(sig_base)
     if (null_mod == "allSex"){
       #remove sex intercept

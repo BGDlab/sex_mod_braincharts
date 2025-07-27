@@ -50,7 +50,7 @@ if (log_pheno==TRUE){
 }
 
 #FIT BASIC MODEL
-model <- gamlss_3lambda_rep(base_mod, null_mod=FALSE)
+model <- gamlss_3lambda_rep(base_mod, null_mod="false")
 
 #if model isn't fit, skip to next loop
 if (is.null(model)) {
@@ -127,7 +127,7 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 ##################
 #FIT NULL MODEL
 print("fitting null model")
-null_model <- gamlss_3lambda_rep(base_mod, null_mod=TRUE)
+null_model <- gamlss_3lambda_rep(base_mod, null_mod="true")
 
 test_out <- LR.test(null_model, model, print=FALSE) #significance test
 f2 <- cohens_f2_local(model, null_model) #effect size

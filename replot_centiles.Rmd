@@ -26,35 +26,35 @@ Get sample A data & pheno lists
 # paths
 dir_paths <- list()
 dir_paths[[1]] <- list(
-  csv_dir = "data/cv_sample_A_dfs",
-  rds_dir = "cv_sample_A_train/cortical_vols_totalTRUE_logPhenoTRUE_logAgeTRUE_pbmods",
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/cortical_surf_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
+  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+  log_age=TRUE
+)
+dir_paths[[2]] <- list(
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/cortical_thickness_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
+  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+  log_age=TRUE
+)
+dir_paths[[3]] <- list(
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/cortical_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
+  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+  log_age=TRUE
+)
+dir_paths[[4]] <- list(
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
+  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+  log_age=TRUE
+)
+dir_paths[[5]] <- list(
+  csv_dir = "data/pheno_dfs_totalFALSE",
+  rds_dir = "braincharts/subcortical_vols_totalTRUE_logPhenoTRUE_logAgeTRUE_pbmods",
   csv_path = "totalTRUE_logPhenoTRUE_logAgeTRUE\\.csv$",
   log_age=TRUE
 )
-# dir_paths[[2]] <- list(
-#   csv_dir = "data/cv_sample_A_dfs",
-#   rds_dir = "cv_sample_A_test/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
-#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-#   log_age=TRUE
-# )
-# dir_paths[[3]] <- list(
-#   csv_dir = "data/cv_sample_B_dfs",
-#   rds_dir = "cv_sample_B_train/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
-#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-#   log_age=TRUE
-# )
-# dir_paths[[4]] <- list(
-#   csv_dir = "data/cv_sample_B_dfs",
-#   rds_dir = "cv_sample_B_test/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
-#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-#   log_age=TRUE
-# )
-# dir_paths[[5]] <- list(
-#   csv_dir = "data/cv_sample_A_dfs",
-#   rds_dir = "cv_sample_A_train/cortical_vols_totalTRUE_logPhenoTRUE_logAgeTRUE_pbmods",
-#   csv_path = "totalTRUE_logPhenoTRUE_logAgeTRUE\\.csv$",
-#   log_age=TRUE
-# )
 # dir_paths[[6]] <- list(
 #   csv_dir = "data/cv_sample_B_dfs",
 #   rds_dir = "cv_sample_B_train/cortical_surf_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
@@ -100,7 +100,7 @@ for (paths in dir_paths){
   plot_dir <- paste0(paths$rds_dir,"/replots")
   dir.create(plot_dir, showWarnings = FALSE)
   
-  rds_files <- list.files(rds_dir, pattern = "(BestMod|test_full_mod)\\.rds$", full.names = TRUE) #get best mod or full testing mod
+  rds_files <- list.files(rds_dir, pattern = "\\.rds$", full.names = TRUE) #get best mod or full testing mod
   
   # List all .csv files
   csv_files <- list.files(csv_dir, pattern = csv_path, full.names = TRUE)
@@ -158,7 +158,8 @@ for (paths in dir_paths){
                           special_term = st,
                           remove_cent_effect="study_site",
                           remove_point_effect = "study_site",
-                          y_scale=unscale) +
+                          y_scale=unscale,
+                          x_scale=un_log) +
       theme_linedraw() +
       theme(plot.title = element_blank()) +
       xlab("Age (log days)") +
