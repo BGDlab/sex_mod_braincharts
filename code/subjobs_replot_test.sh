@@ -3,13 +3,13 @@
 #SBATCH --job-name=replots
 #SBATCH --time=24:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=20G
+#SBATCH --cpus-per-task=5
+#SBATCH --mem-per-cpu=15G
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_train/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_train/R-%A_%a.err
 
 # Singularity image path 
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.1.3.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.2.1.sif"
 
 #------------------
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/

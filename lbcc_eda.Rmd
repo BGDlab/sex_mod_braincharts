@@ -630,15 +630,13 @@ ggplot(samp_B) +
 
 samp_A$sample <- "A"
 samp_B$sample <- "B"
-full_df <- rbind(samp_A, samp_B) %>%
-  unite(sample_sex, c(sex, sample))
+full_df <- rbind(samp_A, samp_B)
 
-ggplot(full_df)+
-  geom_violin(aes(x=sample_sex, y=age_days))
-pairwise.wilcox.test(full_df$age_days, full_df$sample_sex, p.adjust.method = "none")
-ggplot(full_df)+
-  geom_violin(aes(x=sample_sex, y=SurfaceHoles))
-pairwise.wilcox.test(full_df$SurfaceHoles, full_df$sample_sex, p.adjust.method = "none")
+samp_plt <- ggplot(full_df)+
+  geom_violin(aes(x=sample, y=age_days, fill=as.factor(sexMale))) +
+  theme_linedraw() +
+  labs(fill = "Male")
+ggsave("figs/cv_samples.png", samp_plt)
 ```
 pretty good distributions of ages and Euler within sex, no significant differences between samples 
 
