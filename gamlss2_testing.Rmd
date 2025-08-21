@@ -1,0 +1,219 @@
+---
+title: "Spline Testing"
+output: html_document
+date: "2024-12-18"
+---
+
+
+```{r warning=FALSE}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, gamlss, gamlssTools, gamlss.add, mgcv, gamlss2)
+
+source("code/gamlss_fit_funs.R")
+
+# install.packages("devtools")
+devtools::install_github("BGDlab/gamlssTools")
+library(gamlssTools)
+```
+
+##Get gamlss() formula
+GMV
+
+```{r}
+gmv_df <- fread("data/pheno_dfs_totalFALSE/GMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+```
+
+load standard gamlss brain chart
+
+```{r}
+brainchart_path <- "braincharts/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods/model_objs/"
+gmv_gamlss <- readRDS(paste0(brainchart_path, "GMV_brainchart.rds"))
+gmv_gamlss$mu.formula
+gmv_gamlss$sigma.formula
+gmv_gamlss$nu.formula
+```
+
+pass to gamlss2 using new pb() defaults and mgcv random - no longer letting me fit with `random()`?
+
+```{r}
+gmv_formula <- formula(GMV ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') + fs_version_GM | 
+                pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+                1)
+```
+
+WMV
+
+```{r}
+wmv_gamlss <- readRDS(paste0(brainchart_path, "WMV_brainchart.rds"))
+wmv_gamlss$mu.formula
+wmv_gamlss$sigma.formula
+wmv_gamlss$nu.formula
+```
+
+```{r}
+wmv_formula <- formula(WMV ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+                pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+                pb(logAge_days))
+```
+
+CSF
+
+```{r}
+csf_gamlss <- readRDS(paste0(brainchart_path, "CSF_brainchart.rds"))
+csf_gamlss$mu.formula
+csf_gamlss$sigma.formula
+csf_gamlss$nu.formula
+```
+
+```{r}
+csf_formula <- formula(CSF ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+                pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+                pb(logAge_days))
+```
+
+sGMV
+
+```{r}
+sgmv_gamlss <- readRDS(paste0(brainchart_path, "sGMV_brainchart.rds"))
+sgmv_gamlss$mu.formula
+sgmv_gamlss$sigma.formula
+sgmv_gamlss$nu.formula
+```
+
+```{r}
+sgmv_formula <- formula(sGMV ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') + fs_version_GM | 
+                pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+                pb(logAge_days))
+```
+
+#Write Config File
+
+```{r}
+paste_frm <- function(frm){
+  frm_list <- as.character(frm)
+  return(paste(frm_list[2], frm_list[1], frm_list[3]))
+}
+
+```
+
+```{r}
+config <- data.frame(ct = seq(1:4),
+                      pheno = c("GMV", "WMV", "CSF", "sGMV"),
+                     form = c(as.character(gmv_formula)[3], as.character(wmv_formula)[3], as.character(csf_formula)[3], as.character(sgmv_formula)[3]))
+stopifnot(nrow(config) == 4)
+write.table(config, file = "code/config_files/gamlss2_test_config.txt", 
+            append = TRUE, sep = "\t", row.names=FALSE, col.names=FALSE, quote=c(3))
+```
+#Read in gamlss2() mods
+
+```{r}
+gmv_gamlss2 <- readRDS("GMV_gamlss2_testmod.rds")
+wmv_gamlss2 <- readRDS("WMV_gamlss2_testmod.rds")
+sgmv_gamlss2 <- readRDS("sGMV_gamlss2_testmod.rds")
+csf_gamlss2 <- readRDS("CSF_gamlss2_testmod.rds")
+```
+
+
+#Plot Centile Lines
+
+GMV
+```{r}
+gmv_sim <- sim_data(gmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+
+gmv_gamlss$call$data <- "gmv_df"
+gmv_gamlss$call$family <- gmv_gamlss$family[[1]]
+
+gmv_fan1 <- make_centile_fan(gmv_gamlss, gmv_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "darkgreen",
+                             sim_data_list = gmv_sim,
+                             y_scale=unscale)
+gmv_fan2 <- make_centile_fan(gmv_gamlss2, gmv_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "lightblue",
+                            sim_data_list = gmv_sim,
+                             y_scale=unscale)
+
+gmv_plot_combined <- gmv_fan1
+gmv_plot_combined$layers <- c(gmv_fan1$layers, gmv_fan2$layers)
+
+gmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("GMV centiles from gamlss (green) vs gamlss2 (blue) by sex")
+
+```
+
+WMV
+```{r}
+wmv_df <- fread("data/pheno_dfs_totalFALSE/WMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+wmv_sim <- sim_data(wmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+
+wmv_gamlss$call$data <- "wmv_df"
+wmv_gamlss$call$family <- wmv_gamlss$family[[1]]
+
+wmv_fan1 <- make_centile_fan(wmv_gamlss, wmv_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "darkgreen",
+                             sim_data_list = wmv_sim,
+                             y_scale=unscale)
+wmv_fan2 <- make_centile_fan(wmv_gamlss2, wmv_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "lightblue",
+                            sim_data_list = wmv_sim,
+                             y_scale=unscale)
+
+wmv_plot_combined <- wmv_fan1
+wmv_plot_combined$layers <- c(wmv_fan1$layers, wmv_fan2$layers)
+
+wmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("WMV centiles from gamlss (green) vs gamlss2 (blue) by sex")
+```
+
+sGMV
+```{r}
+sgmv_df <- fread("data/pheno_dfs_totalFALSE/sGMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+sgmv_sim <- sim_data(sgmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+
+sgmv_gamlss$call$data <- "sgmv_df"
+sgmv_gamlss$call$family <- sgmv_gamlss$family[[1]]
+
+sgmv_fan1 <- make_centile_fan(sgmv_gamlss, sgmv_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "darkgreen",
+                             sim_data_list = sgmv_sim,
+                             y_scale=unscale)
+sgmv_fan2 <- make_centile_fan(sgmv_gamlss2, sgmv_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "lightblue",
+                            sim_data_list = sgmv_sim,
+                             y_scale=unscale)
+
+sgmv_plot_combined <- sgmv_fan1
+sgmv_plot_combined$layers <- c(sgmv_fan1$layers, sgmv_fan2$layers)
+
+sgmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("sGMV centiles from gamlss (green) vs gamlss2 (blue) by sex")
+```
+
+csf
+```{r}
+csf_df <- fread("data/pheno_dfs_totalFALSE/CSF_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+csf_sim <- sim_data(csf_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+
+csf_gamlss$call$data <- "csf_df"
+csf_gamlss$call$family <- csf_gamlss$family[[1]]
+
+csf_fan1 <- make_centile_fan(csf_gamlss, csf_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "darkgreen",
+                             sim_data_list = csf_sim,
+                             y_scale=unscale)
+csf_fan2 <- make_centile_fan(csf_gamlss2, csf_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "lightblue",
+                            sim_data_list = csf_sim,
+                             y_scale=unscale)
+
+csf_plot_combined <- csf_fan1
+csf_plot_combined$layers <- c(csf_fan1$layers, csf_fan2$layers)
+
+csf_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("CSF centiles from gamlss (green) vs gamlss2 (blue) by sex")
+```
