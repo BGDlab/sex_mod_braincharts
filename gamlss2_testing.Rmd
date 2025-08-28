@@ -12,10 +12,14 @@ if(!require('pacman')) {
 pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, gamlss, gamlssTools, gamlss.add, mgcv, gamlss2)
 
 source("code/gamlss_fit_funs.R")
-
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 # install.packages("devtools")
-devtools::install_github("BGDlab/gamlssTools")
+devtools::install_github("BGDlab/gamlssTools", force=TRUE)
+
 library(gamlssTools)
+
+devtools::install_github("deepankardatta/blandr")
+library(blandr)
 ```
 
 ##Get gamlss() formula
@@ -91,14 +95,6 @@ sgmv_formula <- formula(sGMV ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale 
 #Write Config File
 
 ```{r}
-paste_frm <- function(frm){
-  frm_list <- as.character(frm)
-  return(paste(frm_list[2], frm_list[1], frm_list[3]))
-}
-
-```
-
-```{r}
 config <- data.frame(ct = seq(1:4),
                       pheno = c("GMV", "WMV", "CSF", "sGMV"),
                      form = c(as.character(gmv_formula)[3], as.character(wmv_formula)[3], as.character(csf_formula)[3], as.character(sgmv_formula)[3]))
@@ -118,20 +114,31 @@ csf_gamlss2 <- readRDS("CSF_gamlss2_testmod.rds")
 
 #Plot Centile Lines
 
-GMV
+###GMV
+
+```{r}
+df <- gmv_df
+gmv_gamlss$call$data <- "df"
+gmv_gamlss$call$family <- gmv_gamlss$family[[1]]
+
+#make sure models fit correctly
+stopifnot(setequal(list_predictors(gmv_gamlss),list_predictors(gmv_gamlss2)))
+```
+
+fit centile fan plots
 ```{r}
 gmv_sim <- sim_data(gmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
 
-gmv_gamlss$call$data <- "gmv_df"
-gmv_gamlss$call$family <- gmv_gamlss$family[[1]]
-
-gmv_fan1 <- make_centile_fan(gmv_gamlss, gmv_df, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
+gmv_fan1 <- make_centile_fan(gmv_gamlss, df, "logAge_days", "sexMale",
+                             get_peaks = FALSE,
+                             x_axis="log_lifespan_fetal",
+                            show_points = FALSE, 
                              label_centiles = "legend", color_manual = "darkgreen",
                              sim_data_list = gmv_sim,
                              y_scale=unscale)
 gmv_fan2 <- make_centile_fan(gmv_gamlss2, gmv_df, "logAge_days", "sexMale", 
                              get_peaks = FALSE, show_points = FALSE, 
+                              x_axis="log_lifespan_fetal",
                              label_centiles = "legend", color_manual = "lightblue",
                             sim_data_list = gmv_sim,
                              y_scale=unscale)
@@ -143,22 +150,78 @@ gmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("GMV 
 
 ```
 
-WMV
+try plotting original model again with points
+```{r}
+make_centile_fan(gmv_gamlss, df, "logAge_days", "sexMale", 
+                             label_centiles = "legend",
+                             sim_data_list = gmv_sim,
+                 remove_point_effect = c("study_site", "fs_version_GM"),
+                             y_scale=unscale) +
+  theme_bw()
+
+make_centile_fan(gmv_gamlss2, gmv_df, "logAge_days", "sexMale", 
+                             label_centiles = "legend",
+                             sim_data_list = gmv_sim,
+                 remove_point_effect = c("fs_version_GM"), #can't remove point effects from random effect with s(re)
+                 x_axis = "log_lifespan_fetal",
+                             y_scale=unscale) +
+  theme_bw()
+```
+
+```{r}
+cent_cdf(gmv_gamlss, df)
+cent_cdf(gmv_gamlss2, df)
+```
+
+how much do a given subjects' centiles change?
+
+```{r}
+gmv_gamlss_scores <- pred_og_centile(gmv_gamlss, gmv_df, get.std.scores = TRUE)
+colnames(gmv_gamlss_scores) <- paste(colnames(gmv_gamlss_scores), "gamlss", sep = "_")
+gmv_gamlss2_scores <- pred_og_centile(gmv_gamlss2, gmv_df, get.std.scores = TRUE)
+colnames(gmv_gamlss2_scores) <- paste(colnames(gmv_gamlss2_scores), "gamlss2", sep = "_")
+
+gmv_scores_df <- Reduce(cbind, list(gmv_df, gmv_gamlss_scores, gmv_gamlss2_scores))
+stopifnot(sum(is.na(gmv_scores_df)) == 0)
+```
+visualize
+
+```{r}
+blandr.draw(gmv_scores_df$centile_gamlss, gmv_scores_df$centile_gamlss2)
+blandr.draw(gmv_scores_df$std_score_gamlss, gmv_scores_df$std_score_gamlss2)
+
+ggplot(gmv_scores_df) +
+  geom_abline() +
+  geom_point(aes(x=centile_gamlss, y=centile_gamlss2, color=logAge_days), alpha=.6) +
+  ggtitle("gamlss vs gamlss2")
+
+ggplot(gmv_scores_df) +
+  geom_abline() +
+  geom_point(aes(x=std_score_gamlss, y=std_score_gamlss2, color=logAge_days), alpha=.6) +
+  ggtitle("gamlss vs gamlss2 z-scores")
+```
+
+### WMV
+```{r}
+wmv_gamlss$call$data <- "df"
+wmv_gamlss$call$family <- wmv_gamlss$family[[1]]
+stopifnot(setequal(list_predictors(wmv_gamlss),list_predictors(wmv_gamlss2)))
+```
+
 ```{r}
 wmv_df <- fread("data/pheno_dfs_totalFALSE/WMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
 wmv_sim <- sim_data(wmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
-
-wmv_gamlss$call$data <- "wmv_df"
-wmv_gamlss$call$family <- wmv_gamlss$family[[1]]
 
 wmv_fan1 <- make_centile_fan(wmv_gamlss, wmv_df, "logAge_days", "sexMale", 
                              get_peaks = FALSE, show_points = FALSE, 
                              label_centiles = "legend", color_manual = "darkgreen",
                              sim_data_list = wmv_sim,
+                             x_axis="log_lifespan_fetal",
                              y_scale=unscale)
 wmv_fan2 <- make_centile_fan(wmv_gamlss2, wmv_df, "logAge_days", "sexMale", 
                              get_peaks = FALSE, show_points = FALSE, 
                              label_centiles = "legend", color_manual = "lightblue",
+                             x_axis = "log_lifespan_fetal",
                             sim_data_list = wmv_sim,
                              y_scale=unscale)
 
@@ -168,23 +231,58 @@ wmv_plot_combined$layers <- c(wmv_fan1$layers, wmv_fan2$layers)
 wmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("WMV centiles from gamlss (green) vs gamlss2 (blue) by sex")
 ```
 
-sGMV
+how much do a given subjects' centiles change?
+
 ```{r}
+wmv_gamlss_scores <- pred_og_centile(wmv_gamlss, wmv_df, get.std.scores = TRUE)
+colnames(wmv_gamlss_scores) <- paste(colnames(wmv_gamlss_scores), "gamlss", sep = "_")
+wmv_gamlss2_scores <- pred_og_centile(wmv_gamlss2, wmv_df, get.std.scores = TRUE)
+colnames(wmv_gamlss2_scores) <- paste(colnames(wmv_gamlss2_scores), "gamlss2", sep = "_")
+
+wmv_scores_df <- Reduce(cbind, list(wmv_df, wmv_gamlss_scores, wmv_gamlss2_scores))
+stopifnot(sum(is.na(wmv_scores_df)) == 0)
+```
+visualize
+
+```{r}
+blandr.draw(wmv_scores_df$centile_gamlss, wmv_scores_df$centile_gamlss2)
+blandr.draw(wmv_scores_df$std_score_gamlss, wmv_scores_df$std_score_gamlss2)
+
+ggplot(wmv_scores_df) +
+  geom_abline() +
+  geom_point(aes(x=centile_gamlss, y=centile_gamlss2, color=logAge_days), alpha=.6) +
+  ggtitle("gamlss vs gamlss2")
+
+ggplot(wmv_scores_df) +
+  geom_abline() +
+  geom_point(aes(x=std_score_gamlss, y=std_score_gamlss2, color=logAge_days), alpha=.6) +
+  ggtitle("gamlss vs gamlss2 z-scores")
+```
+
+###sGMV
+```{r}
+sgmv_gamlss$call$data <- "df"
+sgmv_gamlss$call$family <- sgmv_gamlss$family[[1]]
+
+stopifnot(setequal(list_predictors(sgmv_gamlss),list_predictors(sgmv_gamlss2)))
+```
+
+```{r}
+#read data ad plot
 sgmv_df <- fread("data/pheno_dfs_totalFALSE/sGMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
 sgmv_sim <- sim_data(sgmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
-
-sgmv_gamlss$call$data <- "sgmv_df"
-sgmv_gamlss$call$family <- sgmv_gamlss$family[[1]]
 
 sgmv_fan1 <- make_centile_fan(sgmv_gamlss, sgmv_df, "logAge_days", "sexMale", 
                              get_peaks = FALSE, show_points = FALSE, 
                              label_centiles = "legend", color_manual = "darkgreen",
                              sim_data_list = sgmv_sim,
+                             x_axis="log_lifespan_fetal",
                              y_scale=unscale)
 sgmv_fan2 <- make_centile_fan(sgmv_gamlss2, sgmv_df, "logAge_days", "sexMale", 
                              get_peaks = FALSE, show_points = FALSE, 
                              label_centiles = "legend", color_manual = "lightblue",
                             sim_data_list = sgmv_sim,
+                            x_axis="log_lifespan_fetal",
                              y_scale=unscale)
 
 sgmv_plot_combined <- sgmv_fan1
@@ -192,14 +290,54 @@ sgmv_plot_combined$layers <- c(sgmv_fan1$layers, sgmv_fan2$layers)
 
 sgmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("sGMV centiles from gamlss (green) vs gamlss2 (blue) by sex")
 ```
+look more at gamlss2 model
 
-csf
+```{r}
+cent_cdf(sgmv_gamlss2, sgmv_df, group="sexMale")
+```
+
+how much do a given subjects' centiles change?
+
+```{r}
+sgmv_gamlss_scores <- pred_og_centile(sgmv_gamlss, sgmv_df, get.std.scores = TRUE)
+colnames(sgmv_gamlss_scores) <- paste(colnames(sgmv_gamlss_scores), "gamlss", sep = "_")
+sgmv_gamlss2_scores <- pred_og_centile(sgmv_gamlss2, sgmv_df, get.std.scores = TRUE)
+colnames(sgmv_gamlss2_scores) <- paste(colnames(sgmv_gamlss2_scores), "gamlss2", sep = "_")
+
+sgmv_scores_df <- Reduce(cbind, list(sgmv_df, sgmv_gamlss_scores, sgmv_gamlss2_scores))
+stopifnot(sum(is.na(sgmv_scores_df)) == 0)
+```
+visualize
+
+```{r}
+blandr.draw(sgmv_scores_df$centile_gamlss, sgmv_scores_df$centile_gamlss2)
+blandr.draw(sgmv_scores_df$std_score_gamlss, sgmv_scores_df$std_score_gamlss2)
+
+ggplot(sgmv_scores_df) +
+  geom_abline() +
+  geom_point(aes(x=centile_gamlss, y=centile_gamlss2, color=logAge_days), alpha=.6) +
+  ggtitle("gamlss vs gamlss2")
+
+ggplot(sgmv_scores_df) +
+  geom_abline() +
+  geom_point(aes(x=std_score_gamlss, y=std_score_gamlss2, color=logAge_days), alpha=.6) +
+  ggtitle("gamlss vs gamlss2 z-scores")
+```
+
+
+###CSF
+
+```{r}
+csf_gamlss$call$data <- "df"
+csf_gamlss$call$family <- csf_gamlss$family[[1]]
+
+stopifnot(setequal(list_predictors(csf_gamlss),list_predictors(csf_gamlss2)))
+```
+
+
 ```{r}
 csf_df <- fread("data/pheno_dfs_totalFALSE/CSF_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
 csf_sim <- sim_data(csf_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
-
-csf_gamlss$call$data <- "csf_df"
-csf_gamlss$call$family <- csf_gamlss$family[[1]]
 
 csf_fan1 <- make_centile_fan(csf_gamlss, csf_df, "logAge_days", "sexMale", 
                              get_peaks = FALSE, show_points = FALSE, 
@@ -217,3 +355,32 @@ csf_plot_combined$layers <- c(csf_fan1$layers, csf_fan2$layers)
 
 csf_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("CSF centiles from gamlss (green) vs gamlss2 (blue) by sex")
 ```
+
+how much do a given subjects' centiles change?
+
+```{r}
+csf_gamlss_scores <- pred_og_centile(csf_gamlss, csf_df, get.std.scores = TRUE)
+colnames(csf_gamlss_scores) <- paste(colnames(csf_gamlss_scores), "gamlss", sep = "_")
+csf_gamlss2_scores <- pred_og_centile(csf_gamlss2, csf_df, get.std.scores = TRUE)
+colnames(csf_gamlss2_scores) <- paste(colnames(csf_gamlss2_scores), "gamlss2", sep = "_")
+
+csf_scores_df <- Reduce(cbind, list(csf_df, csf_gamlss_scores, csf_gamlss2_scores))
+stopifnot(sum(is.na(csf_scores_df)) == 0)
+```
+visualize
+
+```{r}
+blandr.draw(csf_scores_df$centile_gamlss, csf_scores_df$centile_gamlss2)
+blandr.draw(csf_scores_df$std_score_gamlss, csf_scores_df$std_score_gamlss2)
+
+ggplot(csf_scores_df) +
+  geom_abline() +
+  geom_point(aes(x=centile_gamlss, y=centile_gamlss2, color=logAge_days), alpha=.6) +
+  ggtitle("gamlss vs gamlss2")
+
+ggplot(csf_scores_df) +
+  geom_abline() +
+  geom_point(aes(x=std_score_gamlss, y=std_score_gamlss2, color=logAge_days), alpha=.6) +
+  ggtitle("gamlss vs gamlss2 z-scores")
+```
+

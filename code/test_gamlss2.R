@@ -16,9 +16,20 @@ source(paste0(base, "code/gamlss_fit_funs.R"))
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
 pheno <- as.character(args[1])
-f_rh <- as.character(args[2]) #formula
+f_rh <- as.character(args[2])
 
-f <- formula(paste(pheno, "~", f_rh))
+# clean string
+# Step 1: Replace \" with '
+f_rh <- gsub('\\"', "'", f_rh)
+
+# Step 2: Unescape backslashes
+f_rh <- gsub('\\\\', '', f_rh)
+
+# Step 3: Remove leading/trailing quotes
+f_rh_clean <- gsub('^["\']|["\']$', '', f_rh)
+
+# Create formula
+f <- formula(paste(pheno, "~", f_rh_clean))
 
 print(paste("pheno:", pheno))
 print("formula:")

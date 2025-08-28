@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH --job-name=gamlss2
-#SBATCH --time=10:00:00
+#SBATCH --time=24:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem-per-cpu=1500M
@@ -17,7 +17,7 @@ echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
 
 #PARSE CONFIG FILE
 PHENO=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
-FORM=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
+FORM=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID' "$CONFIGFN" | cut -f3)
 
 echo "PHENO: $PHENO"
 echo "FORM: $FORM"
@@ -33,7 +33,7 @@ echo "SCRIPT: $script"
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $script $PHENO $FORM
+    Rscript $script "$PHENO" "$FORM"
 
 # Done!
 echo "Job finished running!"
