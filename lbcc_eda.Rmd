@@ -422,6 +422,44 @@ psychosis_df %>%
   group_by(dx) %>%
   summarise(count=n())
 ```
+look at ADHD
+```{r}
+adhd_dx_list <- c(unique(df$dx)[grepl("adhd|add|attention", unique(df$dx), ignore.case=T)], "CN")
+#excluding ABCD
+df %>%
+  dplyr::filter(dx %in% adhd_dx_list) %>%
+  dplyr::filter(study != "ABCD") %>%
+  group_by(study, dx) %>%
+  summarise(count = n())
+```
+
+ADHD200 ~ 600 cases, 400 controls
+HBN ~ 300 cases, 450 controls
+NDAR_OHSU_ADHD ~ 430 cases, 450 controls, about 150 subthreshold
+POND ~ 160 cases, 100 controls
+
+look at ALZ
+```{r}
+alz_dx_list <- c(unique(df$dx)[grepl("mci|alz|alzheim|cogni|AD", unique(df$dx), ignore.case=T)], "CN")
+#excluding ABCD
+df %>%
+  dplyr::filter(dx %in% alz_dx_list) %>%
+  dplyr::filter(study != "ABCD" & age_days > (40*365.25)) %>%
+  group_by(study, dx) %>%
+  summarise(count = n())
+```
+ADNI, AIBL, IMAP, NACC, OASIS, iADNI
+
+look at MDD
+```{r}
+mdd_list <- c(unique(df$dx)[grepl("MDD|depress", unique(df$dx), ignore.case=T)], "CN")
+#excluding ABCD
+df %>%
+  dplyr::filter(dx %in% mdd_list) %>%
+  dplyr::filter(study != "ABCD") %>%
+  group_by(study, dx) %>%
+  summarise(count = n())
+```
 
 write out csv - *not filtering/removing duplicate scans because planning to add more data!*
 ```{r}
