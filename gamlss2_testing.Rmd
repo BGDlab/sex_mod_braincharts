@@ -42,8 +42,12 @@ gmv_gamlss$nu.formula
 pass to gamlss2 using new pb() defaults and mgcv random - no longer letting me fit with `random()`?
 
 ```{r}
-gmv_formula <- formula(GMV ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') + fs_version_GM | 
-                pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+gmv_formula <- formula(GMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') + fs_version_GM | 
+                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
+                1)
+
+gmv_formula_fix <- formula(GMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site + fs_version_GM | 
+                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
                 1)
 ```
 
@@ -57,8 +61,12 @@ wmv_gamlss$nu.formula
 ```
 
 ```{r}
-wmv_formula <- formula(WMV ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
-                pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+wmv_formula <- formula(WMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
+                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
+                pb(logAge_days))
+
+wmv_formula_fix <- formula(WMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
+                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
                 pb(logAge_days))
 ```
 
@@ -72,8 +80,12 @@ csf_gamlss$nu.formula
 ```
 
 ```{r}
-csf_formula <- formula(CSF ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
-                pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+csf_formula <- formula(CSF ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
+                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
+                pb(logAge_days))
+
+csf_formula_fix <- formula(CSF ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
+                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
                 pb(logAge_days))
 ```
 
@@ -87,18 +99,30 @@ sgmv_gamlss$nu.formula
 ```
 
 ```{r}
-sgmv_formula <- formula(sGMV ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') + fs_version_GM | 
-                pb(sexMale_x_logAge) + pb(logAge_days) + sexMale + s(study_site, bs='re') | 
+sgmv_formula <- formula(sGMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') + fs_version_GM | 
+                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
+                pb(logAge_days))
+
+sgmv_formula_fix <- formula(sGMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site + fs_version_GM | 
+                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
                 pb(logAge_days))
 ```
 
 #Write Config File
 
 ```{r}
-config <- data.frame(ct = seq(1:4),
-                      pheno = c("GMV", "WMV", "CSF", "sGMV"),
-                     form = c(as.character(gmv_formula)[3], as.character(wmv_formula)[3], as.character(csf_formula)[3], as.character(sgmv_formula)[3]))
-stopifnot(nrow(config) == 4)
+config <- data.frame(ct = seq(1:8),
+                      pheno = c("GMV", "WMV", "CSF", "sGMV", "GMV", "WMV", "CSF", "sGMV"),
+                     form = c(as.character(gmv_formula)[3], 
+                              as.character(wmv_formula)[3], 
+                              as.character(csf_formula)[3], 
+                              as.character(sgmv_formula)[3], 
+                              as.character(gmv_formula_fix)[3], 
+                              as.character(wmv_formula_fix)[3], 
+                              as.character(csf_formula_fix)[3],
+                              as.character(sgmv_formula_fix)[3]),
+                     rand = c("rand", "rand", "rand", "rand", "fixed", "fixed", "fixed", "fixed"))
+stopifnot(nrow(config) == 8)
 write.table(config, file = "code/config_files/gamlss2_test_config.txt", 
             append = TRUE, sep = "\t", row.names=FALSE, col.names=FALSE, quote=c(3))
 ```
@@ -294,6 +318,14 @@ look more at gamlss2 model
 
 ```{r}
 cent_cdf(sgmv_gamlss2, sgmv_df, group="sexMale")
+
+make_centile_fan(sgmv_gamlss2, sgmv_df, "logAge_days", "sexMale", 
+                             label_centiles = "legend",
+                             sim_data_list = sgmv_sim,
+                 remove_point_effect = c("fs_version_GM"), #can't remove point effects from random effect with s(re)
+                 x_axis = "log_lifespan_fetal",
+                             y_scale=unscale) +
+  theme_bw()
 ```
 
 how much do a given subjects' centiles change?
@@ -343,11 +375,13 @@ csf_fan1 <- make_centile_fan(csf_gamlss, csf_df, "logAge_days", "sexMale",
                              get_peaks = FALSE, show_points = FALSE, 
                              label_centiles = "legend", color_manual = "darkgreen",
                              sim_data_list = csf_sim,
+                             x_axis = "log_lifespan_fetal",
                              y_scale=unscale)
 csf_fan2 <- make_centile_fan(csf_gamlss2, csf_df, "logAge_days", "sexMale", 
                              get_peaks = FALSE, show_points = FALSE, 
                              label_centiles = "legend", color_manual = "lightblue",
                             sim_data_list = csf_sim,
+                            x_axis = "log_lifespan_fetal",
                              y_scale=unscale)
 
 csf_plot_combined <- csf_fan1

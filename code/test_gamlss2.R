@@ -17,6 +17,7 @@ args <- commandArgs(trailingOnly = TRUE)
 print(args)
 pheno <- as.character(args[1])
 f_rh <- as.character(args[2])
+rand <- as.character(args[3])
 
 # clean string
 # Step 1: Replace \" with '
@@ -42,4 +43,4 @@ mod <- gamlss2(formula=f, data=df, family ="BCCG")
 
 print("fit, saving mod")
 
-saveRDS(mod, file = paste0(base, pheno, "_gamlss2_testmod.rds"))
+saveRDS(mod, file = paste0(base, pheno, "_gamlss2_testmod_", rand, ".rds"))
