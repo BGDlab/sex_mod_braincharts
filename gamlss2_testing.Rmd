@@ -24,11 +24,6 @@ library(blandr)
 
 ##Get gamlss() formula
 GMV
-
-```{r}
-gmv_df <- fread("data/pheno_dfs_totalFALSE/GMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
-```
-
 load standard gamlss brain chart
 
 ```{r}
@@ -110,7 +105,7 @@ sgmv_formula_fix <- formula(sGMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m
 
 #Write Config File
 
-```{r}
+```{r. eval=FALSE}
 config <- data.frame(ct = seq(1:8),
                       pheno = c("GMV", "WMV", "CSF", "sGMV", "GMV", "WMV", "CSF", "sGMV"),
                      form = c(as.character(gmv_formula)[3], 
@@ -129,24 +124,53 @@ write.table(config, file = "code/config_files/gamlss2_test_config.txt",
 #Read in gamlss2() mods
 
 ```{r}
-gmv_gamlss2 <- readRDS("GMV_gamlss2_testmod.rds")
-wmv_gamlss2 <- readRDS("WMV_gamlss2_testmod.rds")
-sgmv_gamlss2 <- readRDS("sGMV_gamlss2_testmod.rds")
-csf_gamlss2 <- readRDS("CSF_gamlss2_testmod.rds")
+#models with random effects for site
+gmv_gamlss2 <- readRDS("GMV_gamlss2_testmod_rand.rds")
+wmv_gamlss2 <- readRDS("WMV_gamlss2_testmod_rand.rds")
+sgmv_gamlss2 <- readRDS("sGMV_gamlss2_testmod_rand.rds")
+csf_gamlss2 <- readRDS("CSF_gamlss2_testmod_rand.rds")
+
+#models with fixed effects for site
+gmv_gamlss2f <- readRDS("GMV_gamlss2_testmod_fixed.rds")
+wmv_gamlss2f <- readRDS("WMV_gamlss2_testmod_fixed.rds")
+sgmv_gamlss2f <- readRDS("sGMV_gamlss2_testmod_fixed.rds")
+csf_gamlss2f <- readRDS("CSF_gamlss2_testmod_fixed.rds")
+
+#unscaled models -random 
+gmv_gamlss2_un <- readRDS("GMV_gamlss2_testmod_rand_unscaled.rds")
+wmv_gamlss2_un <- readRDS("WMV_gamlss2_testmod_rand_unscaled.rds")
+sgmv_gamlss2_un <- readRDS("sGMV_gamlss2_testmod_rand_unscaled.rds")
+csf_gamlss2_un <- readRDS("CSF_gamlss2_testmod_rand_unscaled.rds")
 ```
 
 
-#Plot Centile Lines
+#Compare Centiles
 
 ###GMV
 
+compare effective degrees of freedom
 ```{r}
+gmv_gamlss$df.fit
+gmv_gamlss2$df
+gmv_gamlss2f$df
+
+#look at smooth age effect in mu specifically
+gmv_gamlss$mu.coefSmo[[2]]$name
+gmv_gamlss$mu.coefSmo[[2]]$edf
+gmv_gamlss2$fitted.specials$mu$`pb2(logAge_days)`$edf
+gmv_gamlss2f$fitted.specials$mu$`pb2(logAge_days)`$edf
+```
+
+```{r}
+#prep dataframes
+gmv_df <- fread("data/pheno_dfs_totalFALSE/GMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
 df <- gmv_df
 gmv_gamlss$call$data <- "df"
 gmv_gamlss$call$family <- gmv_gamlss$family[[1]]
 
 #make sure models fit correctly
 stopifnot(setequal(list_predictors(gmv_gamlss),list_predictors(gmv_gamlss2)))
+stopifnot(setequal(list_predictors(gmv_gamlss),list_predictors(gmv_gamlss2f)))
 ```
 
 fit centile fan plots
@@ -167,34 +191,41 @@ gmv_fan2 <- make_centile_fan(gmv_gamlss2, gmv_df, "logAge_days", "sexMale",
                             sim_data_list = gmv_sim,
                              y_scale=unscale)
 
-gmv_plot_combined <- gmv_fan1
-gmv_plot_combined$layers <- c(gmv_fan1$layers, gmv_fan2$layers)
+gmv_fan3 <- make_centile_fan(gmv_gamlss2f, gmv_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                              x_axis="log_lifespan_fetal",
+                             label_centiles = "legend", color_manual = "orange",
+                            sim_data_list = gmv_sim,
+                             y_scale=unscale)
 
-gmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("GMV centiles from gamlss (green) vs gamlss2 (blue) by sex")
+gmv_plot_combined <- gmv_fan1
+gmv_plot_combined$layers <- c(gmv_fan1$layers, gmv_fan2$layers, gmv_fan3$layers)
+
+gmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("GMV centiles from gamlss (green) vs gamlss2 (blue) vs gamlss2 with fixed effects (orange) by sex")
+```
+
+troubleshooting
+```{r}
+centile_dfs <- centile_predict(gamlssModel = gmv_gamlss2f, 
+                               sim_df_list = gmv_sim, 
+                               x_var = "logAge_days",
+                               df = gmv_df)
 
 ```
 
-try plotting original model again with points
 ```{r}
-make_centile_fan(gmv_gamlss, df, "logAge_days", "sexMale", 
-                             label_centiles = "legend",
-                             sim_data_list = gmv_sim,
-                 remove_point_effect = c("study_site", "fs_version_GM"),
-                             y_scale=unscale) +
-  theme_bw()
-
-make_centile_fan(gmv_gamlss2, gmv_df, "logAge_days", "sexMale", 
-                             label_centiles = "legend",
-                             sim_data_list = gmv_sim,
-                 remove_point_effect = c("fs_version_GM"), #can't remove point effects from random effect with s(re)
-                 x_axis = "log_lifespan_fetal",
-                             y_scale=unscale) +
-  theme_bw()
+gmv_df2 <- gmv_df %>%
+  mutate(GMV = unscale(GMV))
+ make_centile_fan(gmv_gamlss2_un, gmv_df2, "logAge_days", "sexMale", 
+                             get_peaks = FALSE,
+                              x_axis="log_lifespan_fetal",
+                             label_centiles = "legend")
 ```
 
 ```{r}
 cent_cdf(gmv_gamlss, df)
 cent_cdf(gmv_gamlss2, df)
+cent_cdf(gmv_gamlss2f, df)
 ```
 
 how much do a given subjects' centiles change?
@@ -233,6 +264,10 @@ stopifnot(setequal(list_predictors(wmv_gamlss),list_predictors(wmv_gamlss2)))
 ```
 
 ```{r}
+wmv_gamlss2$formula
+```
+
+```{r}
 wmv_df <- fread("data/pheno_dfs_totalFALSE/WMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
 wmv_sim <- sim_data(wmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
 
@@ -248,11 +283,30 @@ wmv_fan2 <- make_centile_fan(wmv_gamlss2, wmv_df, "logAge_days", "sexMale",
                              x_axis = "log_lifespan_fetal",
                             sim_data_list = wmv_sim,
                              y_scale=unscale)
+wmv_fan3 <- make_centile_fan(wmv_gamlss2f, wmv_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "orange",
+                             x_axis = "log_lifespan_fetal",
+                            sim_data_list = wmv_sim,
+                             y_scale=unscale)
 
 wmv_plot_combined <- wmv_fan1
-wmv_plot_combined$layers <- c(wmv_fan1$layers, wmv_fan2$layers)
+wmv_plot_combined$layers <- c(wmv_fan1$layers, wmv_fan2$layers, wmv_fan3$layers)
 
-wmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("WMV centiles from gamlss (green) vs gamlss2 (blue) by sex")
+wmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("WMV centiles from gamlss (green) vs \n gamlss2 (blue) and gamlss2 with fixed effects (orange) by sex")
+
+wmv_fan1 + facet_wrap(~as.factor(sexMale)) + theme_bw()
+wmv_fan2 + facet_wrap(~as.factor(sexMale)) + theme_bw()
+wmv_fan3 + facet_wrap(~as.factor(sexMale)) + theme_bw()
+```
+
+```{r}
+wmv_df2 <- wmv_df %>%
+  mutate(WMV = unscale(WMV))
+ make_centile_fan(wmv_gamlss2_un, wmv_df2, "logAge_days", "sexMale", 
+                             get_peaks = FALSE,
+                              x_axis="log_lifespan_fetal",
+                             label_centiles = "legend")
 ```
 
 how much do a given subjects' centiles change?
@@ -309,8 +363,15 @@ sgmv_fan2 <- make_centile_fan(sgmv_gamlss2, sgmv_df, "logAge_days", "sexMale",
                             x_axis="log_lifespan_fetal",
                              y_scale=unscale)
 
+sgmv_fan3 <- make_centile_fan(sgmv_gamlss2f, sgmv_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "orange",
+                             x_axis = "log_lifespan_fetal",
+                            sim_data_list = sgmv_sim,
+                             y_scale=unscale)
+
 sgmv_plot_combined <- sgmv_fan1
-sgmv_plot_combined$layers <- c(sgmv_fan1$layers, sgmv_fan2$layers)
+sgmv_plot_combined$layers <- c(sgmv_fan1$layers, sgmv_fan2$layers, sgmv_fan3$layers)
 
 sgmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("sGMV centiles from gamlss (green) vs gamlss2 (blue) by sex")
 ```
@@ -326,6 +387,16 @@ make_centile_fan(sgmv_gamlss2, sgmv_df, "logAge_days", "sexMale",
                  x_axis = "log_lifespan_fetal",
                              y_scale=unscale) +
   theme_bw()
+```
+
+```{r}
+sgmv_df2 <- sgmv_df %>%
+  mutate(sGMV = unscale(sGMV))
+
+make_centile_fan(sgmv_gamlss2_un, sgmv_df2, "logAge_days", "sexMale", 
+                             get_peaks = FALSE,
+                              x_axis="log_lifespan_fetal",
+                             label_centiles = "legend")
 ```
 
 how much do a given subjects' centiles change?
@@ -383,11 +454,26 @@ csf_fan2 <- make_centile_fan(csf_gamlss2, csf_df, "logAge_days", "sexMale",
                             sim_data_list = csf_sim,
                             x_axis = "log_lifespan_fetal",
                              y_scale=unscale)
+csf_fan3 <- make_centile_fan(csf_gamlss2f, csf_df, "logAge_days", "sexMale", 
+                             get_peaks = FALSE, show_points = FALSE, 
+                             label_centiles = "legend", color_manual = "orange",
+                             x_axis = "log_lifespan_fetal",
+                            sim_data_list = sgmv_sim,
+                             y_scale=unscale)
 
 csf_plot_combined <- csf_fan1
-csf_plot_combined$layers <- c(csf_fan1$layers, csf_fan2$layers)
+csf_plot_combined$layers <- c(csf_fan1$layers, csf_fan2$layers, csf_fan3$layers)
 
-csf_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("CSF centiles from gamlss (green) vs gamlss2 (blue) by sex")
+csf_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("CSF centiles from gamlss (green) vs \ngamlss2 (blue) vs gamlss2 with fixed site effects (orange) by sex")
+```
+```{r}
+csf_df2 <- csf_df %>%
+  mutate(CSF = unscale(CSF))
+
+make_centile_fan(csf_gamlss2_un, csf_df2, "logAge_days", "sexMale", 
+                             get_peaks = FALSE,
+                              x_axis="log_lifespan_fetal",
+                             label_centiles = "label")
 ```
 
 how much do a given subjects' centiles change?

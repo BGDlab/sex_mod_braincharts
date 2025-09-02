@@ -39,8 +39,12 @@ print(f)
 df_path <- paste0(base, "data/pheno_dfs_totalFALSE/", pheno, "_totalFALSE_logPhenoTRUE_logAgeTRUE.csv")
 df <- fread(df_path, stringsAsFactors = TRUE, na.strings = "") #path to csv
 
+#try unscaling phenotype
+print("undoing pheno scale!")
+df[[pheno]] <- unscale(df[[pheno]])
+
 mod <- gamlss2(formula=f, data=df, family ="BCCG")
 
 print("fit, saving mod")
 
-saveRDS(mod, file = paste0(base, pheno, "_gamlss2_testmod_", rand, ".rds"))
+saveRDS(mod, file = paste0(base, pheno, "_gamlss2_testmod_", rand, "_unscaled.rds"))
