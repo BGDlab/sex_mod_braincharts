@@ -15,8 +15,7 @@ batch="study_site"
 covar_list="logAge_days,sexMale,sexMale_x_logAge"
 
 #combat configurations (formula for the above covars - keeping mu and sigma formulas identical for now)
-#knots from df4 - will need to update manually to change
-combat_mod="~ns(logAge_days,knots=c(2.7645,3.3654,3.966))+sexMale+ns(sexMale_x_logAge,knots=c(2.765,3.3654,3.966))"
+combat_mod="~pb(logAge_days, method = 'GAIC', k = log(nrow(df)), control = pb.control(order = 3))+sexMale+pb(sexMale_x_logAge, method = 'GAIC', k = log(nrow(df)), control = pb.control(order = 3))"
 
 #make save path
 if ! [ -d $save_path ]
