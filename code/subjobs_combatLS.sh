@@ -39,7 +39,7 @@ BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
 
 module load R/4.4.0
 
-Rscript $BASE/code/combat_apply_w_transform.R $DF $PLIST $BATCH $COVARS $MMODEL $SMODEL $SAVE_PATH
+Rscript $BASE/code/combat_apply_w_transform.R $DF $PLIST $BATCH $COVARS "$MMODEL" "$SMODEL" $SAVE_PATH
 
 # Done!
 echo "Job finished running!"

@@ -57,7 +57,7 @@ if (log_age == FALSE){
 #add factor sex variable for by models
 if (name == "by"){
   df <- df %>%
-    mutate(sex = as.factor(ifelse(sexMale == 0, "M", "F")))
+    mutate(sex = as.factor(ifelse(sexMale == 1, "F", "M")))
 }
 
 mod <- gamlss2(formula=f, data=df, family ="BCCG")

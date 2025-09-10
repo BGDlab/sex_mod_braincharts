@@ -63,19 +63,19 @@ csv_basename <- gsub("_", "-", csv_basename)
 
 #COMBAT
 
-pheno.df <- raw.df %>%
+df <- raw.df %>%
   dplyr::select(any_of(feature_list))
-stopifnot(all(sapply(pheno.df, is.numeric)))
+stopifnot(all(sapply(df, is.numeric)))
 
   #replace any 0s w/ 1 pre-log-transform
-  pheno.df <- replace(pheno.df, pheno.df==0, 1)
+  df <- replace(df, df==0, 1)
   
   #log-transform ALL pheno vals
-  pheno.df <- pheno.df %>%
+  df <- df %>%
     mutate(across(any_of(feature_list), \(x) log(x, base=10)))
   
   #make sure batch, covars, and pheno dfs are all the same length
-  stopifnot(nrow(pheno.df) == length(batch))
+  stopifnot(nrow(df) == length(batch))
   
   #turn off empirical bayes if combatting global voluems
   if (grepl("global_vols", args[2]) == TRUE ) {
@@ -85,8 +85,7 @@ stopifnot(all(sapply(pheno.df, is.numeric)))
     eb_arg <- TRUE
   }
   
-  cf.obj <- eval(parse(text = paste0("comfam(pheno.df, batch, covar.df, gamlss, formula= y",
-                                     mu.form, ", sigma.formula=", sig.form, ", eb = ", eb_arg, ")")))
+  cf.obj <- eval(parse(text = paste0("comfam(df, batch, covar.df, gamlss, formula= y", mu.form, ", sigma.formula=", sig.form, ", eb = ", eb_arg, ")")))
 
   #un-log-transform vals
   cf.obj$dat.combat <- cf.obj$dat.combat %>%
