@@ -38,7 +38,7 @@ print(paste("pheno:", pheno))
 print("formula:")
 print(f)
 
-df_path <- paste0(base, "data/pheno_dfs_totalFALSE/", pheno, "_totalFALSE_logPhenoTRUE_logAgeTRUE.csv")
+df_path <- paste0(base, "data/test_", pheno, "_resid.csv")
 df <- fread(df_path, stringsAsFactors = TRUE, na.strings = "") #path to csv
 
 #try unscaling phenotype

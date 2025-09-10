@@ -268,6 +268,22 @@ csf_sim <- sim_data(csf_df, "logAge_days", factor_var="sexMale", special_term = 
 ```
 
 
+*testing quick and dirty "harmonization" using `resid_data()`
+
+```{r}
+gmv_resid <- resid_data(gmv_gamlss, gmv_df, gmv_df, "study_site")
+fwrite(gmv_resid, "data/test_GMV_resid.csv")
+
+sgmv_resid <- resid_data(sgmv_gamlss, sgmv_df, sgmv_df, "study_site")
+fwrite(sgmv_resid, "data/test_sGMV_resid.csv")
+
+wmv_resid <- resid_data(wmv_gamlss, wmv_df, wmv_df, "study_site")
+fwrite(wmv_resid, "data/test_WMV_resid.csv")
+
+csf_resid <- resid_data(csf_gamlss, csf_df, csf_df, "study_site")
+fwrite(csf_resid, "data/test_CSF_resid.csv")
+```
+
 **All models have smooths penalizing 3rd order (m=3), random site effects and fit on log-scaled age and phenotypes unless otherwise specified**
 
 #Basic gamlss2 models
