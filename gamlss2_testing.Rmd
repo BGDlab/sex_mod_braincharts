@@ -329,44 +329,39 @@ write.table(config, file = "code/config_files/gamlss2_test_config.txt",
 ```{r}
 #GMV
 gmv_df <- fread("data/pheno_dfs_totalFALSE/GMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+gmv_df <- gmv_df %>%
+    mutate(sex = as.factor(ifelse(sexMale == 1, "M", "F")),
+           GMV = unscale(GMV))
 gmv_gamlss$call$data <- "df"
 gmv_gamlss$call$family <- gmv_gamlss$family[[1]]
-gmv_sim <- sim_data(gmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+gmv_sim <- sim_data(gmv_df, "logAge_days", factor_var="sex")
 
 #sGMV
 sgmv_df <- fread("data/pheno_dfs_totalFALSE/sGMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+sgmv_df <- sgmv_df %>%
+    mutate(sex = as.factor(ifelse(sexMale == 1, "M", "F")),
+           sGMV = unscale(sGMV))
 sgmv_gamlss$call$data <- "df"
 sgmv_gamlss$call$family <- sgmv_gamlss$family[[1]]
-sgmv_sim <- sim_data(sgmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+sgmv_sim <- sim_data(sgmv_df, "logAge_days", factor_var="sex")
 
 #WMV
 wmv_df <- fread("data/pheno_dfs_totalFALSE/WMV_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+wmv_df <- wmv_df %>%
+    mutate(sex = as.factor(ifelse(sexMale == 1, "M", "F")),
+           WMV = unscale(WMV))
 wmv_gamlss$call$data <- "df"
 wmv_gamlss$call$family <- wmv_gamlss$family[[1]]
-wmv_sim <- sim_data(wmv_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+wmv_sim <- sim_data(wmv_df, "logAge_days", factor_var="sex")
 
 #CSF
 csf_df <- fread("data/pheno_dfs_totalFALSE/CSF_totalFALSE_logPhenoTRUE_logAgeTRUE.csv", stringsAsFactors=TRUE)
+csf_df <- csf_df %>%
+    mutate(sex = as.factor(ifelse(sexMale == 1, "M", "F")),
+           CSF = unscale(CSF))
 csf_gamlss$call$data <- "df"
 csf_gamlss$call$family <- csf_gamlss$family[[1]]
-csf_sim <- sim_data(csf_df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
-```
-
-
-*testing quick and dirty "harmonization" using `resid_data()`
-
-```{r}
-gmv_resid <- resid_data(gmv_gamlss, gmv_df, gmv_df, "study_site")
-fwrite(gmv_resid, "data/test_GMV_resid.csv")
-
-sgmv_resid <- resid_data(sgmv_gamlss, sgmv_df, sgmv_df, "study_site")
-fwrite(sgmv_resid, "data/test_sGMV_resid.csv")
-
-wmv_resid <- resid_data(wmv_gamlss, wmv_df, wmv_df, "study_site")
-fwrite(wmv_resid, "data/test_WMV_resid.csv")
-
-csf_resid <- resid_data(csf_gamlss, csf_df, csf_df, "study_site")
-fwrite(csf_resid, "data/test_CSF_resid.csv")
+csf_sim <- sim_data(csf_df, "logAge_days", factor_var="sex")
 ```
 
 #Basic gamlss2 models
@@ -1675,9 +1670,6 @@ Centile fan plots
 
 fit centile fan plots
 ```{r}
-gmv_df <- gmv_df %>%
-    mutate(sex = as.factor(ifelse(sexMale == 0, "M", "F")))
-
 make_centile_fan(gmv_gamlss2fac, gmv_df, "logAge_days", "sex",
                   get_peaks = FALSE,
                  x_axis="log_lifespan_fetal",

@@ -36,14 +36,14 @@ print(paste("pheno:", pheno))
 print("formula:")
 print(f)
 
-df_path <- paste0(base, "data/test_", pheno, "_resid.csv")
+df_path <- paste0(base, "data/pheno_dfs_totalFALSE/", pheno, "_totalFALSE_logPhenoTRUE_logAgeTRUE.csv")
 df <- fread(df_path, stringsAsFactors = TRUE, na.strings = "") #path to csv
 
 #add factor sex variable for by models
-if (name == "by"){
-  df <- df %>%
-    mutate(sex = as.factor(ifelse(sexMale == 1, "F", "M")))
-}
+df <- df %>%
+  mutate(sex = as.factor(ifelse(sexMale == 1, "M", "F")))
+#unscale pheno
+df[[pheno]] <- unscale(df[[pheno]])
 
 mod <- gamlss2(formula=f, data=df, family ="BCCG")
 
