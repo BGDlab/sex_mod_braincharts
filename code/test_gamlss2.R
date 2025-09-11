@@ -18,8 +18,6 @@ print(args)
 pheno <- as.character(args[1])
 f_rh <- as.character(args[2])
 name <- as.character(args[3])
-log_pheno <- as.logical(args[4])
-log_age <- as.logical(args[5])
 
 # clean string
 # Step 1: Replace \" with '
@@ -41,19 +39,6 @@ print(f)
 df_path <- paste0(base, "data/test_", pheno, "_resid.csv")
 df <- fread(df_path, stringsAsFactors = TRUE, na.strings = "") #path to csv
 
-#try unscaling phenotype
-if (log_pheno == FALSE){
-  print("undoing pheno scale!")
-  df[[pheno]] <- unscale(df[[pheno]])
-}
-
-if (log_age == FALSE){
-  print("undoing pheno scale!")
-  df <- df %>%
-    mutate(age_days=un_log(logAge_days)) %>%
-    mutate(sexMale_x_age = ifelse(sexMale == 0, 0, age_days))
-}
-
 #add factor sex variable for by models
 if (name == "by"){
   df <- df %>%
@@ -64,4 +49,4 @@ mod <- gamlss2(formula=f, data=df, family ="BCCG")
 
 print("fit, saving mod")
 
-saveRDS(mod, file = paste0(base,"/gamlss2_test_mods/", pheno, "_gamlss2_logPheno",log_pheno, "_logAge",  log_age, "_", name, ".rds"))
+saveRDS(mod, file = paste0(base,"/gamlss2_test_mods/", pheno, "_gamlss2_", name, ".rds"))

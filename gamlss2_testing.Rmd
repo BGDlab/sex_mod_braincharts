@@ -34,38 +34,53 @@ gmv_gamlss$sigma.formula
 gmv_gamlss$nu.formula
 ```
 
-pass to gamlss2 using new pb() defaults and mgcv random - no longer letting me fit with `random()`?
 
 ```{r}
-#original formula converted to gamlss2
-gmv_formula <- formula(GMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') + fs_version_GM | 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
+#separate smooths for male and female - basic pb model
+gmv_formula_pb <- formula(GMV ~ pb(logAge_days, by=sex) + sex + s(study_site, bs='re') + fs_version_GM | 
+                pb(logAge_days, by=sex) + sex + s(study_site, bs='re') | 
                 1)
 
-#fixed effects for site
-gmv_formula_fix <- formula(GMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site + fs_version_GM | 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
-                1)
+#s defaults
+gmv_formula_s<- formula(GMV ~ s(logAge_days, by=sex, bs="ps") + sex + s(study_site, bs='re') + fs_version_GM | 
+                         s(logAge_days, by=sex, bs="ps") + sex + s(study_site, bs='re') |
+                         1)
 
-#increase k
-gmv_formula_k30 <- formula(GMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3, k=30) + sexMale + s(study_site, bs='re') + fs_version_GM | 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
-                1)
+#s - k=10
+gmv_formula_ps10<- formula(GMV ~ s(logAge_days, by=sex, bs="ps", k=10) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, bs="ps", k=10) + sex + s(study_site, bs='re') |
+                         1)
 
-#adaptive splines
-gmv_formula_ad <- formula(GMV ~ s(sexMale_x_logAge, bs="ad", k=20, m=3) + s(logAge_days, bs="ad", k=20, m=3) + sexMale + s(study_site, bs='re') + fs_version_GM | 
-                s(sexMale_x_logAge, bs="ad", k=20, m=3) + s(logAge_days, bs="ad", k=20, m=3) + sexMale + s(study_site, bs='re') | 
-                1)
+#s - k=50
+gmv_formula_ps50<- formula(GMV ~ s(logAge_days, by=sex, bs="ps", k=50) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, bs="ps", k=50) + sex + s(study_site, bs='re') |
+                         1)
 
-#age_days (not log scaled)
-gmv_formula_day <- formula(GMV ~ pb(sexMale_x_age, m=3) + pb(age_days, m=3) + sexMale + s(study_site, bs='re') + fs_version_GM | 
-                pb(sexMale_x_age, m=3) + pb(age_days, m=3) + sexMale + s(study_site, bs='re') | 
-                1)
+#s - k=100
+gmv_formula_ps100<- formula(GMV ~ s(logAge_days, by=sex, bs="ps", k=100) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, bs="ps", k=100) + sex + s(study_site, bs='re') |
+                         1)
 
-#separate smooths for male and female
-gmv_formula_by <- formula(GMV ~ s(logAge_days, by=sex, bs="ps", k=20, m=3) + sex + s(study_site, bs='re') + fs_version_GM | 
-                s(logAge_days, by=sex, bs="ps", k=20, m=3) + sex + s(study_site, bs='re') | 
-                1)
+#s - k=500
+gmv_formula_ps500<- formula(GMV ~ s(logAge_days, by=sex, bs="ps", k=500) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, bs="ps", k=500) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=10
+gmv_formula_tp10<- formula(GMV ~ s(logAge_days, by=sex, k=10) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, k=10) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=50
+gmv_formula_tp50<- formula(GMV ~ s(logAge_days, by=sex, k=50) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, k=50) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=100
+gmv_formula_tp100<- formula(GMV ~ s(logAge_days, by=sex, k=100) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, k=100) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=500
+gmv_formula_tp500<- formula(GMV ~ s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') |
+                         1)
 ```
 
 WMV
@@ -78,30 +93,53 @@ wmv_gamlss$nu.formula
 ```
 
 ```{r}
-wmv_formula <- formula(WMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(logAge_days))
+#separate smooths for male and female - basic pb model
+wmv_formula_pb <- formula(WMV ~ pb(logAge_days, by=sex) + sex + s(study_site, bs='re') | 
+                pb(logAge_days, by=sex) + sex + s(study_site, bs='re') | 
+                1)
 
-wmv_formula_fix <- formula(WMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
-                pb(logAge_days))
+#s defaults
+wmv_formula_s<- formula(WMV ~ s(logAge_days, by=sex, bs="ps") + sex + s(study_site, bs='re') | 
+                         s(logAge_days, by=sex, bs="ps") + sex + s(study_site, bs='re') |
+                         1)
 
-wmv_formula_k30 <- formula(WMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3, k=30) + sexMale + s(study_site, bs='re') | 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(logAge_days))
+#s - k=10
+wmv_formula_ps10<- formula(WMV ~ s(logAge_days, by=sex, bs="ps", k=10) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, bs="ps", k=10) + sex + s(study_site, bs='re') |
+                         1)
 
-wmv_formula_ad <- formula(WMV ~ s(sexMale_x_logAge, bs="ad", k=20, m=3) + s(logAge_days, bs="ad", k=20, m=3) + sexMale + s(study_site, bs='re') | 
-                s(sexMale_x_logAge, bs="ad", k=20, m=3) + s(logAge_days, bs="ad", k=20, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(logAge_days))
+#s - k=50
+wmv_formula_ps50<- formula(WMV ~ s(logAge_days, by=sex, bs="ps", k=50) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, bs="ps", k=50) + sex + s(study_site, bs='re') |
+                         1)
 
-wmv_formula_day<- formula(WMV ~ pb(sexMale_x_age, m=3) + pb(age_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(sexMale_x_age, m=3) + pb(age_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(age_days))
+#s - k=100
+wmv_formula_ps100<- formula(WMV ~ s(logAge_days, by=sex, bs="ps", k=100) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, bs="ps", k=100) + sex + s(study_site, bs='re') |
+                         1)
 
-wmv_formula_by <- formula(WMV ~ s(logAge_days, by=sex, bs="ps", k=20, m=3) + sex + s(study_site, bs='re') | 
-                s(logAge_days, by=sex, bs="ps", k=20, m=3) + sex + s(study_site, bs='re') | 
-                pb(logAge_days))
+#s - k=500
+wmv_formula_ps500<- formula(WMV ~ s(logAge_days, by=sex, bs="ps", k=500) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, bs="ps", k=500) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=10
+wmv_formula_tp10<- formula(WMV ~ s(logAge_days, by=sex, k=10) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, k=10) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=50
+wmv_formula_tp50<- formula(WMV ~ s(logAge_days, by=sex, k=50) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, k=50) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=100
+wmv_formula_tp100<- formula(WMV ~ s(logAge_days, by=sex, k=100) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, k=100) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=500
+wmv_formula_tp500<- formula(WMV ~ s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') |
+                         1)
 ```
+
 
 CSF
 
@@ -113,29 +151,51 @@ csf_gamlss$nu.formula
 ```
 
 ```{r}
-csf_formula <- formula(CSF ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(logAge_days))
+#separate smooths for male and female - basic pb model
+csf_formula_pb <- formula(CSF ~ pb(logAge_days, by=sex) + sex + s(study_site, bs='re') | 
+                pb(logAge_days, by=sex) + sex + s(study_site, bs='re') | 
+                1)
 
-csf_formula_fix <- formula(CSF ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
-                pb(logAge_days))
+#s defaults
+csf_formula_s<- formula(CSF ~ s(logAge_days, by=sex, bs="ps") + sex + s(study_site, bs='re') | 
+                         s(logAge_days, by=sex, bs="ps") + sex + s(study_site, bs='re') |
+                         1)
 
-csf_formula_k30 <- formula(CSF ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3, k=30) + sexMale + s(study_site, bs='re') | 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(logAge_days))
+#s - k=10
+csf_formula_ps10<- formula(CSF ~ s(logAge_days, by=sex, bs="ps", k=10) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, bs="ps", k=10) + sex + s(study_site, bs='re') |
+                         1)
 
-csf_formula_ad <- formula(CSF ~ s(sexMale_x_logAge, bs="ad", k=20, m=3) + s(logAge_days, bs="ad", k=20, m=3) + sexMale + s(study_site, bs='re') | 
-                s(sexMale_x_logAge, bs="ad", k=20, m=3) + s(logAge_days, bs="ad", k=20, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(logAge_days))
+#s - k=50
+csf_formula_ps50<- formula(CSF ~ s(logAge_days, by=sex, bs="ps", k=50) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, bs="ps", k=50) + sex + s(study_site, bs='re') |
+                         1)
 
-csf_formula_day<- formula(CSF ~ pb(sexMale_x_age, m=3) + pb(age_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(sexMale_x_age, m=3) + pb(age_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(age_days))
+#s - k=100
+csf_formula_ps100<- formula(CSF ~ s(logAge_days, by=sex, bs="ps", k=100) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, bs="ps", k=100) + sex + s(study_site, bs='re') |
+                         1)
 
-csf_formula_by <- formula(CSF ~ s(logAge_days, by=sex, bs="ps", k=20, m=3) + sex + s(study_site, bs='re') | 
-                s(logAge_days, by=sex, bs="ps", k=20, m=3) + sex + s(study_site, bs='re') | 
-                pb(logAge_days))
+#s - k=500
+csf_formula_ps500<- formula(CSF ~ s(logAge_days, by=sex, bs="ps", k=500) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, bs="ps", k=500) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=10
+csf_formula_tp10<- formula(CSF ~ s(logAge_days, by=sex, k=10) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, k=10) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=50
+csf_formula_tp50<- formula(CSF ~ s(logAge_days, by=sex, k=50) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, k=50) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=100
+csf_formula_tp100<- formula(CSF ~ s(logAge_days, by=sex, k=100) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, k=100) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=500
+csf_formula_tp500<- formula(CSF ~ s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') |
+                         1)
 ```
 
 sGMV
@@ -148,30 +208,53 @@ sgmv_gamlss$nu.formula
 ```
 
 ```{r}
-sgmv_formula <- formula(sGMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') + fs_version_GM| 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(logAge_days))
+#separate smooths for male and female - basic pb model
+sgmv_formula_pb <- formula(sGMV ~ pb(logAge_days, by=sex) + sex + s(study_site, bs='re') + fs_version_GM | 
+                pb(logAge_days, by=sex) + sex + s(study_site, bs='re') | 
+                1)
 
-sgmv_formula_fix <- formula(sGMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site + fs_version_GM| 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + study_site | 
-                pb(logAge_days))
+#s defaults
+sgmv_formula_s<- formula(sGMV ~ s(logAge_days, by=sex, bs="ps") + sex + s(study_site, bs='re') + fs_version_GM | 
+                         s(logAge_days, by=sex, bs="ps") + sex + s(study_site, bs='re') |
+                         1)
 
-sgmv_formula_k30 <- formula(sGMV ~ pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3, k=30) + sexMale + s(study_site, bs='re') + fs_version_GM| 
-                pb(sexMale_x_logAge, m=3) + pb(logAge_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(logAge_days))
+#s - k=10
+sgmv_formula_ps10<- formula(sGMV ~ s(logAge_days, by=sex, bs="ps", k=10) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, bs="ps", k=10) + sex + s(study_site, bs='re') |
+                         1)
 
-sgmv_formula_ad <- formula(sGMV ~ s(sexMale_x_logAge, bs="ad", k=20, m=3) + s(logAge_days, bs="ad", k=20, m=3) + sexMale + s(study_site, bs='re') + fs_version_GM | 
-                s(sexMale_x_logAge, bs="ad", k=20, m=3) + s(logAge_days, bs="ad", k=20, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(logAge_days))
+#s - k=50
+sgmv_formula_ps50<- formula(sGMV ~ s(logAge_days, by=sex, bs="ps", k=50) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, bs="ps", k=50) + sex + s(study_site, bs='re') |
+                         1)
 
-sgmv_formula_day<- formula(sGMV ~ pb(sexMale_x_age, m=3) + pb(age_days, m=3) + sexMale + s(study_site, bs='re') + fs_version_GM | 
-                pb(sexMale_x_age, m=3) + pb(age_days, m=3) + sexMale + s(study_site, bs='re') | 
-                pb(age_days))
+#s - k=100
+sgmv_formula_ps100<- formula(sGMV ~ s(logAge_days, by=sex, bs="ps", k=100) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, bs="ps", k=100) + sex + s(study_site, bs='re') |
+                         1)
 
-sgmv_formula_by <- formula(sGMV ~ s(logAge_days, by=sex, bs="ps", k=20, m=3) + sex + s(study_site, bs='re') + fs_version_GM | 
-                s(logAge_days, by=sex, bs="ps", k=20, m=3) + sex + s(study_site, bs='re') | 
-                pb(logAge_days))
+#s - k=500
+sgmv_formula_ps500<- formula(sGMV ~ s(logAge_days, by=sex, bs="ps", k=500) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, bs="ps", k=500) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=10
+sgmv_formula_tp10<- formula(sGMV ~ s(logAge_days, by=sex, k=10) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, k=10) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=50
+sgmv_formula_tp50<- formula(sGMV ~ s(logAge_days, by=sex, k=50) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, k=50) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=100
+sgmv_formula_tp100<- formula(sGMV ~ s(logAge_days, by=sex, k=100) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, k=100) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=500
+sgmv_formula_tp500<- formula(sGMV ~ s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') |
+                         1)
 ```
+
 
 #Write Config File
 
@@ -182,59 +265,61 @@ clean_formula <- function(x){
 ```
 
 ```{r, eval=FALSE}
-pheno_list <- rep(c("GMV", "WMV", "CSF", "sGMV"), 7)
-config <- data.frame(ct = seq(1:(7*4)),
+pheno_list <- rep(c("GMV", "WMV", "CSF", "sGMV"), 10)
+config <- data.frame(ct = seq(1:40),
                     pheno = c(pheno_list),
-                     form = c(clean_formula(gmv_formula), #regular formula
-                              clean_formula(wmv_formula), 
-                              clean_formula(csf_formula), 
-                              clean_formula(sgmv_formula), 
-                              clean_formula(gmv_formula_fix), #fixed site effects
-                              clean_formula(wmv_formula_fix), 
-                              clean_formula(csf_formula_fix),
-                              clean_formula(sgmv_formula_fix),
-                              clean_formula(gmv_formula), #un-log-scale pheno
-                              clean_formula(wmv_formula), 
-                              clean_formula(csf_formula), 
-                              clean_formula(sgmv_formula),
-                              clean_formula(gmv_formula_day), #un-log-scale age
-                              clean_formula(wmv_formula_day), 
-                              clean_formula(csf_formula_day), 
-                              clean_formula(sgmv_formula_day),
-                              clean_formula(gmv_formula_k30), #increase k
-                              clean_formula(wmv_formula_k30), 
-                              clean_formula(csf_formula_k30), 
-                              clean_formula(sgmv_formula_k30),
-                              clean_formula(gmv_formula_ad), #adaptive splines on unscaled pheno
-                              clean_formula(wmv_formula_ad), 
-                              clean_formula(csf_formula_ad), 
-                              clean_formula(sgmv_formula_ad),
-                              clean_formula(gmv_formula_by), #age by sex
-                              clean_formula(wmv_formula_by), 
-                              clean_formula(csf_formula_by), 
-                              clean_formula(sgmv_formula_by)),
-                     name = c("rand", "rand", "rand", "rand", 
-                              "fixed", "fixed", "fixed", "fixed",
-                              "rand", "rand", "rand", "rand",
-                              "rand", "rand", "rand", "rand",
-                              "k30", "k30", "k30", "k30",
-                              "adapt", "adapt", "adapt", "adapt",
-                              "by", "by", "by", "by"),
-                    log_pheno= c(TRUE, TRUE, TRUE, TRUE,
-                                 TRUE, TRUE, TRUE, TRUE,
-                                 FALSE, FALSE, FALSE, FALSE,
-                                 TRUE, TRUE, TRUE, TRUE,
-                                 TRUE, TRUE, TRUE, TRUE,
-                                 FALSE, FALSE, FALSE, FALSE,
-                                 TRUE, TRUE, TRUE, TRUE),
-                    log_age = c(TRUE, TRUE, TRUE, TRUE,
-                                TRUE, TRUE, TRUE, TRUE,
-                                TRUE, TRUE, TRUE, TRUE,
-                                FALSE, FALSE, FALSE, FALSE,
-                                TRUE, TRUE, TRUE, TRUE,
-                                TRUE, TRUE, TRUE, TRUE,
-                                TRUE, TRUE, TRUE, TRUE))
-stopifnot(nrow(config) == 7*4)
+                     form = c(clean_formula(gmv_formula_pb), #regular formula
+                              clean_formula(wmv_formula_pb), 
+                              clean_formula(csf_formula_pb), 
+                              clean_formula(sgmv_formula_pb), 
+                              clean_formula(gmv_formula_s),
+                              clean_formula(wmv_formula_s), 
+                              clean_formula(csf_formula_s),
+                              clean_formula(sgmv_formula_s),
+                              clean_formula(gmv_formula_ps10),
+                              clean_formula(wmv_formula_ps10), 
+                              clean_formula(csf_formula_ps10), 
+                              clean_formula(sgmv_formula_ps10),
+                              clean_formula(gmv_formula_ps50),
+                              clean_formula(wmv_formula_ps50), 
+                              clean_formula(csf_formula_ps50), 
+                              clean_formula(sgmv_formula_ps50),
+                              clean_formula(gmv_formula_ps100),
+                              clean_formula(wmv_formula_ps100), 
+                              clean_formula(csf_formula_ps100), 
+                              clean_formula(sgmv_formula_ps100),
+                              clean_formula(gmv_formula_ps500), 
+                              clean_formula(wmv_formula_ps500), 
+                              clean_formula(csf_formula_ps500), 
+                              clean_formula(sgmv_formula_ps500),
+                              clean_formula(gmv_formula_tp10),
+                              clean_formula(wmv_formula_tp10), 
+                              clean_formula(csf_formula_tp10), 
+                              clean_formula(sgmv_formula_tp10),
+                              clean_formula(gmv_formula_tp50),
+                              clean_formula(wmv_formula_tp50), 
+                              clean_formula(csf_formula_tp50), 
+                              clean_formula(sgmv_formula_tp50),
+                              clean_formula(gmv_formula_tp100),
+                              clean_formula(wmv_formula_tp100), 
+                              clean_formula(csf_formula_tp100), 
+                              clean_formula(sgmv_formula_tp100),
+                              clean_formula(gmv_formula_tp500), 
+                              clean_formula(wmv_formula_tp500), 
+                              clean_formula(csf_formula_tp500), 
+                              clean_formula(sgmv_formula_tp500)
+                              ),
+                     name = c("pb", "pb", "pb", "pb", 
+                              "s", "s", "s", "s",
+                              "ps10", "ps10", "ps10", "ps10",
+                              "ps50", "ps50", "ps50", "ps50",
+                              "ps100", "ps100", "ps100", "ps100",
+                              "ps500", "ps500", "ps500", "ps500",
+                              "tp10", "tp10", "tp10", "tp10",
+                              "tp50", "tp50", "tp50", "tp50",
+                              "tp100", "tp100", "tp100", "tp100",
+                              "tp500", "tp500", "tp500", "tp500"))
+stopifnot(nrow(config) == 40)
 write.table(config, file = "code/config_files/gamlss2_test_config.txt", 
             append = TRUE, sep = "\t", row.names=FALSE, col.names=FALSE, quote=c(3))
 ```
@@ -283,8 +368,6 @@ fwrite(wmv_resid, "data/test_WMV_resid.csv")
 csf_resid <- resid_data(csf_gamlss, csf_df, csf_df, "study_site")
 fwrite(csf_resid, "data/test_CSF_resid.csv")
 ```
-
-**All models have smooths penalizing 3rd order (m=3), random site effects and fit on log-scaled age and phenotypes unless otherwise specified**
 
 #Basic gamlss2 models
 
@@ -1383,6 +1466,189 @@ cent_cdf(csf_gamlss2ad, csf_df, group = "sexMale")
 ```
 
 
+
+#gamlss2 models with age-by-sex factor splines
+
+###GMV
+
+```{r}
+gmv_gamlss2fac <- readRDS("gamlss2_test_mods/GMV_gamlss2_logPhenoTRUE_logAgeTRUE_by.rds")
+gmv_gamlss2fac$formula
+list_predictors(gmv_gamlss2fac)
+```
+
+compare effective degrees of freedom
+```{r}
+gmv_gamlss$df.fit
+gmv_gamlss2fac$df
+
+#look at smooth age effect in mu specifically
+gmv_gamlss$mu.coefSmo[[2]]$name
+gmv_gamlss$mu.coefSmo[[2]]$edf
+gmv_gamlss2fac$fitted.specials$mu$`s(logAge_days):sexM`$edf
+gmv_gamlss2fac$fitted.specials$mu$`s(logAge_days):sexF`$edf
+```
+Centile fan plots
+
+fit centile fan plots
+```{r}
+gmv_df <- gmv_df %>%
+    mutate(sex = as.factor(ifelse(sexMale == 0, "M", "F")))
+
+make_centile_fan(gmv_gamlss2fac, gmv_df, "logAge_days", "sex",
+                  get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend", 
+                 y_scale = unscale)
+
+make_centile_fan(gmv_gamlss, gmv_df, "logAge_days", "sexMale",
+                  get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend", 
+                 y_scale = unscale)
+```
+worm plots, check actual centiles
+
+```{r}
+wp.taki(xvar=gmv_df$logAge_days, resid=resid(gmv_gamlss2fac), n.inter=4)
+cent_cdf(gmv_gamlss2fac, gmv_df, group = "sex")
+```
+
+###sGMV
+
+```{r}
+sgmv_gamlss2fac <- readRDS("gamlss2_test_mods/sGMV_gamlss2_logPhenoTRUE_logAgeTRUE_by.rds")
+sgmv_gamlss2fac$formula
+list_predictors(sgmv_gamlss2fac)
+```
+
+compare effective degrees of freedom
+```{r}
+sgmv_gamlss$df.fit
+sgmv_gamlss2fac$df
+
+#look at smooth age effect in mu specifically
+sgmv_gamlss$mu.coefSmo[[2]]$name
+sgmv_gamlss$mu.coefSmo[[2]]$edf
+sgmv_gamlss2fac$fitted.specials$mu$`s(logAge_days):sexM`$edf
+sgmv_gamlss2fac$fitted.specials$mu$`s(logAge_days):sexF`$edf
+```
+Centile fan plots
+
+fit centile fan plots
+```{r}
+sgmv_df <- sgmv_df %>%
+    mutate(sex = as.factor(ifelse(sexMale == 0, "M", "F")))
+
+make_centile_fan(sgmv_gamlss2fac, sgmv_df, "logAge_days", "sex",
+                  get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend", 
+                 y_scale = unscale)
+
+make_centile_fan(sgmv_gamlss, sgmv_df, "logAge_days", "sexMale",
+                  get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend", 
+                 y_scale = unscale)
+```
+worm plots, check actual centiles
+
+```{r}
+wp.taki(xvar=sgmv_df$logAge_days, resid=resid(sgmv_gamlss2fac), n.inter=4)
+cent_cdf(sgmv_gamlss2fac, sgmv_df, group = "sex")
+```
+cent_cdf() function seems to not work with adaptive splines
+
+###WMV
+
+```{r}
+wmv_gamlss2fac <- readRDS("gamlss2_test_mods/WMV_gamlss2_logPhenoTRUE_logAgeTRUE_by.rds")
+wmv_gamlss2fac$formula
+list_predictors(wmv_gamlss2fac)
+```
+
+compare effective degrees of freedom
+```{r}
+wmv_gamlss$df.fit
+wmv_gamlss2fac$df
+
+#look at smooth age effect in mu specifically
+wmv_gamlss$mu.coefSmo[[2]]$name
+wmv_gamlss$mu.coefSmo[[2]]$edf
+wmv_gamlss2fac$fitted.specials$mu$`s(logAge_days):sexM`$edf
+wmv_gamlss2fac$fitted.specials$mu$`s(logAge_days):sexF`$edf
+```
+Centile fan plots
+
+fit centile fan plots
+```{r}
+wmv_df <- wmv_df %>%
+    mutate(sex = as.factor(ifelse(sexMale == 0, "M", "F")))
+
+make_centile_fan(wmv_gamlss2fac, wmv_df, "logAge_days", "sex",
+                  get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend", 
+                 y_scale = unscale)
+
+make_centile_fan(wmv_gamlss, wmv_df, "logAge_days", "sexMale",
+                  get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend", 
+                 y_scale = unscale)
+```
+worm plots, check actual centiles
+
+```{r}
+wp.taki(xvar=wmv_df$logAge_days, resid=resid(wmv_gamlss2fac), n.inter=4)
+cent_cdf(wmv_gamlss2fac, wmv_df, group = "sex")
+```
+
+###CSF
+
+```{r}
+csf_gamlss2fac <- readRDS("gamlss2_test_mods/CSF_gamlss2_logPhenoTRUE_logAgeTRUE_by.rds")
+csf_gamlss2fac$formula
+list_predictors(csf_gamlss2fac)
+```
+
+compare effective degrees of freedom
+```{r}
+csf_gamlss$df.fit
+csf_gamlss2fac$df
+
+#look at smooth age effect in mu specifically
+stopifnot(csf_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
+csf_gamlss$mu.coefSmo[[2]]$edf
+csf_gamlss2fac$fitted.specials$mu$`s(logAge_days):sexM`$edf
+csf_gamlss2fac$fitted.specials$mu$`s(logAge_days):sexF`$edf
+```
+Centile fan plots
+
+fit centile fan plots
+```{r}
+csf_df <- csf_df %>%
+    mutate(sex = as.factor(ifelse(sexMale == 0, "M", "F")))
+
+make_centile_fan(csf_gamlss2fac, csf_df, "logAge_days", "sex",
+                  get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend", 
+                 y_scale = unscale)
+
+make_centile_fan(csf_gamlss, csf_df, "logAge_days", "sexMale",
+                  get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend", 
+                 y_scale = unscale)
+```
+worm plots, check actual centiles
+
+```{r}
+wp.taki(xvar=csf_df$logAge_days, resid=resid(csf_gamlss2fac), n.inter=4)
+cent_cdf(csf_gamlss2fac, csf_df, group = "sex")
+```
 
 #gamlss2 models with age-by-sex factor splines
 
