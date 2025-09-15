@@ -10,37 +10,47 @@
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/R-%A_%a.err
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
-CONFIGFN=$1
 
+# --- robust parse + debugging ---
+CONFIGFN="$1"
 echo "Config file: $CONFIGFN"
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
 
-#PARSE CONFIG FILE
-PHENO=$(awk -F'\t' -v ArrayTaskID=$SLURM_ARRAY_TASK_ID \
-    '$1==ArrayTaskID {print $2}' "$CONFIGFN" | tr -d '\r' | xargs)
+# -------------------------------------------------------------------
+# Parse config line for this array task
+line=$(awk -F'\t' -v id="$SLURM_ARRAY_TASK_ID" '$1==id {print; exit}' "$CONFIGFN" | tr -d '\r')
 
-FORM=$(awk -F'\t' -v ArrayTaskID=$SLURM_ARRAY_TASK_ID \
-    '$1==ArrayTaskID {print $3}' "$CONFIGFN" | tr -d '\r' | xargs)
+if [ -z "$line" ]; then
+  echo "ERROR: no matching line for ID $SLURM_ARRAY_TASK_ID in $CONFIGFN" >&2
+  exit 1
+fi
 
-NAME=$(awk -F'\t' -v ArrayTaskID=$SLURM_ARRAY_TASK_ID \
-    '$1==ArrayTaskID {print $4}' "$CONFIGFN" | tr -d '\r' | xargs)
+# Split on tabs
+IFS=$'\t' read -r idx PHENO FORM NAME <<< "$line"
 
-echo "PHENO: $PHENO"
-echo "FORM: $FORM"
-echo "NAME: $NAME"
+# Remove surrounding quotes from FORM
+FORM=$(printf '%s' "$FORM" | sed 's/^"\(.*\)"$/\1/')
 
-#------------------
+# Trim whitespace
+PHENO=$(printf '%s' "$PHENO" | xargs)
+FORM=$(printf '%s' "$FORM" | xargs)
+NAME=$(printf '%s' "$NAME" | xargs)
+
+# Print for sanity check
+printf 'IDX:   [%s]\n' "$idx"
+printf 'PHENO: [%s]\n' "$PHENO"
+printf 'FORM:  [%s]\n' "$FORM"
+printf 'NAME:  [%s]\n' "$NAME"
+# -------------------------------------------------------------------
 
 SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.3.sif"
-
-script=$BASE/code/test_gamlss2.R
+script="$BASE/code/test_gamlss2.R"
 
 echo "SCRIPT: $script"
 
 singularity run --cleanenv \
-    -B $BASE \
-    $SINGULARITY_IMAGE \
-    Rscript $script "$PHENO" "$FORM" "$NAME"
+    -B "$BASE" \
+    "$SINGULARITY_IMAGE" \
+    Rscript "$script" "$PHENO" "$FORM" "$NAME"
 
-# Done!
 echo "Job finished running!"
