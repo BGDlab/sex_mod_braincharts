@@ -323,7 +323,7 @@ samp_mpr %>%
 ```
 
 ```{r write csv}
-output <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release.csv"
+output <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release_updated.csv"
 write_csv(samp_mpr, output)
 ```
 

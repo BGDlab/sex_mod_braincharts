@@ -189,7 +189,7 @@ stopifnot(nrow(df_with_hbcd) == nrow(df) + nrow(hbcd_rename))
 csv created with `build_your_cohort_dev_mg.Rmd`
 
 ```{r}
-slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release.csv")
+slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release_updated.csv") #updated b/c mismatched scans
 names(slip)
 skim(slip)
 
