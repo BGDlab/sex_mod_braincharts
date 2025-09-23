@@ -146,42 +146,73 @@ write_lines(sa_list, "./pheno_lists/cortical_surf.txt")
 saveRDS(sa_list, "./pheno_lists/cortical_surf.rds")
 ```
 
-## Prelim HBCD
-Adding preliminary HBCD pre-release phenotypes (see `prelim_hbcd_eda.Rmd`)
+## HBCD
+Adding HBCD release
 
 ```{r}
-hbcd <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/beta_hbcd.csv")
+hbcd <- fread("/mnt/isilon/bgdlab_hbcd/v2/HBCD_idps.csv")
 hbcd_rename <- hbcd %>%
-  rename(participant = id) %>%
   rename_with(~ gsub("-", ".", .)) %>%
-  rename_with(~ paste0("SUBC.", .), c(-participant, -visit_label, -cohort, 
-                                      -site, -sex, -age, -age_days, -candidate_age,
-                                      -CSF, -gestational_age, -Vermis)) %>%
-  # rename(lhCortexVol = SUBC.Left.Cerebral.Cortex,
-  #        rhCortexVol = SUBC.Right.Cerebral.Cortex,
-  #        lhCerebralWhiteMatterVol = SUBC.Left.Cerebral.White.Matter,
-  #        rhCerebralWhiteMatterVol = SUBC.Right.Cerebral.White.Matter) %>%
-  mutate(sex = ifelse(sex=="Male", "male", "female"))
+  rename_with(~ gsub("SubcGM", "SUBC", .))
 
+setdiff(names(hbcd_rename), names(df))
+
+#Add Missing cols
 hbcd_rename$study <- "HBCD"
 hbcd_rename$dx <- "CN"
-
-#LABEL FS VERSION
 hbcd_rename$fs_version <- "FSInfant"
 hbcd_rename$fs_version_GM <- "FSInfant"
 hbcd_rename$fs_version_SA  <- "FSInfant"  
 hbcd_rename$fs_version_CT <- "FSInfant"
-  
-names(hbcd_rename)
-setdiff(names(hbcd_rename), names(df))
-unique(hbcd_rename$sex)
+```
+
+get demographics
+
+```{r}
+hbcd_demo <- fread("/mnt/isilon/bgdlab_hbcd/v2/hbcd/hbcd/rawdata/phenotype/sed_basic_demographics.tsv")
+
+#get age at scan
+hbcd_age <- fread("/mnt/isilon/bgdlab_hbcd/v2/hbcd/hbcd/rawdata/phenotype/img_bibsnet_space-T2w_desc-aseg_volumes.tsv") %>%
+  select(participant_id, session_id, 'img_bibsnet_space-T2w_desc-aseg_volumes_candidate_age') %>%
+  rename(age = 'img_bibsnet_space-T2w_desc-aseg_volumes_candidate_age') %>%
+#convert age
+  mutate(age_days_birth = 365.25*age)
+
+#merge into main demographics
+hbcd_demo_merge <- full_join(hbcd_demo, hbcd_age)
+
+unique(hbcd_demo$sex)
 unique(df$sex)
+
+#sex levels from sed_basic_demographics.json
+
+hbcd_demo_reduced <- hbcd_demo_merge %>%
+  rename_with(~ gsub("sed_basic_demographics_", "", .)) %>%
+  rename("participant" = "participant_id",
+         "session" = "session_id",
+         "site" = "recruitment_site") %>%
+  mutate(session = as.integer(gsub("ses-V0", "", session)),
+         sex = case_when(sex==0 ~ "female",
+                         sex==1 ~ "male",
+                         sex==2 ~ NA),
+         gestational_age_delivery = gestational_age_delivery*7) %>%
+  mutate(age_days = gestational_age_delivery + age_days_birth,
+         site = as.character(site)) %>%
+  select(participant, session, sex, site, age_days)
+
+names(hbcd_demo_reduced)
+```
+
+merge demographics
+```{r}
+hbcd_final <- left_join(hbcd_rename, hbcd_demo_reduced)
+sum(is.na(hbcd_final))
 ```
 
 merge in
 ```{r}
-df_with_hbcd <- full_join(df, hbcd_rename)
-stopifnot(nrow(df_with_hbcd) == nrow(df) + nrow(hbcd_rename))
+df_with_hbcd <- full_join(df, hbcd_final)
+stopifnot(nrow(df_with_hbcd) == nrow(df) + nrow(hbcd_final))
 ```
 
 ## SLIP 2025-03
@@ -391,93 +422,9 @@ df_select <- df_filt %>%
 skim(df_select)
 ```
 
-### Remove Psychosis Studies
-set aside selected psychosis studies
-```{r}
-psych_dx_list <- c(unique(df$dx)[grepl("scz|sz|psych|schizo|cos", unique(df$dx), ignore.case=T)], "CN")
-psych_dx_list <- psych_dx_list[ !psych_dx_list == 'Psychological over-eating or binge-eating']
-
-unique(df_select$study)
-df %>%
-  dplyr::filter(dx %in% psych_dx_list) %>%
-  group_by(study, dx) %>%
-  summarise(count = n())
-
-scz_study_list <- c("ALSPAC", "AMP-SCZ", "BHRCS", "COBRE_FS6_part1", "Dublin_FS6", "HCP-EarlyPsychosis", "MCI", "Maastricht_FS6",
-                    "NAPLS3", "NDAR-CCDP", "NDAR-PsychiatricCerebralBlood", "NDAR-PsychosisOMS", "NDAR-SCZAging", "NDAR-SCZEmot",
-                    "NDAR-SCZGlu", "NDAR-SocialBrainSchizoAutism", "NDAR_BSNIP", "NDAR_PARDIP", "NDAR_SCZIowa", "OpenNeuro_LA5c",
-                    "SRPBS1600", "TOPSY", "NDAR_NIH-IRP") #NDAR_NIH-IRP = controls for Armin's COS dataset
-
-psychosis_df <- df_select %>%
-  dplyr::filter(study %in% scz_study_list) %>%
-  dplyr::filter(dx %in% psych_dx_list) %>%
-  group_by(INDEX.ID) %>% #remove duplicate participants
-  slice_sample() %>%
-  ungroup()
-
-ggplot(psychosis_df) +
-  geom_histogram(aes(x=(age_days/365.25), fill=dx))
-
-psychosis_df %>%
-  group_by(dx) %>%
-  summarise(count=n())
-```
-look at ADHD
-```{r}
-adhd_dx_list <- c(unique(df$dx)[grepl("adhd|add|attention", unique(df$dx), ignore.case=T)], "CN")
-#excluding ABCD
-df %>%
-  dplyr::filter(dx %in% adhd_dx_list) %>%
-  dplyr::filter(study != "ABCD") %>%
-  group_by(study, dx) %>%
-  summarise(count = n())
-```
-
-ADHD200 ~ 600 cases, 400 controls
-HBN ~ 300 cases, 450 controls
-NDAR_OHSU_ADHD ~ 430 cases, 450 controls, about 150 subthreshold
-POND ~ 160 cases, 100 controls
-
-look at ALZ
-```{r}
-alz_dx_list <- c(unique(df$dx)[grepl("mci|alz|alzheim|cogni|AD", unique(df$dx), ignore.case=T)], "CN")
-#excluding ABCD
-df %>%
-  dplyr::filter(dx %in% alz_dx_list) %>%
-  dplyr::filter(study != "ABCD" & age_days > (40*365.25)) %>%
-  group_by(study, dx) %>%
-  summarise(count = n())
-```
-ADNI, AIBL, IMAP, NACC, OASIS, iADNI
-
-look at MDD
-```{r}
-mdd_list <- c(unique(df$dx)[grepl("MDD|depress", unique(df$dx), ignore.case=T)], "CN")
-#excluding ABCD
-df %>%
-  dplyr::filter(dx %in% mdd_list) %>%
-  dplyr::filter(study != "ABCD") %>%
-  group_by(study, dx) %>%
-  summarise(count = n())
-```
-
-write out csv - *not filtering/removing duplicate scans because planning to add more data!*
-```{r}
-fwrite(psychosis_df, file="./data/vpenn_scz_studies.csv")
-```
-
-FOR MORE SCZ STUDIES TO BE ADDED, SEE NDAR PROPOSAL GOOGLE DOC 
-
-remove psychosis studies from main dataset so there's no data leakage
-```{r}
-df_nopsych <- df_select %>%
-  dplyr::filter(!(study %in% scz_study_list))
-```
-
-
 ### Scan QC filtering
 ```{r}
-qc_df <- df_nopsych %>%
+qc_df <- df_select %>%
   mutate(QC.SS = ifelse(is.na(QC.SS), FALSE, TRUE),
          QC.RCA = ifelse(is.na(QC.RCA), FALSE, TRUE),
          SurfaceHoles = ifelse(is.na(SurfaceHoles), FALSE, TRUE))
@@ -485,14 +432,14 @@ qc_df <- df_nopsych %>%
 table(qc_df$fs_version, qc_df$QC.SS)
 table(qc_df$fs_version, qc_df$QC.RCA)
 
-study_mad <- df_nopsych %>%
+study_mad <- df_select %>%
   drop_na(SurfaceHoles) %>%
   group_by(study) %>%
   summarize(study_euler_mad = mad(SurfaceHoles),
             study_euler_median = median(SurfaceHoles)) %>%
   mutate(euler_threshold = study_euler_median+(4*study_euler_mad))
 
-left_join(df_nopsych, study_mad) %>%
+left_join(df_select, study_mad) %>%
   mutate(scan_pass = ifelse(SurfaceHoles <= euler_threshold, "yes", "no")) %>%
   group_by(study) %>%
   summarise(fail_percent = (sum(scan_pass == "no") / n())*100) %>%
@@ -501,18 +448,18 @@ left_join(df_nopsych, study_mad) %>%
             min_fail=min(fail_percent),
             mean_fail=mean(fail_percent))
 
-left_join(df_nopsych, study_mad) %>%
+left_join(df_select, study_mad) %>%
   ggplot() +
   geom_boxplot(aes(x=study, y=SurfaceHoles)) +
   geom_point(aes(x=study, y=(study_euler_median+4*study_euler_mad)), color="red") +
   theme(axis.text.x = element_text(angle=90, hjust=0.5))
 
-df_qc_filt <- left_join(df_nopsych, study_mad) %>%
+df_qc_filt <- left_join(df_select, study_mad) %>%
   mutate(has_qc = ifelse(is.na(SurfaceHoles) & is.na(QC.SS) & is.na(QC.RCA),
                         FALSE, TRUE)) %>%
   dplyr::filter(SurfaceHoles <= euler_threshold | QC.SS > 0.65 | QC.RCA > 0.65 | has_qc == FALSE) #using SS recommended threshold
 
-nrow(df_nopsych) - nrow(df_qc_filt)
+nrow(df_select) - nrow(df_qc_filt)
 ```
 
 
@@ -1092,7 +1039,7 @@ ggplot(df_sub) +
   geom_vline(xintercept = 280)
 ```
 
-###ICV scaling
+###eTIV scaling
 
 ```{r}
 df_clean %>%
