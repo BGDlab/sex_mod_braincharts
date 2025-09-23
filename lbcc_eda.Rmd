@@ -172,9 +172,9 @@ get demographics
 hbcd_demo <- fread("/mnt/isilon/bgdlab_hbcd/v2/hbcd/hbcd/rawdata/phenotype/sed_basic_demographics.tsv")
 
 #get age at scan
-hbcd_age <- fread("/mnt/isilon/bgdlab_hbcd/v2/hbcd/hbcd/rawdata/phenotype/img_bibsnet_space-T2w_desc-aseg_volumes.tsv") %>%
-  select(participant_id, session_id, 'img_bibsnet_space-T2w_desc-aseg_volumes_candidate_age') %>%
-  rename(age = 'img_bibsnet_space-T2w_desc-aseg_volumes_candidate_age') %>%
+hbcd_age <- fread("/mnt/isilon/bgdlab_hbcd/v2/hbcd/hbcd/rawdata/phenotype/img_bibsnet_space-T1w_desc-aseg_volumes.tsv") %>%
+  select(participant_id, session_id, 'img_bibsnet_space-T1w_desc-aseg_volumes_candidate_age') %>%
+  rename(age = 'img_bibsnet_space-T1w_desc-aseg_volumes_candidate_age') %>%
 #convert age
   mutate(age_days_birth = 365.25*age)
 
@@ -231,12 +231,12 @@ skim(slip)
 
 ```{r}
 slip_rename <- slip %>%
-  rename_with(~ str_replace(.x, "^GrayVol\\.lh", "lh.GM")) %>%
-  rename_with(~ str_replace(.x, "^GrayVol\\.rh", "rh.GM")) %>%
-  rename_with(~ str_replace(.x, "^SurfArea\\.lh", "lh.SA")) %>%
-  rename_with(~ str_replace(.x, "^SurfArea\\.rh", "rh.SA")) %>%
-  rename_with(~ str_replace(.x, "^ThickAvg\\.lh", "lh.CT")) %>%
-  rename_with(~ str_replace(.x, "^ThickAvg\\.rh", "rh.CT")) %>%
+  rename_with(~ str_replace(.x, "^GrayVol\\_lh_", "lh.GM.")) %>%
+  rename_with(~ str_replace(.x, "^GrayVol\\_rh_", "rh.GM.")) %>%
+  rename_with(~ str_replace(.x, "^SurfArea\\_lh_", "lh.SA.")) %>%
+  rename_with(~ str_replace(.x, "^SurfArea\\_rh_", "rh.SA.")) %>%
+  rename_with(~ str_replace(.x, "^ThickAvg\\_lh_", "lh.CT.")) %>%
+  rename_with(~ str_replace(.x, "^ThickAvg\\_rh_", "rh.CT.")) %>%
   rename(age_days = adjusted_age_in_days,
          participant = participant_id,
          session = session_id) %>%
@@ -282,12 +282,12 @@ rename_with(
       paste0("SUBC.", .),                    # Add prefix
     .cols = matches("^left_|^right_")
   ) %>%
-  rename(CBV = CerebellumVolume,
+  rename(CBV = cerebellum,
          SUBC.Left.Thalamus.Proper = SUBC.Left.Thalamus,
          SUBC.Right.Thalamus.Proper = SUBC.Right.Thalamus,
          SUBC.3rd.Ventricle = "3rd_ventricle",
          SUBC.4th.Ventricle = "4th_ventricle",
-         SUBC.Brain.Stem = "brain-stem",
+         SUBC.Brain.Stem = "brain_stem",
          SUBC.Left.Accumbens.area = SUBC.Left.Accumbens.Area,
          SUBC.Right.Accumbens.area = SUBC.Right.Accumbens.Area,
          SUBC.Right.VentralDC = SUBC.Right.Ventral.Dc,
@@ -309,11 +309,13 @@ vent_test <- slip_rename2 %>%
          vent_sum = rowSums(across(all_of(ss_ventricles_list)), na.rm=FALSE))
 
 ggplot(vent_test) +
-  geom_point(aes(x=vent_sum, y=Ventricles))
+  geom_point(aes(x=vent_sum, y=ventricles))
 ggplot(vent_test) +
-  geom_point(aes(x=diff, y=Ventricles))
+  geom_point(aes(x=diff, y=ventricles))
+ggplot(vent_test) +
+  geom_point(aes(x=csf, y=ventricles))
 
-range(vent_test$Ventricles)
+range(vent_test$ventricles)
 ```
 
 Trying Ventricles for CSF for SLIP based on suggestions from Aaron
@@ -323,19 +325,16 @@ slip_glob <- slip_rename2 %>%
   mutate(GMV = case_when(!is.na(CortexVol) ~ CortexVol,
                          !is.na(rhCortexVol) & !is.na(lhCortexVol) ~ rhCortexVol + lhCortexVol,
                          TRUE ~ NA),
-         sGMV = case_when(!is.na(sGMV) ~ sGMV,
-            !is.na(SubCortGrayVol) ~ SubCortGrayVol,
+         sGMV = case_when(!is.na(SubCortGrayVol) ~ SubCortGrayVol,
             TRUE ~ NA),
             #TRUE ~  rowSums(across(all_of(ss_subcort_list)), na.rm=FALSE)),
-         WMV = case_when(!is.na(WMV) ~ WMV,
-            !is.na(CerebralWhiteMatterVol) ~ CerebralWhiteMatterVol,
+         WMV = case_when(!is.na(CerebralWhiteMatterVol) ~ CerebralWhiteMatterVol,
             !is.na(lhCerebralWhiteMatterVol) & !is.na(rhCerebralWhiteMatterVol) ~  lhCerebralWhiteMatterVol + rhCerebralWhiteMatterVol,
             TRUE ~ NA
             #!is.na(right.cerebral.white.matter) & !is.na(left.cerebral.white.matter) ~ right.cerebral.white.matter + left.cerebral.white.matter
             ),
-         CSF = Ventricles,
+         CSF = ventricles,
          eTIV = case_when(!is.na(eTIV) ~ eTIV,
-                          !is.na(TCV) ~ TCV,
                           TRUE ~ total_intracranial))
 
 
@@ -376,10 +375,28 @@ stopifnot(nrow(df_with_slip) == sum(nrow(drp_slip), nrow(slip_glob)))
 ```
 
 ```{r}
-df_with_slip %>%
+#check global volumes
+df_slip_check <- df_with_slip %>%
+  mutate(is.slip = ifelse(study=="SLIP", T, F))
+
+df_slip_check %>%
   ggplot() +
-  geom_point(aes(x=age_days, y=CSF))
+  geom_point(aes(x=age_days, y=CSF, color=is.slip), alpha=0.5)
+
+df_slip_check %>%
+  ggplot() +
+  geom_point(aes(x=age_days, y=sGMV, color=is.slip), alpha=0.5)
+
+df_slip_check %>%
+  ggplot() +
+  geom_point(aes(x=age_days, y=WMV, color=is.slip), alpha=0.5)
+
+df_slip_check %>%
+  ggplot() +
+  geom_point(aes(x=age_days, y=GMV, color=is.slip), alpha=0.5)
 ```
+
+looks good
 
 ## Data Cleaning
 
@@ -419,7 +436,7 @@ df_select <- df_filt %>%
   mutate(TBV = WMV + sGMV + GMV + CBV) %>% #carriess forward NAs
   dplyr::select(all_of(c(pheno_list, covar_list)))
 
-skim(df_select)
+#skim(df_select)
 ```
 
 ### Scan QC filtering
@@ -503,7 +520,12 @@ df_clean <- df_nozero %>%
   group_by(study_site) %>%
   filter(n_distinct(INDEX.ID) >=5) %>% #remove sites with < 5 ppl
   ungroup() %>%
-  filter(study != "SYS-Adolescents") #weird bad sGMV values, removing
+  filter(study != "SYS-Adolescents") %>% #weird bad sGMV values, removing
+#remove SA from dHCP due to segmentation issues
+  mutate(across(
+    contains("SA."),
+    ~ if_else(study == "dHCP-fetal", NA_real_, .x)
+  ))
 
 #look at completeness for infant/toddler data
 df_clean %>%
@@ -690,6 +712,7 @@ fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 ```
 
 ```{r}
+library(gamlssTools)
 for (pheno in glob_vol_list){
   df <- df_clean %>%
   dplyr::select(all_of(c(pheno, "fs_version_GM", "logAge_days", "sexMale_x_logAge", "sexMale", "study_site"))) %>%
