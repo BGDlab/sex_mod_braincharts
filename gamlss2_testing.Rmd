@@ -81,6 +81,36 @@ gmv_formula_tp100<- formula(GMV ~ s(logAge_days, by=sex, k=100) + sex + s(study_
 #s - k=500
 gmv_formula_tp500<- formula(GMV ~ s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') |
                          1)
+
+#s - k=20
+gmv_formula_tp20<- formula(GMV ~ s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         1)
+
+#### cr splines
+
+#s - k=10
+gmv_formula_cr10<- formula(GMV ~ s(logAge_days, by=sex, bs="cr", k=10) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, bs="cr", k=10) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=20
+gmv_formula_cr20<- formula(GMV ~ s(logAge_days, by=sex, bs="cr", k=20) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=50
+gmv_formula_cr50<- formula(GMV ~ s(logAge_days, by=sex, bs="cr", k=50) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, bs="cr", k=50) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=100
+gmv_formula_cr100<- formula(GMV ~ s(logAge_days, by=sex, bs="cr", k=100) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, bs="cr", k=100) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=500
+gmv_formula_cr500<- formula(GMV ~ s(logAge_days, by=sex, bs="", k=500) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, bs="cr", k=500) + sex + s(study_site, bs='re') |
+                         1)
 ```
 
 WMV
@@ -137,6 +167,35 @@ wmv_formula_tp100<- formula(WMV ~ s(logAge_days, by=sex, k=100) + sex + s(study_
 
 #s - k=500
 wmv_formula_tp500<- formula(WMV ~ s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') |
+                         1)
+#s - k=20
+wmv_formula_tp20<- formula(WMV ~ s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         1)
+
+#### cr splines
+
+#s - k=10
+wmv_formula_cr10<- formula(WMV ~ s(logAge_days, by=sex, bs="cr", k=10) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, bs="cr", k=10) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=20
+wmv_formula_cr20<- formula(WMV ~ s(logAge_days, by=sex, bs="cr", k=20) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=50
+wmv_formula_cr50<- formula(WMV ~ s(logAge_days, by=sex, bs="cr", k=50) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, bs="cr", k=50) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=100
+wmv_formula_cr100<- formula(WMV ~ s(logAge_days, by=sex, bs="cr", k=100) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, bs="cr", k=100) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=500
+wmv_formula_cr500<- formula(WMV ~ s(logAge_days, by=sex, bs="", k=500) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, bs="cr", k=500) + sex + s(study_site, bs='re') |
                          1)
 ```
 
@@ -196,6 +255,36 @@ csf_formula_tp100<- formula(CSF ~ s(logAge_days, by=sex, k=100) + sex + s(study_
 #s - k=500
 csf_formula_tp500<- formula(CSF ~ s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') |
                          1)
+
+#s - k=20
+csf_formula_tp20<- formula(CSF ~ s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         1)
+
+#### cr splines
+
+#s - k=10
+csf_formula_cr10<- formula(CSF ~ s(logAge_days, by=sex, bs="cr", k=10) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, bs="cr", k=10) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=20
+csf_formula_cr20<- formula(CSF ~ s(logAge_days, by=sex, bs="cr", k=20) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=50
+csf_formula_cr50<- formula(CSF ~ s(logAge_days, by=sex, bs="cr", k=50) + sex + s(study_site, bs='re') |
+                         s(logAge_days, by=sex, bs="cr", k=50) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=100
+csf_formula_cr100<- formula(CSF ~ s(logAge_days, by=sex, bs="cr", k=100) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, bs="cr", k=100) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=500
+csf_formula_cr500<- formula(CSF ~ s(logAge_days, by=sex, bs="", k=500) + sex + s(study_site, bs='re') | s(logAge_days, by=sex, bs="cr", k=500) + sex + s(study_site, bs='re') |
+                         1)
 ```
 
 sGMV
@@ -253,6 +342,36 @@ sgmv_formula_tp100<- formula(sGMV ~ s(logAge_days, by=sex, k=100) + sex + s(stud
 #s - k=500
 sgmv_formula_tp500<- formula(sGMV ~ s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, k=500) + sex + s(study_site, bs='re') |
                          1)
+
+#s - k=20
+sgmv_formula_tp20<- formula(sGMV ~ s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         1)
+
+#### cr splines
+
+#s - k=10
+sgmv_formula_cr10<- formula(sGMV ~ s(logAge_days, by=sex, bs="cr", k=10) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, bs="cr", k=10) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=20
+sgmv_formula_cr20<- formula(sGMV ~ s(logAge_days, by=sex, bs="cr", k=20) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, k=20) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=50
+sgmv_formula_cr50<- formula(sGMV ~ s(logAge_days, by=sex, bs="cr", k=50) + sex + s(study_site, bs='re') + fs_version_GM |
+                         s(logAge_days, by=sex, bs="cr", k=50) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=100
+sgmv_formula_cr100<- formula(sGMV ~ s(logAge_days, by=sex, bs="cr", k=100) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, bs="cr", k=100) + sex + s(study_site, bs='re') |
+                         1)
+
+#s - k=500
+sgmv_formula_cr500<- formula(sGMV ~ s(logAge_days, by=sex, bs="", k=500) + sex + s(study_site, bs='re') + fs_version_GM | s(logAge_days, by=sex, bs="cr", k=500) + sex + s(study_site, bs='re') |
+                         1)
 ```
 
 
@@ -265,8 +384,8 @@ clean_formula <- function(x){
 ```
 
 ```{r, eval=FALSE}
-pheno_list <- rep(c("GMV", "WMV", "CSF", "sGMV"), 10)
-config <- data.frame(ct = seq(1:40),
+pheno_list <- rep(c("GMV", "WMV", "CSF", "sGMV"), 16)
+config <- data.frame(ct = seq(1:64),
                     pheno = c(pheno_list),
                      form = c(clean_formula(gmv_formula_pb), #regular formula
                               clean_formula(wmv_formula_pb), 
@@ -307,7 +426,31 @@ config <- data.frame(ct = seq(1:40),
                               clean_formula(gmv_formula_tp500), 
                               clean_formula(wmv_formula_tp500), 
                               clean_formula(csf_formula_tp500), 
-                              clean_formula(sgmv_formula_tp500)
+                              clean_formula(sgmv_formula_tp500),
+                              clean_formula(gmv_formula_tp20),
+                              clean_formula(wmv_formula_tp20), 
+                              clean_formula(csf_formula_tp20), 
+                              clean_formula(sgmv_formula_tp20),
+                              clean_formula(gmv_formula_cr10),
+                              clean_formula(wmv_formula_cr10), 
+                              clean_formula(csf_formula_cr10), 
+                              clean_formula(sgmv_formula_cr10),
+                              clean_formula(gmv_formula_cr20),
+                              clean_formula(wmv_formula_cr20), 
+                              clean_formula(csf_formula_cr20), 
+                              clean_formula(sgmv_formula_cr20),
+                              clean_formula(gmv_formula_cr50),
+                              clean_formula(wmv_formula_cr50), 
+                              clean_formula(csf_formula_cr50), 
+                              clean_formula(sgmv_formula_cr50),
+                              clean_formula(gmv_formula_cr100),
+                              clean_formula(wmv_formula_cr100), 
+                              clean_formula(csf_formula_cr100), 
+                              clean_formula(sgmv_formula_cr100),
+                              clean_formula(gmv_formula_cr500), 
+                              clean_formula(wmv_formula_cr500), 
+                              clean_formula(csf_formula_cr500),
+                              clean_formula(sgmv_formula_cr500)
                               ),
                      name = c("pb", "pb", "pb", "pb", 
                               "s", "s", "s", "s",
@@ -318,8 +461,14 @@ config <- data.frame(ct = seq(1:40),
                               "tp10", "tp10", "tp10", "tp10",
                               "tp50", "tp50", "tp50", "tp50",
                               "tp100", "tp100", "tp100", "tp100",
-                              "tp500", "tp500", "tp500", "tp500"))
-stopifnot(nrow(config) == 40)
+                              "tp500", "tp500", "tp500", "tp500",
+                              "tp20", "tp20", "tp20", "tp20",
+                              "cr10", "cr10", "cr10", "cr10",
+                              "cr20", "cr20", "cr20", "cr20",
+                              "cr50", "cr50", "cr50", "cr50",
+                              "cr100", "cr100", "cr100", "cr100",
+                              "cr500", "cr500", "cr500", "cr500"))
+stopifnot(nrow(config) == 64)
 write.table(config, file = "code/config_files/gamlss2_test_config.txt", 
             append = TRUE, sep = "\t", row.names=FALSE, col.names=FALSE, quote=c(3))
 ```
@@ -332,8 +481,8 @@ gmv_df <- fread("data/pheno_dfs_totalFALSE/GMV_totalFALSE_logPhenoTRUE_logAgeTRU
 gmv_df <- gmv_df %>%
     mutate(sex = as.factor(ifelse(sexMale == 1, "M", "F")),
            GMV = unscale(GMV))
-gmv_gamlss$call$data <- "df"
-gmv_gamlss$call$family <- gmv_gamlss$family[[1]]
+# gmv_gamlss$call$data <- "df"
+# gmv_gamlss$call$family <- gmv_gamlss$family[[1]]
 gmv_sim <- sim_data(gmv_df, "logAge_days", factor_var="sex")
 
 #sGMV
@@ -341,8 +490,8 @@ sgmv_df <- fread("data/pheno_dfs_totalFALSE/sGMV_totalFALSE_logPhenoTRUE_logAgeT
 sgmv_df <- sgmv_df %>%
     mutate(sex = as.factor(ifelse(sexMale == 1, "M", "F")),
            sGMV = unscale(sGMV))
-sgmv_gamlss$call$data <- "df"
-sgmv_gamlss$call$family <- sgmv_gamlss$family[[1]]
+# sgmv_gamlss$call$data <- "df"
+# sgmv_gamlss$call$family <- sgmv_gamlss$family[[1]]
 sgmv_sim <- sim_data(sgmv_df, "logAge_days", factor_var="sex")
 
 #WMV
@@ -350,8 +499,8 @@ wmv_df <- fread("data/pheno_dfs_totalFALSE/WMV_totalFALSE_logPhenoTRUE_logAgeTRU
 wmv_df <- wmv_df %>%
     mutate(sex = as.factor(ifelse(sexMale == 1, "M", "F")),
            WMV = unscale(WMV))
-wmv_gamlss$call$data <- "df"
-wmv_gamlss$call$family <- wmv_gamlss$family[[1]]
+# wmv_gamlss$call$data <- "df"
+# wmv_gamlss$call$family <- wmv_gamlss$family[[1]]
 wmv_sim <- sim_data(wmv_df, "logAge_days", factor_var="sex")
 
 #CSF
@@ -359,602 +508,485 @@ csf_df <- fread("data/pheno_dfs_totalFALSE/CSF_totalFALSE_logPhenoTRUE_logAgeTRU
 csf_df <- csf_df %>%
     mutate(sex = as.factor(ifelse(sexMale == 1, "M", "F")),
            CSF = unscale(CSF))
-csf_gamlss$call$data <- "df"
-csf_gamlss$call$family <- csf_gamlss$family[[1]]
+# csf_gamlss$call$data <- "df"
+# csf_gamlss$call$family <- csf_gamlss$family[[1]]
 csf_sim <- sim_data(csf_df, "logAge_days", factor_var="sex")
 ```
 
-#Basic gamlss2 models
+#Basic mgcv gams
+
+need to play around more with family options
+
+```{r}
+gmv_gam <- mgcv::gam(GMV ~ s(logAge_days, by=sex) + sex + s(study_site, bs='re') + fs_version_GM, data=gmv_df)
+plot(gmv_gam)
+
+sgmv_gam <- mgcv::gam(sGMV ~ s(logAge_days, by=sex) + sex + s(study_site, bs='re') + fs_version_GM, data=sgmv_df)
+plot(sgmv_gam)
+
+wmv_gam <- mgcv::gam(WMV ~ s(logAge_days, by=sex) + sex + s(study_site, bs='re') + fs_version_GM, data=wmv_df)
+plot(wmv_gam)
+
+csf_gam <- mgcv::gam(CSF ~ s(logAge_days, by=sex) + sex + s(study_site, bs='re') + fs_version_GM, data=csf_df)
+plot(csf_gam)
+```
+
+Look at distributions
+
+```{r}
+fitDist(gmv_df$GMV, type="realplus")
+fitDist(sgmv_df$sGMV, type="realplus")
+fitDist(wmv_df$WMV, type="realplus")
+fitDist(csf_df$CSF, type="realplus")
+```
+
+#gamlss2 BCTo with s(bs="ps")
+default k=10
 
 ###GMV
 
 ```{r}
-gmv_gamlss2 <- readRDS("gamlss2_test_mods/GMV_gamlss2_testmod_rand.rds")
-gmv_gamlss2$formula
-list_predictors(gmv_gamlss2)
+gmv1 <- readRDS("gamlss2_test_mods/GMV_gamlss2_logPhenoTRUE_sBCTo.rds")
+gmv1$formula
+list_predictors(gmv1)
 ```
 
 compare effective degrees of freedom
 ```{r}
-gmv_gamlss$df.fit
-gmv_gamlss2$df
+gmv1$df
 
-#look at smooth age effect in mu specifically
-gmv_gamlss$mu.coefSmo[[2]]$name
-gmv_gamlss$mu.coefSmo[[2]]$edf
-gmv_gamlss2$fitted.specials$mu$`pb2(logAge_days)`$edf
-gmv_gamlss2$fitted.specials$mu$`pb2(sexMale_x_logAge)`$edf
+gmv1$fitted.specials$mu$`s(logAge_days):sexF`$edf
+gmv1$fitted.specials$mu$`s(logAge_days):sexM`$edf
+
+length(gmv1$specials[[1]]$knots)
+length(gmv1$specials[[2]]$knots)
 ```
 Centile fan plots
 
 fit centile fan plots
 ```{r}
-gmv_fan1 <- make_centile_fan(gmv_gamlss, gmv_df, "logAge_days", "sexMale",
-                             get_peaks = FALSE,
-                             x_axis="log_lifespan_fetal",
-                            show_points = FALSE, 
-                             label_centiles = "legend", color_manual = "darkgreen",
-                             sim_data_list = gmv_sim,
-                             y_scale=unscale)
-gmv_fan2 <- make_centile_fan(gmv_gamlss2, gmv_df, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "blue",
-                            sim_data_list = gmv_sim,
-                             y_scale=unscale)
-
-gmv_plot_combined <- gmv_fan1
-gmv_plot_combined$layers <- c(gmv_fan1$layers, gmv_fan2$layers)
-
-gmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("GMV centiles from gamlss (green) vs gamlss2 (blue)")
+make_centile_fan(gmv1, gmv_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = gmv_sim)
 ```
+
+residualizing points look weird, gives outliers?
+
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=gmv_df$logAge_days, resid=resid(gmv_gamlss2), n.inter=4)
-cent_cdf(gmv_gamlss2, gmv_df, group = "sexMale")
+wp.taki(xvar=gmv_df$logAge_days, resid=resid(gmv1), n.inter=5)
+cent_cdf(gmv1, gmv_df, group = "sex")
 ```
 
 ###sGMV
 
 ```{r}
-sgmv_gamlss2 <- readRDS("gamlss2_test_mods/sGMV_gamlss2_testmod_rand.rds")
-sgmv_gamlss2$formula
-list_predictors(sgmv_gamlss2)
+sgmv1 <- readRDS("gamlss2_test_mods/sGMV_gamlss2_logPhenoTRUE_sBCTo.rds")
+sgmv1$formula
+list_predictors(sgmv1)
 ```
 
 compare effective degrees of freedom
 ```{r}
-sgmv_gamlss$df.fit
-sgmv_gamlss2$df
+sgmv1$df
 
-#look at smooth age effect in mu specifically
-sgmv_gamlss$mu.coefSmo[[2]]$name
-sgmv_gamlss$mu.coefSmo[[2]]$edf
-sgmv_gamlss2$fitted.specials$mu$`pb2(logAge_days)`$edf
+sgmv1$fitted.specials$mu$`s(logAge_days):sexF`$edf
+sgmv1$fitted.specials$mu$`s(logAge_days):sexM`$edf
+
+length(sgmv1$specials[[1]]$knots)
+length(sgmv1$specials[[2]]$knots)
 ```
-Centile fan plots
 
 fit centile fan plots
 ```{r}
-sgmv_fan1 <- make_centile_fan(sgmv_gamlss, sgmv_df, "logAge_days", "sexMale",
-                             get_peaks = FALSE,
-                             x_axis="log_lifespan_fetal",
-                            show_points = FALSE, 
-                             label_centiles = "legend", color_manual = "darkgreen",
-                             sim_data_list = sgmv_sim,
-                             y_scale=unscale)
-sgmv_fan2 <- make_centile_fan(sgmv_gamlss2, sgmv_df, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "blue",
-                            sim_data_list = sgmv_sim,
-                             y_scale=unscale)
-
-sgmv_plot_combined <- sgmv_fan1
-sgmv_plot_combined$layers <- c(sgmv_fan1$layers, sgmv_fan2$layers)
-
-sgmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("sgmv centiles from gamlss (green) vs gamlss2 (blue)")
+make_centile_fan(sgmv1, sgmv_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = sgmv_sim)
 ```
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=sgmv_df$logAge_days, resid=resid(sgmv_gamlss2), n.inter=4)
-cent_cdf(sgmv_gamlss2, sgmv_df, group = "sexMale")
+wp.taki(xvar=sgmv_df$logAge_days, resid=resid(sgmv1), n.inter=6)
+cent_cdf(sgmv1, sgmv_df, group = "sex")
 ```
 
 ###WMV
 
 ```{r}
-wmv_gamlss2 <- readRDS("gamlss2_test_mods/WMV_gamlss2_testmod_rand.rds")
-wmv_gamlss2$formula
-list_predictors(wmv_gamlss2)
+wmv1 <- readRDS("gamlss2_test_mods/WMV_gamlss2_logPhenoTRUE_sBCTo.rds")
+wmv1$formula
+list_predictors(wmv1)
 ```
 
 compare effective degrees of freedom
 ```{r}
-wmv_gamlss$df.fit
-wmv_gamlss2$df
+wmv1$df
 
-#look at smooth age effect in mu specifically
-wmv_gamlss$mu.coefSmo[[2]]$name
-wmv_gamlss$mu.coefSmo[[2]]$edf
-wmv_gamlss2$fitted.specials$mu$`pb2(logAge_days)`$edf
+wmv1$fitted.specials$mu$`s(logAge_days):sexF`$edf
+wmv1$fitted.specials$mu$`s(logAge_days):sexM`$edf
+
+length(wmv1$specials[[1]]$knots)
+length(wmv1$specials[[2]]$knots)
 ```
-Centile fan plots
 
 fit centile fan plots
 ```{r}
-wmv_fan1 <- make_centile_fan(wmv_gamlss, wmv_df, "logAge_days", "sexMale",
-                             get_peaks = FALSE,
-                             x_axis="log_lifespan_fetal",
-                            show_points = FALSE, 
-                             label_centiles = "legend", color_manual = "darkgreen",
-                             sim_data_list = wmv_sim,
-                             y_scale=unscale)
-wmv_fan2 <- make_centile_fan(wmv_gamlss2, wmv_df, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "blue",
-                            sim_data_list = wmv_sim,
-                             y_scale=unscale)
-
-wmv_plot_combined <- wmv_fan1
-wmv_plot_combined$layers <- c(wmv_fan1$layers, wmv_fan2$layers)
-
-wmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("wmv centiles from gamlss (green) vs gamlss2 (blue)")
+make_centile_fan(wmv1, wmv_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = wmv_sim)
 ```
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=wmv_df$logAge_days, resid=resid(wmv_gamlss2), n.inter=4)
-cent_cdf(wmv_gamlss2, wmv_df, group = "sexMale")
+wp.taki(xvar=wmv_df$logAge_days, resid=resid(wmv1), n.inter=6)
+cent_cdf(wmv1, wmv_df, group = "sexMale")
 ```
 
 ###CSF
 
 ```{r}
-csf_gamlss2 <- readRDS("gamlss2_test_mods/CSF_gamlss2_testmod_rand.rds")
-csf_gamlss2$formula
-list_predictors(csf_gamlss2)
+csf1 <- readRDS("gamlss2_test_mods/CSF_gamlss2_logPhenoTRUE_sBCTo.rds")
+csf1$formula
+list_predictors(csf1)
 ```
 
 compare effective degrees of freedom
 ```{r}
-csf_gamlss$df.fit
-csf_gamlss2$df
+csf1$df
 
-#look at smooth age effect in mu specifically
-stopifnot(csf_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
-csf_gamlss$mu.coefSmo[[2]]$edf
-csf_gamlss2$fitted.specials$mu$`pb2(logAge_days)`$edf
+csf1$fitted.specials$mu$`s(logAge_days):sexF`$edf
+csf1$fitted.specials$mu$`s(logAge_days):sexM`$edf
+
+length(csf1$specials[[1]]$knots)
+length(csf1$specials[[2]]$knots)
 ```
-Centile fan plots
 
 fit centile fan plots
 ```{r}
-csf_fan1 <- make_centile_fan(csf_gamlss, csf_df, "logAge_days", "sexMale",
-                             get_peaks = FALSE,
-                             x_axis="log_lifespan_fetal",
-                            show_points = FALSE, 
-                             label_centiles = "legend", color_manual = "darkgreen",
-                             sim_data_list = csf_sim,
-                             y_scale=unscale)
-csf_fan2 <- make_centile_fan(csf_gamlss2, csf_df, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "blue",
-                            sim_data_list = csf_sim,
-                             y_scale=unscale)
-
-csf_plot_combined <- csf_fan1
-csf_plot_combined$layers <- c(csf_fan1$layers, csf_fan2$layers)
-
-csf_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("csf centiles from gamlss (green) vs gamlss2 (blue)")
+make_centile_fan(csf1, csf_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = csf_sim)
 ```
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=csf_df$logAge_days, resid=resid(csf_gamlss2), n.inter=4)
-cent_cdf(csf_gamlss2, csf_df, group = "sexMale")
+wp.taki(xvar=csf_df$logAge_days, resid=resid(csf1), n.inter=6)
+cent_cdf(csf1, csf_df, group = "sex")
 ```
 
+try CSF with BCT (mu link identity)
 
+```{r}
+csf_bct <- gamlss2(CSF ~ s(logAge_days, by = sex, bs = "ps") + sex + s(study_site, 
+    bs = "re") | s(logAge_days, by = sex, bs = "ps") + sex + 
+    s(study_site, bs = "re") | 1 | 1,
+    data=csf_df,
+    family="BCT")
+```
 
-#gamlss2 with fixed site effects
+#gamlss2 BCTo with s(bs="tp", k=20)
 
 ###GMV
 
 ```{r}
-gmv_gamlss2f <- readRDS("gamlss2_test_mods/GMV_gamlss2_testmod_fixed.rds")
-gmv_gamlss2f$formula
-list_predictors(gmv_gamlss2f)
+gmv2 <- readRDS("gamlss2_test_mods/GMV_gamlss2_logPhenoTRUE_tp20BCTo.rds")
+gmv2$formula
+list_predictors(gmv2)
 ```
 
 compare effective degrees of freedom
 ```{r}
-gmv_gamlss$df.fit
-gmv_gamlss2f$df
+gmv2$df
 
-#look at smooth age effect in mu specifically
-stopifnot(gmv_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
-gmv_gamlss$mu.coefSmo[[2]]$edf
-gmv_gamlss2f$fitted.specials$mu$`pb2(logAge_days)`$edf
+gmv2$fitted.specials$mu$`s(logAge_days):sexF`$edf
+gmv2$fitted.specials$mu$`s(logAge_days):sexM`$edf
+
+length(gmv2$specials[[1]]$knots) #not sure how to 
+length(gmv2$specials[[2]]$xp)
 ```
 Centile fan plots
 
 fit centile fan plots
 ```{r}
-gmv_fan2f <- make_centile_fan(gmv_gamlss2f, gmv_df, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "orange",
-                            sim_data_list = gmv_sim,
-                             y_scale=unscale)
-
-gmv_plot_combined <- gmv_fan1
-gmv_plot_combined$layers <- c(gmv_fan1$layers, gmv_fan2f$layers)
-
-gmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("GMV centiles from gamlss (green) vs \ngamlss2 with fixed site effects (orange)")
+make_centile_fan(gmv2, gmv_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = gmv_sim)
 ```
+
+
 worm plots, check actual centiles
 
-```{r, eval=FALSE}
-wp.taki(xvar=gmv_df$logAge_days, resid=resid(gmv_gamlss2f), n.inter=4)
-cent_cdf(gmv_gamlss2f, gmv_df, group = "sexMale")
+```{r}
+wp.taki(xvar=gmv_df$logAge_days, resid=resid(gmv2), n.inter=6)
+cent_cdf(gmv2, gmv_df, group = "sex")
 ```
-
-**fixed effect model is messed up, returning negatives**
 
 ###sGMV
 
 ```{r}
-sgmv_gamlss2f <- readRDS("gamlss2_test_mods/sGMV_gamlss2_testmod_fixed.rds")
-sgmv_gamlss2f$formula
-list_predictors(sgmv_gamlss2f)
+sgmv2 <- readRDS("gamlss2_test_mods/sGMV_gamlss2_logPhenoTRUE_tp20BCTo.rds")
+sgmv2$formula
+list_predictors(sgmv2)
 ```
 
 compare effective degrees of freedom
 ```{r}
-sgmv_gamlss$df.fit
-sgmv_gamlss2f$df
+sgmv2$df
 
-#look at smooth age effect in mu specifically
-stopifnot(sgmv_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
-sgmv_gamlss$mu.coefSmo[[2]]$edf
-sgmv_gamlss2f$fitted.specials$mu$`pb2(logAge_days)`$edf
+sgmv2$fitted.specials$mu$`s(logAge_days):sexF`$edf
+sgmv2$fitted.specials$mu$`s(logAge_days):sexM`$edf
+
+length(sgmv2$specials[[1]]$knots)
+length(sgmv2$specials[[2]]$knots)
 ```
-Centile fan plots
 
 fit centile fan plots
 ```{r}
-sgmv_fan2f <- make_centile_fan(sgmv_gamlss2f, sgmv_df, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "orange",
-                            sim_data_list = sgmv_sim,
-                             y_scale=unscale)
-
-sgmv_plot_combined <- sgmv_fan1
-sgmv_plot_combined$layers <- c(sgmv_fan1$layers, sgmv_fan2f$layers)
-
-sgmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("sgmv centiles from gamlss (green) vs gamlss2 \nwith fixed site effects (orange)")
+make_centile_fan(sgmv2, sgmv_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = sgmv_sim)
 ```
 worm plots, check actual centiles
 
-```{r, eval=FALSE}
-wp.taki(xvar=sgmv_df$logAge_days, resid=resid(sgmv_gamlss2f), n.inter=4)
-cent_cdf(sgmv_gamlss2f, sgmv_df, group = "sexMale")
+```{r}
+wp.taki(xvar=sgmv_df$logAge_days, resid=resid(sgmv2), n.inter=6)
+cent_cdf(sgmv2, sgmv_df, group = "sex")
 ```
-**also fails**
-
 
 ###WMV
 
 ```{r}
-wmv_gamlss2f <- readRDS("gamlss2_test_mods/WMV_gamlss2_testmod_fixed.rds")
-wmv_gamlss2f$formula
-list_predictors(wmv_gamlss2f)
+wmv2 <- readRDS("gamlss2_test_mods/WMV_gamlss2_logPhenoTRUE_tp20BCTo.rds")
+wmv2$formula
+list_predictors(wmv2)
 ```
 
 compare effective degrees of freedom
 ```{r}
-wmv_gamlss$df.fit
-wmv_gamlss2f$df
+wmv2$df
 
-#look at smooth age effect in mu specifically
-stopifnot(wmv_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
-wmv_gamlss$mu.coefSmo[[2]]$edf
-wmv_gamlss2f$fitted.specials$mu$`pb2(logAge_days)`$edf
+wmv2$fitted.specials$mu$`s(logAge_days):sexF`$edf
+wmv2$fitted.specials$mu$`s(logAge_days):sexM`$edf
+
+length(wmv2$specials[[1]]$knots)
+length(wmv2$specials[[2]]$knots)
 ```
-Centile fan plots
 
 fit centile fan plots
 ```{r}
-wmv_fan2f <- make_centile_fan(wmv_gamlss2f, wmv_df, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "orange",
-                            sim_data_list = wmv_sim,
-                             y_scale=unscale)
-
-wmv_plot_combined <- wmv_fan1
-wmv_plot_combined$layers <- c(wmv_fan1$layers, wmv_fan2f$layers)
-
-wmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("wmv centiles from gamlss (green) vs gamlss2 \nwith fixed site (orange)")
+make_centile_fan(wmv2, wmv_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = wmv_sim)
 ```
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=wmv_df$logAge_days, resid=resid(wmv_gamlss2f), n.inter=4)
-cent_cdf(wmv_gamlss2f, wmv_df, group = "sexMale")
+wp.taki(xvar=wmv_df$logAge_days, resid=resid(wmv2), n.inter=6)
+cent_cdf(wmv2, wmv_df, group = "sexMale")
 ```
 
 ###CSF
 
 ```{r}
-csf_gamlss2f <- readRDS("gamlss2_test_mods/CSF_gamlss2_testmod_fixed.rds")
-csf_gamlss2f$formula
-list_predictors(csf_gamlss2f)
+csf2 <- readRDS("gamlss2_test_mods/CSF_gamlss2_logPhenoTRUE_tp20BCTo.rds")
+csf2$formula
+list_predictors(csf2)
 ```
 
 compare effective degrees of freedom
 ```{r}
-csf_gamlss$df.fit
-csf_gamlss2$df
+csf2$df
 
-#look at smooth age effect in mu specifically
-stopifnot(csf_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
-csf_gamlss$mu.coefSmo[[2]]$edf
-csf_gamlss2$fitted.specials$mu$`pb2(logAge_days)`$edf
+csf2$fitted.specials$mu$`s(logAge_days):sexF`$edf
+csf2$fitted.specials$mu$`s(logAge_days):sexM`$edf
+
+length(csf2$specials[[1]]$knots)
+length(csf2$specials[[2]]$knots)
 ```
-Centile fan plots
 
 fit centile fan plots
 ```{r}
-csf_fan2f <- make_centile_fan(csf_gamlss2f, csf_df, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "orange",
-                            sim_data_list = csf_sim,
-                             y_scale=unscale)
-
-csf_plot_combined <- csf_fan1
-csf_plot_combined$layers <- c(csf_fan1$layers, csf_fan2f$layers)
-
-csf_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("csf centiles from gamlss (green) vs gamlss2 \nwith fixed site (orange)")
+make_centile_fan(csf2, csf_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = csf_sim)
 ```
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=csf_df$logAge_days, resid=resid(csf_gamlss2f), n.inter=4)
-cent_cdf(csf_gamlss2f, csf_df, group = "sexMale")
+wp.taki(xvar=csf_df$logAge_days, resid=resid(csf2), n.inter=6)
+cent_cdf(csf2, csf_df, group = "sex")
 ```
 
-
-
-#gamlss2 with non-log-scaled y
-
-have-been fitting models to log(pheno) to try to ensure that low, early-life values are captured. undoing this scaling and fitting to see if that helps with excessive wigginess
+#gamlss2 BCTo with pb() - s(bs="ps", k=20)
 
 ###GMV
 
 ```{r}
-gmv_gamlss2y <- readRDS("gamlss2_test_mods/GMV_gamlss2_testmod_rand_unscaled.rds")
-gmv_gamlss2y$formula
-list_predictors(gmv_gamlss2y)
+gmv3 <- readRDS("gamlss2_test_mods/GMV_gamlss2_logPhenoTRUE_pbBCTo.rds")
+gmv3$formula
+list_predictors(gmv3)
 ```
 
 compare effective degrees of freedom
 ```{r}
-gmv_gamlss$df.fit
-gmv_gamlss2y$df
+gmv3$df
 
-#look at smooth age effect in mu specifically
-stopifnot(gmv_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
-gmv_gamlss$mu.coefSmo[[2]]$edf
-gmv_gamlss2y$fitted.specials$mu$`pb2(logAge_days)`$edf
+gmv3$fitted.specials$mu$`pb2(logAge_days):sexF`$edf
+gmv3$fitted.specials$mu$`pb2(logAge_days):sexM`$edf
+
+length(gmv3$specials$`pb2(logAge_days):sexF`$knots)
+length(gmv3$specials$`pb2(logAge_days):sexM`$knots)
 ```
-
-looks like it's using way fewer dfs
-
 Centile fan plots
 
 fit centile fan plots
 ```{r}
-gmv_df_unscaled <- gmv_df %>%
-  mutate(GMV = unscale(GMV))
-gmv_fan2y <- make_centile_fan(gmv_gamlss2y, gmv_df_unscaled, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "purple",
-                            sim_data_list = gmv_sim)
-
-gmv_plot_combined <- gmv_fan1
-gmv_plot_combined$layers <- c(gmv_fan1$layers, gmv_fan2y$layers)
-
-gmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("GMV centiles from gamlss (green) vs gamlss2 \nfit on non-log-scaled pheno (purple)")
+make_centile_fan(gmv3, gmv_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = gmv_sim)
 ```
-compare against data points
 
-```{r}
-make_centile_fan(gmv_gamlss2y, gmv_df_unscaled, "logAge_days", "sexMale", 
-                             get_peaks = FALSE,
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend",
-                            sim_data_list = gmv_sim)
-```
+wiggly!
 
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=gmv_df_unscaled$logAge_days, resid=resid(gmv_gamlss2y), n.inter=4)
-cent_cdf(gmv_gamlss2y, gmv_df_unscaled, group = "sexMale")
+wp.taki(xvar=gmv_df$logAge_days, resid=resid(gmv3), n.inter=5)
+cent_cdf(gmv3, gmv_df, group = "sex")
 ```
-
-very bad worm plots
 
 ###sGMV
 
 ```{r}
-sgmv_gamlss2y <- readRDS("gamlss2_test_mods/sGMV_gamlss2_testmod_rand_unscaled.rds")
-sgmv_gamlss2y$formula
-list_predictors(sgmv_gamlss2y)
+sgmv3 <- readRDS("gamlss2_test_mods/sGMV_gamlss2_logPhenoTRUE_pbBCTo.rds")
+sgmv3$formula
+list_predictors(sgmv3)
 ```
 
 compare effective degrees of freedom
 ```{r}
-sgmv_gamlss$df.fit
-sgmv_gamlss2y$df
+sgmv3$df
 
-#look at smooth age effect in mu specifically
-stopifnot(sgmv_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
-sgmv_gamlss$mu.coefSmo[[2]]$edf
-sgmv_gamlss2y$fitted.specials$mu$`pb2(logAge_days)`$edf
+sgmv3$fitted.specials$mu$`pb2(logAge_days):sexF`$edf
+sgmv3$fitted.specials$mu$`pb2(logAge_days):sexM`$edf
+
+length(sgmv3$specials[[2]]$knots)
+length(sgmv3$specials[[3]]$knots)
 ```
-
-Centile fan plots
 
 fit centile fan plots
 ```{r}
-sgmv_df_unscaled <- sgmv_df %>%
-  mutate(sGMV = unscale(sGMV))
-sgmv_fan2y <- make_centile_fan(sgmv_gamlss2y, sgmv_df_unscaled, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "purple",
-                            sim_data_list = sgmv_sim)
-
-sgmv_plot_combined <- sgmv_fan1
-sgmv_plot_combined$layers <- c(sgmv_fan1$layers, sgmv_fan2y$layers)
-
-sgmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("sGMV centiles from gamlss (green) vs gamlss2 \nfit on non-log-scaled pheno (purple)")
+make_centile_fan(sgmv3, sgmv_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = sgmv_sim)
 ```
-compare against data points
-
-```{r}
-make_centile_fan(sgmv_gamlss2y, sgmv_df_unscaled, "logAge_days", "sexMale", 
-                             get_peaks = FALSE,
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend",
-                            sim_data_list = sgmv_sim)
-```
-
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=sgmv_df_unscaled$logAge_days, resid=resid(sgmv_gamlss2y), n.inter=4)
-cent_cdf(sgmv_gamlss2y, sgmv_df_unscaled, group = "sexMale")
+wp.taki(xvar=sgmv_df$logAge_days, resid=resid(sgmv3), n.inter=6)
+cent_cdf(sgmv3, sgmv_df, group = "sex")
 ```
-
 
 ###WMV
 
 ```{r}
-wmv_gamlss2y <- readRDS("gamlss2_test_mods/WMV_gamlss2_testmod_rand_unscaled.rds")
-wmv_gamlss2y$formula
-list_predictors(wmv_gamlss2y)
+wmv3 <- readRDS("gamlss2_test_mods/WMV_gamlss2_logPhenoTRUE_pbBCTo.rds")
+wmv3$formula
+list_predictors(wmv3)
 ```
 
 compare effective degrees of freedom
 ```{r}
-wmv_gamlss$df.fit
-wmv_gamlss2y$df
+wmv3$df
 
-#look at smooth age effect in mu specifically
-stopifnot(wmv_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
-wmv_gamlss$mu.coefSmo[[2]]$edf
-wmv_gamlss2y$fitted.specials$mu$`pb2(logAge_days)`$edf
+wmv3$fitted.specials$mu$`pb2(logAge_days):sexF`$edf
+wmv3$fitted.specials$mu$`pb2(logAge_days):sexM`$edf
+
+length(wmv3$specials[[2]]$knots)
+length(wmv3$specials[[3]]$knots)
 ```
-
-Centile fan plots
 
 fit centile fan plots
 ```{r}
-wmv_df_unscaled <- wmv_df %>%
-  mutate(WMV = unscale(WMV))
-wmv_fan2y <- make_centile_fan(wmv_gamlss2y, wmv_df_unscaled, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "purple",
-                            sim_data_list = wmv_sim)
-
-wmv_plot_combined <- wmv_fan1
-wmv_plot_combined$layers <- c(wmv_fan1$layers, wmv_fan2y$layers)
-
-wmv_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("WMV centiles from gamlss (green) vs gamlss2 \nfit on non-log-scaled pheno (purple)")
+make_centile_fan(wmv3, wmv_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = wmv_sim)
 ```
-compare against data points
-
-```{r}
-make_centile_fan(wmv_gamlss2y, wmv_df_unscaled, "logAge_days", "sexMale", 
-                             get_peaks = FALSE,
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend",
-                            sim_data_list = wmv_sim)
-```
-
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=wmv_df_unscaled$logAge_days, resid=resid(wmv_gamlss2y), n.inter=4)
-cent_cdf(wmv_gamlss2y, wmv_df_unscaled, group = "sexMale")
+wp.taki(xvar=wmv_df$logAge_days, resid=resid(wmv3), n.inter=6)
+cent_cdf(wmv3, wmv_df, group = "sexMale")
 ```
-
 
 ###CSF
 
 ```{r}
-csf_gamlss2y <- readRDS("gamlss2_test_mods/CSF_gamlss2_testmod_rand_unscaled.rds")
-csf_gamlss2y$formula
-list_predictors(csf_gamlss2y)
+csf3 <- readRDS("gamlss2_test_mods/CSF_gamlss2_logPhenoTRUE_pbBCTo.rds")
+csf3$formula
+list_predictors(csf3)
 ```
 
 compare effective degrees of freedom
 ```{r}
-csf_gamlss$df.fit
-csf_gamlss2y$df
+csf3$df
 
-#look at smooth age effect in mu specifically
-stopifnot(csf_gamlss$mu.coefSmo[[2]]$name == "logAge_days")
-csf_gamlss$mu.coefSmo[[2]]$edf
-csf_gamlss2y$fitted.specials$mu$`pb2(logAge_days)`$edf
+csf3$fitted.specials$mu$`pb2(logAge_days):sexF`$edf
+csf3$fitted.specials$mu$`pb2(logAge_days):sexM`$edf
+
+length(csf3$specials[[2]]$knots)
+length(csf3$specials[[3]]$knots)
 ```
-
-Centile fan plots
 
 fit centile fan plots
 ```{r}
-csf_df_unscaled <- csf_df %>%
-  mutate(CSF = unscale(CSF))
-csf_fan2y <- make_centile_fan(csf_gamlss2y, csf_df_unscaled, "logAge_days", "sexMale", 
-                             get_peaks = FALSE, show_points = FALSE, 
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend", color_manual = "purple",
-                            sim_data_list = csf_sim)
-
-csf_plot_combined <- csf_fan1
-csf_plot_combined$layers <- c(csf_fan1$layers, csf_fan2y$layers)
-
-csf_plot_combined + facet_wrap(~as.factor(sexMale)) + theme_bw() + ggtitle("CSF centiles from gamlss (green) vs gamlss2 \nfit on non-log-scaled pheno (purple)")
+make_centile_fan(csf3, csf_df, "logAge_days", "sex",
+                 get_peaks = FALSE,
+                 x_axis="log_lifespan_fetal",
+                 label_centiles = "legend",
+                 remove_point_effect = "study_site",
+                 sim_data_list = csf_sim)
 ```
-compare against data points
-
-```{r}
-make_centile_fan(csf_gamlss2y, csf_df_unscaled, "logAge_days", "sexMale", 
-                             get_peaks = FALSE,
-                              x_axis="log_lifespan_fetal",
-                             label_centiles = "legend",
-                            sim_data_list = csf_sim)
-```
-
 worm plots, check actual centiles
 
 ```{r}
-wp.taki(xvar=csf_df_unscaled$logAge_days, resid=resid(csf_gamlss2y), n.inter=4)
-cent_cdf(csf_gamlss2y, csf_df_unscaled, group = "sexMale")
+wp.taki(xvar=csf_df$logAge_days, resid=resid(csf3), n.inter=6)
+cent_cdf(csf3, csf_df, group = "sex")
 ```
-
 
 
 #gamlss2 with non-log-scaled age

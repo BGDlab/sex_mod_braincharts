@@ -27,34 +27,34 @@ Get sample A data & pheno lists
 dir_paths <- list()
 dir_paths[[1]] <- list(
   csv_dir = "data/pheno_dfs_totalFALSE",
-  rds_dir = "braincharts/cortical_surf_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[2]] <- list(
-  csv_dir = "data/pheno_dfs_totalFALSE",
-  rds_dir = "braincharts/cortical_thickness_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[3]] <- list(
-  csv_dir = "data/pheno_dfs_totalFALSE",
-  rds_dir = "braincharts/cortical_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
-dir_paths[[4]] <- list(
-  csv_dir = "data/pheno_dfs_totalFALSE",
   rds_dir = "braincharts/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
   log_age=TRUE
 )
-dir_paths[[5]] <- list(
-  csv_dir = "data/pheno_dfs_totalFALSE",
-  rds_dir = "braincharts/subcortical_vols_totalTRUE_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalTRUE_logPhenoTRUE_logAgeTRUE\\.csv$",
-  log_age=TRUE
-)
+# dir_paths[[2]] <- list(
+#   csv_dir = "data/pheno_dfs_totalFALSE",
+#   rds_dir = "braincharts/cortical_thickness_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[3]] <- list(
+#   csv_dir = "data/pheno_dfs_totalFALSE",
+#   rds_dir = "braincharts/cortical_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[4]] <- list(
+#   csv_dir = "data/pheno_dfs_totalFALSE",
+#   rds_dir = "braincharts/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
+# dir_paths[[5]] <- list(
+#   csv_dir = "data/pheno_dfs_totalFALSE",
+#   rds_dir = "braincharts/subcortical_vols_totalTRUE_logPhenoTRUE_logAgeTRUE_pbmods",
+#   csv_path = "totalTRUE_logPhenoTRUE_logAgeTRUE\\.csv$",
+#   log_age=TRUE
+# )
 # dir_paths[[6]] <- list(
 #   csv_dir = "data/cv_sample_B_dfs",
 #   rds_dir = "cv_sample_B_train/cortical_surf_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
@@ -148,6 +148,15 @@ for (paths in dir_paths){
     model$call$data <- "df"
     model$call$family <- "BCCG"
     
+    pred_list <- list_predictors(model)
+    #see if fs_version included as covariate
+    fs <- pred_list[grep("^fs_version", pred_list)]
+    if (length(fs) == 1){
+      resid_terms <- c(fs, "study_site")
+      } else {
+        resid_terms <- "study_site"
+      }
+    
     print(df)
     print(model)
     # Plot: predicted (line) + original (points)
@@ -156,10 +165,8 @@ for (paths in dir_paths){
                           color_var="sexMale", 
                           desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
                           special_term = st,
-                          remove_cent_effect="study_site",
-                          remove_point_effect = "study_site",
-                          y_scale=unscale,
-                          x_scale=un_log) +
+                          remove_point_effect = resid_terms,
+                          y_scale=unscale) +
       theme_linedraw() +
       theme(plot.title = element_blank()) +
       xlab("Age (log days)") +

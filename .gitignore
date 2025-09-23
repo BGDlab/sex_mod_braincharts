@@ -8,3 +8,5 @@ containers
 .RData
 .Rhistory
 cv_sample_*/
+*.pdf
+figs/
