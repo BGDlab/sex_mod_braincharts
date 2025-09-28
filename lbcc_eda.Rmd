@@ -162,7 +162,7 @@ hbcd_rename$study <- "HBCD"
 hbcd_rename$dx <- "CN"
 hbcd_rename$fs_version <- "FSInfant"
 hbcd_rename$fs_version_GM <- "FSInfant"
-hbcd_rename$fs_version_SA  <- "FSInfant"  
+hbcd_rename$fs_version_SA  <- "FSInfant"
 hbcd_rename$fs_version_CT <- "FSInfant"
 ```
 
@@ -251,12 +251,14 @@ slip_rename %>%
 slip_rename %>%
   filter(age_days <= 280 + (365.25/2)) %>%
   summarise(n_pass = sum(QC.RCA > 0.65),
-            pct_pass = sum(QC.RCA > 0.65)/n(),
+            pct_pass = (sum(QC.RCA > 0.65)/n())*100,
             n_total=n())
 
 # setdiff(names(df_with_hbcd), names(slip_rename))
 # setdiff(names(slip_rename), names(df_with_hbcd))
 ```
+
+very few subjects pass
 
 rename cols as needed:
 
@@ -502,6 +504,34 @@ df_nozero <- df_qc_filt %>%
 stopifnot((nrow(df_qc_filt) - nrow(df_nozero)) == nrow(df_zeros))
 ```
 
+
+Look into scans w/o standard QC metrics to see if there are other measures to use
+
+```{r}
+no_qc <- df_nozero %>%
+  filter(has_qc == FALSE)
+(nrow(no_qc)/nrow(df_nozero))*100 # % subjects w/o QC scores
+
+unique(no_qc$study)
+
+#studies with QC missing from at least 50% subjects
+df_nozero %>%
+  group_by(study) %>%
+  summarise(pct_noqc = sum(has_qc==FALSE)/n()) %>%
+  filter(pct_noqc > .5)
+```
+
+```{r}
+ggplot(df_nozero) +
+  geom_histogram(aes(x=age_days, fill=has_qc))
+```
+
+SurfaceHoles
+"qc.general.white.matter"            "qc.general.grey.matter"            
+[645] "qc.cerebellum"                      "qc.brainstem"
+"avg_grade"                          "useable"
+euler_mean
+qc_general_grey_matter
 
 ### Final Filtering
 
