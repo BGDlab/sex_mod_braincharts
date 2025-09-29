@@ -172,25 +172,31 @@ get demographics
 hbcd_demo <- fread("/mnt/isilon/bgdlab_hbcd/v2/hbcd/hbcd/rawdata/phenotype/sed_basic_demographics.tsv")
 
 #get age at scan
-hbcd_age <- fread("/mnt/isilon/bgdlab_hbcd/v2/hbcd/hbcd/rawdata/phenotype/img_bibsnet_space-T1w_desc-aseg_volumes.tsv") %>%
-  select(participant_id, session_id, 'img_bibsnet_space-T1w_desc-aseg_volumes_candidate_age') %>%
-  rename(age = 'img_bibsnet_space-T1w_desc-aseg_volumes_candidate_age') %>%
-#convert age
-  mutate(age_days_birth = 365.25*age)
+hbcd_demo_scan <- fread("/mnt/isilon/bgdlab_hbcd/v2/hbcd_scan_info.csv") %>%
+  select(subject, session, site, age, gestational_age, QC, filename) %>%
+  filter(str_detect(filename, regex("anat/sub-.*_ses-V0.?_run-.?_T.?w\\.nii\\.gz"))) %>%   #keep just basic T1 or T2 anat scans
+  mutate(age_days_birth = 365.25*age) 
+
+table(hbcd_demo_scan$QC) #all scans usable
+n_unique(hbcd_demo_scan$subject)
+
+#make names compatible for merge
+hbcd_demo2 <- hbcd_demo %>%
+  rename("participant" = "participant_id",
+         "session" = "session_id")
+
+hbcd_demo_scan2 <- hbcd_demo_scan %>%
+  rename("participant" = "subject")
 
 #merge into main demographics
-hbcd_demo_merge <- full_join(hbcd_demo, hbcd_age)
+hbcd_demo_merge <- inner_join(hbcd_demo2, hbcd_demo_scan2)
 
-unique(hbcd_demo$sex)
 unique(df$sex)
 
 #sex levels from sed_basic_demographics.json
 
 hbcd_demo_reduced <- hbcd_demo_merge %>%
   rename_with(~ gsub("sed_basic_demographics_", "", .)) %>%
-  rename("participant" = "participant_id",
-         "session" = "session_id",
-         "site" = "recruitment_site") %>%
   mutate(session = as.integer(gsub("ses-V0", "", session)),
          sex = case_when(sex==0 ~ "female",
                          sex==1 ~ "male",
@@ -198,15 +204,22 @@ hbcd_demo_reduced <- hbcd_demo_merge %>%
          gestational_age_delivery = gestational_age_delivery*7) %>%
   mutate(age_days = gestational_age_delivery + age_days_birth,
          site = as.character(site)) %>%
-  select(participant, session, sex, site, age_days)
+  select(participant, session, sex, site, age_days) %>%
+  #drop session 1, which has no scans
+  filter(session !=1)
 
 names(hbcd_demo_reduced)
 ```
 
 merge demographics
 ```{r}
+nrow(hbcd_rename)
+nrow(hbcd_demo_reduced)
+
 hbcd_final <- left_join(hbcd_rename, hbcd_demo_reduced)
 sum(is.na(hbcd_final))
+
+length(setdiff(hbcd_rename$participant, hbcd_demo_reduced$participant))
 ```
 
 merge in
@@ -739,6 +752,18 @@ fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 # ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
 # sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
 # pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
+```
+
+basic demographics
+
+```{r}
+nrow(df_clean)
+table(df_clean$sexMale)
+table(df_clean$sexMale)[[1]] -> n_female
+n_female/nrow(df_clean) * 100
+
+min(df_clean$age_days)
+(max(df_clean$age_days) - 280)/365.25 #yrs from birth
 ```
 
 ```{r}
