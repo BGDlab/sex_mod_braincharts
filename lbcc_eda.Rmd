@@ -186,7 +186,12 @@ hbcd_demo2 <- hbcd_demo %>%
          "session" = "session_id")
 
 hbcd_demo_scan2 <- hbcd_demo_scan %>%
-  rename("participant" = "subject")
+  rename("participant" = "subject") %>%
+  select(!filename) %>%
+  distinct()
+
+table(hbcd_demo_scan2$session)
+n_unique(hbcd_demo_scan2$participant)
 
 #merge into main demographics
 hbcd_demo_merge <- inner_join(hbcd_demo2, hbcd_demo_scan2)
@@ -217,6 +222,7 @@ nrow(hbcd_rename)
 nrow(hbcd_demo_reduced)
 
 hbcd_final <- left_join(hbcd_rename, hbcd_demo_reduced)
+nrow(hbcd_final) == n_unique(hbcd_final$participant)
 sum(is.na(hbcd_final))
 
 length(setdiff(hbcd_rename$participant, hbcd_demo_reduced$participant))
