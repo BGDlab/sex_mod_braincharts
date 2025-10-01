@@ -107,7 +107,7 @@ for (fs_include in moment_list){
                 "and nu = ", nu_name))
     
     #FIT BASIC MODEL
-    model <- gamlss_3lambda_etiv(pheno,
+    model <- gamlss_lambda_etiv(pheno,
                             total_var=total, total_moment=total_include,
                             fs_ver=fs, fs_moment=fs_include, 
                             fam="BCCG",
