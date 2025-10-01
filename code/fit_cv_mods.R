@@ -104,7 +104,7 @@ for (fs_include in fs_moment_list){
 
   #FIT BASIC MODEL
   if (sm == "pb" & log_age == TRUE){
-    model <- gamlss_3lambda(pheno,
+    model <- gamlss_lambda(pheno,
                             fs_ver=fs,
                             fs_moment=fs_include,
                             fam="BCCG",

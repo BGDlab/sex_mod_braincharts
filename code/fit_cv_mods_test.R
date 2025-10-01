@@ -50,7 +50,7 @@ if (log_pheno==TRUE){
 }
 
 #FIT BASIC MODEL
-model <- gamlss_3lambda_rep(base_mod, null_mod="false")
+model <- gamlss_lambda_rep(base_mod, null_mod="false")
 
 #if model isn't fit, skip to next loop
 if (is.null(model)) {
@@ -127,7 +127,7 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 ##################
 #FIT NULL MODEL
 print("fitting null model")
-null_model <- gamlss_3lambda_rep(base_mod, null_mod="true")
+null_model <- gamlss_lambda_rep(base_mod, null_mod="true")
 
 test_out <- LR.test(null_model, model, print=FALSE) #significance test
 f2 <- cohens_f2_local(model, null_model) #effect size
@@ -146,7 +146,7 @@ test_df <- data.frame(
 #FIT NULL MODEL WITH NO SEX-EFFECT FOR TBV-CORRECTED MODELS
 if (total == TRUE) {
   print("fitting null model of all sex effects")
-  null_model2 <- gamlss_3lambda_rep(base_mod, null_mod="allSex")
+  null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex")
   
   test_out2 <- LR.test(null_model2, model, print=FALSE) #significance test
   f2_2 <- cohens_f2_local(model, null_model2) #effect size

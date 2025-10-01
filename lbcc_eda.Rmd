@@ -786,7 +786,7 @@ for (pheno in glob_vol_list){
     mutate(!!pheno_sym := log_scale(!!pheno_sym))
     
   
-  model <- gamlss_3lambda(pheno,
+  model <- gamlss_lambda(pheno,
                           fs_ver="fs_version_GM",
                           fs_moment="all",
                           fam="BCCG",

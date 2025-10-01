@@ -36,9 +36,9 @@ gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL, fam= "GG"){
   return(result)
 }
 
-#gamlss_3lambda
+#gamlss_lambda
 #penalty lambda on order 3 - using with default lambda=NULL -> model will select
-gamlss_3lambda <- function(pheno, lambda=NULL, 
+gamlss_lambda <- function(pheno, lambda=NULL, 
                            fs_ver, fs_moment=c("both", "mu", "none", "all"), 
                            fam="GG",
                            weight= FALSE,
@@ -149,9 +149,9 @@ gamlss_3lambda <- function(pheno, lambda=NULL,
   return(result)
 }
 
-#gamlss_3lambda_rep
+#gamlss_lambda_rep
 #rep model with lambdas from another model obj
-gamlss_3lambda_rep <- function(og_mod, 
+gamlss_lambda_rep <- function(og_mod, 
                                null_mod=c("false", "true", "allSex"),
                                keep_lambdas=TRUE,
                                start.from=NULL,
@@ -311,15 +311,15 @@ gamlss_3lambda_rep <- function(og_mod,
 #helper fun
 make_pb <- function(var, lambda) {
   if (is.null(lambda)) {
-    paste0("pb(", var, ", method='GAIC', k=log(nrow(df)), control=pb.control(order=3))")
+    paste0("pb(", var, ", method='GAIC', k=log(nrow(df)))")
   } else {
-    paste0("pb(", var, ", lambda=", lambda, ", method='GAIC', k=log(nrow(df)), control=pb.control(order=3))")
+    paste0("pb(", var, ", lambda=", lambda, ", method='GAIC', k=log(nrow(df)))")
   }
 }
 
-#gamlss_3lambda_etiv
-#penalty lambda on order 3 - using with default lambda=NULL -> model will select
-gamlss_3lambda_etiv <- function(pheno, lambda=NULL,
+#gamlss_lambda_etiv
+#using with default lambda=NULL -> model will select
+gamlss_lambda_etiv <- function(pheno, lambda=NULL,
                                 total_var, total_moment=c("both", "mu", "none", "all"),
                                 fs_ver, fs_moment=c("both", "mu", "none", "all"), 
                                 fam="GG", 
@@ -881,7 +881,7 @@ gamlss_csage <- function(pheno,
 #rm
 rm_sexage <- function(formula_string) {
   sub(
-    pattern = 'pb\\(sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\), control = pb\\.control\\(order = 3\\)\\) \\+\\s*',
+    pattern = 'pb\\(sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)\\) \\+\\s*',
     replacement = '',
     x = formula_string
   )
@@ -902,7 +902,7 @@ rm_lambdas <- function(formula_string){
 }
 
 
-#gamlss_3lambda
+#gamlss_lambda
 #penalty lambda on order 3 - using with default lambda=NULL -> model will select
 gamlss_ad <- function(pheno, lambda=NULL, 
                            fs_ver, fs_moment=c("both", "mu", "none", "all"), 
@@ -1016,6 +1016,6 @@ gamlss_ad <- function(pheno, lambda=NULL,
 }
 
 #helper fun
-make_ad <- function(var, k=10, m=3) {
-    paste0("s(", var, ", k=", k, ", bs='ad',m=", m, ")")
+make_ad <- function(var, k=10, m=2) {
+    paste0("s(", var, ", k=", k, ", bs='ad', m=", m, ")")
 }

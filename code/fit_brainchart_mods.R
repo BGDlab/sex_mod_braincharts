@@ -65,7 +65,7 @@ if (length(term_list_A) == length(term_list_B)) {
 
 ######### FIT MODEL #########
 
-model <- gamlss_3lambda_rep(mod_to_fit,
+model <- gamlss_lambda_rep(mod_to_fit,
                    null_mod=FALSE,
                    keep_lambdas=FALSE,
                    start.from=NULL,
