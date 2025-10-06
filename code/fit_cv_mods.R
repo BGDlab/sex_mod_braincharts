@@ -107,7 +107,7 @@ for (fs_include in fs_moment_list){
     model <- gamlss_lambda(pheno,
                             fs_ver=fs,
                             fs_moment=fs_include,
-                            fam="BCCG",
+                            fam="BCCGo",
                             nu_form=nu,
                             start.from = "first_mod") #use first model as starting point
     
@@ -115,7 +115,7 @@ for (fs_include in fs_moment_list){
     model <- gamlss_age(pheno,
                         fs_ver=fs,
                         fs_moment=fs_include,
-                        fam="BCCG",
+                        fam="BCCGo",
                         nu_form=nu,
                         start.from = "first_mod") #use first model as starting point
     
@@ -123,14 +123,14 @@ for (fs_include in fs_moment_list){
     model <- gamlss_cs(pheno,
                        fs_ver=fs,
                        fs_moment=fs_include,
-                       fam="BCCG",
+                       fam="BCCGo",
                        nu_form=nu,
                        start.from = "first_mod") #use first model as starting point
   } else if (sm == "cs" & log_age == FALSE){
     model <- gamlss_csage(pheno,
                        fs_ver=fs,
                        fs_moment=fs_include,
-                       fam="BCCG",
+                       fam="BCCGo",
                        nu_form=nu,
                        start.from = "first_mod") #use first model as starting point
   }
@@ -195,7 +195,7 @@ print("compiling stats")
 best_mod <- readRDS(best_mod_file)
 #re-write call info to be safe
 best_mod$call$data <- "df"
-best_mod$call$family <- "BCCG"
+best_mod$call$family <- "BCCGo"
 
 #CENTILE FAN PLOT
 #sim data ONCE for centile fan plotting
@@ -239,8 +239,8 @@ ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_", best_bic$m_name, ".
 
 #WORM PLOT
 print("creating worm plot")
-wp <- wp.taki(xvar=df[[age_var]], resid=resid(best_mod), n.inter=6) +
-  ggtitle(paste(pheno, "\nsmoothed w/", sm))
+wp <- wp.taki(xvar=df[[age_var]], resid=resid(best_mod), n.inter=6)$plot
+wp <- wp + ggtitle(paste(pheno, "\nsmoothed w/", sm))
 ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_", best_bic$m_name, ".png"), wp)
 
 #centiles
