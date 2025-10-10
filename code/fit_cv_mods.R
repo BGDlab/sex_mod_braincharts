@@ -21,6 +21,8 @@ log_pheno <- as.logical(args[6])
 log_age <- as.logical(args[7])
 sm <- as.character(args[8])
 
+family <- "BCTo"
+
 stopifnot(total == "NULL")
 
 #loop over nu terms
@@ -107,7 +109,7 @@ for (fs_include in fs_moment_list){
     model <- gamlss_lambda(pheno,
                             fs_ver=fs,
                             fs_moment=fs_include,
-                            fam="BCCGo",
+                            fam=family,
                             nu_form=nu,
                             start.from = "first_mod") #use first model as starting point
     
@@ -115,7 +117,7 @@ for (fs_include in fs_moment_list){
     model <- gamlss_age(pheno,
                         fs_ver=fs,
                         fs_moment=fs_include,
-                        fam="BCCGo",
+                        fam=family,
                         nu_form=nu,
                         start.from = "first_mod") #use first model as starting point
     
@@ -123,14 +125,14 @@ for (fs_include in fs_moment_list){
     model <- gamlss_cs(pheno,
                        fs_ver=fs,
                        fs_moment=fs_include,
-                       fam="BCCGo",
+                       fam=family,
                        nu_form=nu,
                        start.from = "first_mod") #use first model as starting point
   } else if (sm == "cs" & log_age == FALSE){
     model <- gamlss_csage(pheno,
                        fs_ver=fs,
                        fs_moment=fs_include,
-                       fam="BCCGo",
+                       fam=family,
                        nu_form=nu,
                        start.from = "first_mod") #use first model as starting point
   }
@@ -144,7 +146,7 @@ for (fs_include in fs_moment_list){
     mod_count <- mod_count + 1
   }
 
-  m_name <- paste(fs_include, nu_name, sep="_")
+  m_name <- paste(fs_include, nu_name, family, sep="_")
   saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds"))
   
   #retain first successful model
@@ -180,7 +182,8 @@ print("finding lowest BIC")
 best_bic <- summary_df %>%
   arrange(BIC) %>%
   slice_head(n=1) %>%
-  tidyr::unite(m_name, c(fs_moment, nu))
+  tidyr::unite(m_name, c(fs_moment, nu)) %>%
+  mutate(m_name = paste(m_name, family, sep="_"))
 
 print(best_bic$m_name)
 
@@ -195,7 +198,7 @@ print("compiling stats")
 best_mod <- readRDS(best_mod_file)
 #re-write call info to be safe
 best_mod$call$data <- "df"
-best_mod$call$family <- "BCCGo"
+best_mod$call$family <- family
 
 #CENTILE FAN PLOT
 #sim data ONCE for centile fan plotting
