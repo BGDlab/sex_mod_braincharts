@@ -3,14 +3,14 @@
 #SBATCH --job-name=cv_mods
 #SBATCH --time=336:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=1500M
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=3000M
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_total_train/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_total_train/R-%A_%a.err
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
 
-CONFIGFN=$BASE/code/config_files/cv_mods_logPhenoTRUE_totalTRUE_logAgeTRUE_smpb_config.txt
+CONFIGFN=$BASE/code/config_files/cv_mods_logPhenoFALSE_totalTRUE_logAgeTRUE_smpb_config.txt
 
 echo "Config file: $CONFIGFN"
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
@@ -36,7 +36,7 @@ echo "SMOOTH: $SMOOTH"
 
 #------------------
 
-SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.1.3.sif"
+SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.4.sif"
 
 script=$BASE/code/fit_cv_total_mods.R
 
