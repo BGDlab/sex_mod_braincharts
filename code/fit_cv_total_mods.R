@@ -232,7 +232,7 @@ ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_", best_bic$m_name, "t
 
 #WORM PLOT
 print("creating worm plot")
-wp <- wp.taki(xvar=df$logAge_days, resid=resid(best_mod), n.inter=8)
+wp <- wp.taki(xvar=df$logAge_days, resid=resid(best_mod), n.inter=8)$plot
 ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_", best_bic$m_name, ".png"), wp)
 
 #centiles
