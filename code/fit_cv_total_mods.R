@@ -23,6 +23,8 @@ sm <- as.character(args[8])
 
 stopifnot(!is.null(total))
 
+family <- "BCTo"
+
 #loop over nu terms
 if (log_age == TRUE & sm == "pb"){
   nu_list <- list(
@@ -110,7 +112,7 @@ for (fs_include in moment_list){
     model <- gamlss_lambda_etiv(pheno,
                             total_var=total, total_moment=total_include,
                             fs_ver=fs, fs_moment=fs_include, 
-                            fam="BCCG",
+                            fam=family,
                             nu_form=nu,
                             start.from = "first_mod") #use first model as starting point
   
@@ -183,7 +185,7 @@ print("compiling stats")
 best_mod <- readRDS(best_mod_file)
 #re-write call info to be safe
 best_mod$call$data <- "df"
-best_mod$call$family <- "BCCG"
+best_mod$call$family <- family
 
 #CENTILE FAN PLOT
 print("creating centile fan plots")
