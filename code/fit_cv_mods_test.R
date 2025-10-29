@@ -72,7 +72,7 @@ if (is.null(model)) {
   mu_diff <- base_mod$mu.lambda - model$mu.lambda
   sig_diff <- base_mod$sigma.lambda - model$sigma.lambda
   stopifnot(c(mu_diff, sig_diff) < 0.01)
-  if (!is.null(base_model$nu.lambda)){
+  if (!is.null(base_mod$nu.lambda)){
 	nu_diff <- base_mod$nu.lambda - model$nu.lambda
 	stopifnot(nu_diff < 0.01)}
 
