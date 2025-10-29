@@ -62,15 +62,20 @@ if (is.null(model)) {
   print("original lambdas:")
   print(base_mod$mu.lambda)
   print(base_mod$sigma.lambda)
-  
+  print(base_mod$nu.lambda)  
+
   print("refit lambdas:")
   print(model$mu.lambda)
   print(model$sigma.lambda)
+  print(model$nu.lambda)
   
   mu_diff <- base_mod$mu.lambda - model$mu.lambda
   sig_diff <- base_mod$sigma.lambda - model$sigma.lambda
   stopifnot(c(mu_diff, sig_diff) < 0.01)
-  
+  if (!is.null(base_model$nu.lambda)){
+	nu_diff <- base_mod$nu.lambda - model$nu.lambda
+	stopifnot(nu_diff < 0.01)}
+
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("BestMod", "test", filename_no_ext)
 file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
@@ -99,7 +104,7 @@ print("creating centile fan plot")
     
   #WORM PLOT
     print("creating worm plot")
-    wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=8) +
+    wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=6)$plot +
       ggtitle(paste(pheno, "validation model"))
     ggsave(file=paste0(save_path, "/worm_plots/", filename, ".png"), wp)
     
