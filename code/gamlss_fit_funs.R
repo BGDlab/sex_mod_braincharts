@@ -9,7 +9,7 @@ gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL, fam= "GG"){
   result <- tryCatch({
     gamlss_RSformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
                              "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
-                             "nu.formula = ~ 1, control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+                             "nu.formula = ~ 1, control = gamlss.control(n.cyc=400), family =", fam, ", data= df, trace = FALSE)")
     
     eval(parse(text = gamlss_RSformula))
     
@@ -22,7 +22,7 @@ gamlss_knots <- function(pheno, knots=NULL, sigma_knots=NULL, fam= "GG"){
     tryCatch({
       gamlss_CGformula <-paste("gamlss(formula =", pheno, "~ ns(logAge_days, knots = c(", knots, ")) + sexMale + fs_version + study_site,",
                                "sigma.formula = ~ ns(logAge_days, knots = c(", sigma_knots, ")) + sexMale + fs_version + study_site,",
-                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc = 200), family =", fam, ", data= df, trace = FALSE)")
+                               "nu.formula = ~ 1, method=CG(), control = gamlss.control(n.cyc=400), family =", fam, ", data= df, trace = FALSE)")
       eval(parse(text = gamlss_CGformula))
       
       #if CG also fails, return NULL
@@ -78,7 +78,7 @@ gamlss_lambda <- function(pheno, lambda=NULL,
     nu_form <- paste("nu.formula = ~", nu_form)
   }
   
-  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
   
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
@@ -238,7 +238,7 @@ gamlss_lambda_rep <- function(og_mod,
   
   nu_form <- paste0("nu.formula = ~", nu_base)
   
-  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")
 
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
@@ -374,7 +374,7 @@ gamlss_lambda_etiv <- function(pheno, lambda=NULL,
     nu_base <- paste(nu_base," + ", total_var)
   }
   
-  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
   
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
@@ -462,7 +462,7 @@ gamlss_4param <- function(pheno,
   tau_form <- paste("ta.formula = ~", tau_base)
   
   
-  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
   
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
@@ -544,6 +544,10 @@ safe_gamlss <- function(...) {
     stop("Model fit failed: coefficients are NULL")
   }
   
+  if (mod$converged==FALSE) {
+    stop("Model did not converge")
+  }
+  
   return(mod)
 }
 
@@ -588,7 +592,7 @@ gamlss_age <- function(pheno, lambda=NULL,
     nu_form <- paste("nu.formula = ~", nu_form)
   }
   
-  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
   
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
@@ -697,7 +701,7 @@ gamlss_cs <- function(pheno,
     nu_form <- paste("nu.formula = ~", nu_form)
   }
   
-  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
   
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
@@ -806,7 +810,7 @@ gamlss_csage <- function(pheno,
     nu_form <- paste("nu.formula = ~", nu_form)
   }
   
-  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
   
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
@@ -944,7 +948,7 @@ gamlss_ad <- function(pheno, lambda=NULL,
     nu_form <- paste("nu.formula = ~", nu_form)
   }
   
-  control <- paste("control = gamlss.control(n.cyc = 200, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
   
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
