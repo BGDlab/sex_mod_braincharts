@@ -530,27 +530,6 @@ gamlss_4param <- function(pheno,
   return(result)
 }
 
-
-#written with help from GPT, trying to throw error instead of silently returning NULL model
-safe_gamlss <- function(...) {
-  mod <- gamlss(...)
-  
-  # Check for NULL coefficients
-  null_mu <- is.null(coef(mod, what = "mu"))
-  null_sigma <- is.null(coef(mod, what = "sigma"))
-  null_nu <- is.null(coef(mod, what = "nu"))
-  
-  if (null_mu && null_sigma && null_nu) {
-    stop("Model fit failed: coefficients are NULL")
-  }
-  
-  if (mod$converged==FALSE) {
-    stop("Model did not converge")
-  }
-  
-  return(mod)
-}
-
 #try not log-scaling age
 gamlss_age <- function(pheno, lambda=NULL, 
                            fs_ver, fs_moment=c("both", "mu", "none", "all"), 
