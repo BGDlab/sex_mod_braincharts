@@ -133,6 +133,10 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 #FIT NULL MODEL
 print("fitting null model")
 null_model <- gamlss_lambda_rep(base_mod, null_mod="true")
+#test saving null 
+file_null <- paste0(save_path, "/model_objs/", filename, "_null_mod.rds")
+print (paste("saving to", file_null))
+saveRDS(null_model, file=file_null)
 
 test_out <- LR.test(null_model, model, print=FALSE) #significance test
 f2 <- cohens_f2_local(model, null_model) #effect size
