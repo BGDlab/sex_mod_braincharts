@@ -105,7 +105,7 @@ for (fs_include in fs_moment_list){
   print(paste("fitting model with fs in", fs_include, "and nu = ", nu_name))
   
   m_name <- paste(fs_include, nu_name, family, sep="_")
-  m_file <- file=paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds")
+  m_file <- paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds")
   
   #initalize
   model <- NULL
@@ -117,7 +117,7 @@ for (fs_include in fs_moment_list){
     #double-check that loaded model did converge
     if (!(model$converged==TRUE)){
       print("loaded model was not converged")
-      model < NULL
+      model <- NULL
     }
   }
   

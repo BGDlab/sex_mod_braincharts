@@ -108,6 +108,23 @@ for (fs_include in moment_list){
                 ", total in", total_include, 
                 "and nu = ", nu_name))
     
+    m_name <- paste(paste0("fs", fs_include), nu_name, paste0("total", total_include), sep="_")
+    m_file <- paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds")
+    
+    #initalize
+    model <- NULL
+    
+    #CHECK IF MODEL EXISTS
+    if (file.exists(m_file)){
+      print("loading pre-fit model")
+      model <- readRDS(m_file)
+      #double-check that loaded model did converge
+      if (!(model$converged==TRUE)){
+        print("loaded model was not converged")
+        model <- NULL
+      }
+    }
+    
     #FIT BASIC MODEL
     model <- gamlss_lambda_etiv(pheno,
                             total_var=total, total_moment=total_include,
@@ -126,8 +143,7 @@ for (fs_include in moment_list){
     }
     
     #save
-    m_name <- paste(paste0("fs", fs_include), nu_name, paste0("total", total_include), sep="_")
-    saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds"))
+    saveRDS(model, file=m_file)
     
     #retain first successful model
     if (is.null(first_mod)){
