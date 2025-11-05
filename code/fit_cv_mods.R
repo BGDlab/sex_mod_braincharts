@@ -103,40 +103,61 @@ for (fs_include in fs_moment_list){
   for (nu in nu_list){
   nu_name <- names(nu_list)[nu_list==nu]
   print(paste("fitting model with fs in", fs_include, "and nu = ", nu_name))
-
-  #FIT BASIC MODEL
-  if (sm == "pb" & log_age == TRUE){
-    model <- gamlss_lambda(pheno,
+  
+  m_name <- paste(fs_include, nu_name, family, sep="_")
+  m_file <- file=paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds")
+  
+  #initalize
+  model <- NULL
+  
+  #CHECK IF MODEL EXISTS
+  if (file.exists(m_file)){
+    print("loading pre-fit model")
+    model <- readRDS(m_file)
+    #double-check that loaded model did converge
+    if (!(model$converged==TRUE)){
+      print("loaded model was not converged")
+      model < NULL
+    }
+  }
+  
+  #if model is still NULL, fit it
+  if (is.null(model)){
+    print("fitting new gamlss model")
+    #FIT BASIC MODEL
+    if (sm == "pb" & log_age == TRUE){
+      model <- gamlss_lambda(pheno,
+                             fs_ver=fs,
+                             fs_moment=fs_include,
+                             fam=family,
+                             nu_form=nu,
+                             start.from = "first_mod") #use first model as starting point
+      
+    } else if (sm == "pb" & log_age == FALSE) {
+      model <- gamlss_age(pheno,
+                          fs_ver=fs,
+                          fs_moment=fs_include,
+                          fam=family,
+                          nu_form=nu,
+                          start.from = "first_mod") #use first model as starting point
+      
+    } else if (sm == "cs" & log_age == TRUE){
+      model <- gamlss_cs(pheno,
+                         fs_ver=fs,
+                         fs_moment=fs_include,
+                         fam=family,
+                         nu_form=nu,
+                         start.from = "first_mod") #use first model as starting point
+    } else if (sm == "cs" & log_age == FALSE){
+      model <- gamlss_csage(pheno,
                             fs_ver=fs,
                             fs_moment=fs_include,
                             fam=family,
                             nu_form=nu,
                             start.from = "first_mod") #use first model as starting point
-    
-  } else if (sm == "pb" & log_age == FALSE) {
-    model <- gamlss_age(pheno,
-                        fs_ver=fs,
-                        fs_moment=fs_include,
-                        fam=family,
-                        nu_form=nu,
-                        start.from = "first_mod") #use first model as starting point
-    
-  } else if (sm == "cs" & log_age == TRUE){
-    model <- gamlss_cs(pheno,
-                       fs_ver=fs,
-                       fs_moment=fs_include,
-                       fam=family,
-                       nu_form=nu,
-                       start.from = "first_mod") #use first model as starting point
-  } else if (sm == "cs" & log_age == FALSE){
-    model <- gamlss_csage(pheno,
-                       fs_ver=fs,
-                       fs_moment=fs_include,
-                       fam=family,
-                       nu_form=nu,
-                       start.from = "first_mod") #use first model as starting point
+    }
   }
-
+  
   #if model isn't fit, skip to next loop
   if (is.null(model)) {
     message("model fitting failed")
@@ -145,9 +166,7 @@ for (fs_include in fs_moment_list){
     message("model fit")
     mod_count <- mod_count + 1
   }
-
-  m_name <- paste(fs_include, nu_name, family, sep="_")
-  saveRDS(model, file=paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds"))
+  saveRDS(model, file=m_file)
   
   #retain first successful model
   if (is.null(first_mod)){
