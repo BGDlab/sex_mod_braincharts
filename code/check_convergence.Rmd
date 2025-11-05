@@ -1,0 +1,46 @@
+---
+title: "check_convergence"
+output: html_document
+---
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(dplyr)
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r}
+# Define the top-level directory (change this as needed)
+base_dir <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
+
+# Find all files named 'convergence_summary.csv' recursively
+csv_files <- list.files(base_dir, pattern = "^convergence_summary\\.csv$", 
+                        recursive = TRUE, full.names = TRUE)
+
+# Check how many files were found
+cat("Found", length(csv_files), "files\n")
+
+# Read and merge them all
+merged_df <- csv_files %>%
+  lapply(read.csv, stringsAsFactors = FALSE) %>%
+  bind_rows(.id = "source_file")
+
+# Optional: Add directory info for tracking
+merged_df <- merged_df %>%
+  mutate(
+    source_dir = dirname(csv_files[as.integer(source_file)])
+  )
+```
+
+check by pheno
+```{r}
+convergence_sum <- merged_df %>% 
+  mutate(pheno = sub("_.*", "", file)) %>% 
+  group_by(cv_sample, pheno) %>% 
+  summarise(n_failed = sum(converged==FALSE)) %>%
+  mutate(rerun = ifelse(n_failed==0, FALSE, TRUE))
+
+table(convergence_sum$rerun)
+```

@@ -37,8 +37,5 @@ for (i in seq_len(n)) {
   }, error = function(e) NA)
 }
 
-# Bind all rows together
-df_results <- bind_rows(results)
-
 # Write to CSV
 write.csv(df_results, file = file.path(dir, "convergence_summary.csv"), row.names = FALSE)

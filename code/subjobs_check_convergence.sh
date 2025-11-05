@@ -1,10 +1,10 @@
 #!/bin/bash
 #
 #SBATCH --job-name=check_converge
-#SBATCH --time=24:00:00
+#SBATCH --time=36:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=5G
+#SBATCH --mem-per-cpu=10G
 #SBATCH --array=1-20
 
 CONFIGFN=$1
