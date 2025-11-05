@@ -44,3 +44,10 @@ convergence_sum <- merged_df %>%
 
 table(convergence_sum$rerun)
 ```
+
+For all phenos that have non-converged models, need to:
+1) delete non-converged models
+2) rename "_BestMod.rds" to "_mod.rds"
+3) remove pngs of fan plots, worm plots
+4) rerun fit_cv_mods.R - write new config file with just these phenos?
+

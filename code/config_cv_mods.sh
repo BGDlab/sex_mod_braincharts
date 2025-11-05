@@ -1,5 +1,5 @@
 #!/bin/bash
-#script to write config file that will be used to models on 1/2 dataframe
+#script to write config file that will only refit models IDd as failing to converge from check_convergence.Rmd
 #run from outside code dir
 
 #PATHS
