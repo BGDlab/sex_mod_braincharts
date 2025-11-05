@@ -107,22 +107,62 @@ for (fs_include in fs_moment_list){
   m_name <- paste(fs_include, nu_name, family, sep="_")
   m_file <- paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds")
   
-  #initalize
   model <- NULL
   
   #CHECK IF MODEL EXISTS
   if (file.exists(m_file)){
     print("loading pre-fit model")
-    model <- readRDS(m_file)
+    model <- tryCatch({readRDS(m_file)
+      }, error = function(e){
+        message(e$message, "- trying again")
+        tryCatch({readRDS(m_file)
+          }, error = function(e){
+            message(e$message, "- refit")
+            NULL
+            })
+        })
     #double-check that loaded model did converge
-    if (!(model$converged==TRUE)){
+    if (!is.null(model) && isFALSE(model$converged)) {
       print("loaded model was not converged")
-      model <- NULL
+      init_mod <- model
+      print("fitting new gamlss model")
+      #FIT BASIC MODEL
+      if (sm == "pb" & log_age == TRUE){
+        model <- gamlss_lambda(pheno,
+                               fs_ver=fs,
+                               fs_moment=fs_include,
+                               fam=family,
+                               nu_form=nu,
+                               start.from = "init_mod") #use loaded model as starting point
+        
+      } else if (sm == "pb" & log_age == FALSE) {
+        model <- gamlss_age(pheno,
+                            fs_ver=fs,
+                            fs_moment=fs_include,
+                            fam=family,
+                            nu_form=nu,
+                            start.from = "init_mod") #use loaded model as starting point
+        
+      } else if (sm == "cs" & log_age == TRUE){
+        model <- gamlss_cs(pheno,
+                           fs_ver=fs,
+                           fs_moment=fs_include,
+                           fam=family,
+                           nu_form=nu,
+                           start.from = "init_mod") #use loaded model as starting point
+      } else if (sm == "cs" & log_age == FALSE){
+        model <- gamlss_csage(pheno,
+                              fs_ver=fs,
+                              fs_moment=fs_include,
+                              fam=family,
+                              nu_form=nu,
+                              start.from = "init_mod") #use loaded model as starting point
+      }
     }
   }
   
-  #if model is still NULL, fit it
-  if (is.null(model)){
+  #if no model, fit
+  if (is.null(model)) {
     print("fitting new gamlss model")
     #FIT BASIC MODEL
     if (sm == "pb" & log_age == TRUE){

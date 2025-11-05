@@ -958,7 +958,7 @@ gamlss_ad <- function(pheno, lambda=NULL,
       #if CG also fails, return NULL
     }, error = function(e2) {
       message(e2$message, ", returning NULL")
-      return(NULL)
+      NULL
     })
   } , finally = {
     message("done")

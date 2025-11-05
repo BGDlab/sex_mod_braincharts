@@ -111,27 +111,44 @@ for (fs_include in moment_list){
     m_name <- paste(paste0("fs", fs_include), nu_name, paste0("total", total_include), sep="_")
     m_file <- paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds")
     
-    #initalize
     model <- NULL
     
     #CHECK IF MODEL EXISTS
     if (file.exists(m_file)){
       print("loading pre-fit model")
-      model <- readRDS(m_file)
+      model <- tryCatch({readRDS(m_file)
+      }, error = function(e){
+        message(e$message, "- trying again")
+        tryCatch({readRDS(m_file)
+        }, error = function(e){
+          message(e$message, "- refit")
+          NULL
+        })
+      })
       #double-check that loaded model did converge
-      if (!(model$converged==TRUE)){
+      if (!is.null(model) && isFALSE(model$converged)) {
         print("loaded model was not converged")
-        model <- NULL
+        init_mod <- model
+        print("fitting new gamlss model")
+        #FIT BASIC MODEL
+        model <- gamlss_lambda_etiv(pheno,
+                                    total_var=total, total_moment=total_include,
+                                    fs_ver=fs, fs_moment=fs_include, 
+                                    fam=family,
+                                    nu_form=nu,
+                                    start.from = "init_mod") #use loaded model as starting point
       }
-    }
+    } 
     
-    #FIT BASIC MODEL
-    model <- gamlss_lambda_etiv(pheno,
-                            total_var=total, total_moment=total_include,
-                            fs_ver=fs, fs_moment=fs_include, 
-                            fam=family,
-                            nu_form=nu,
-                            start.from = "first_mod") #use first model as starting point
+    if (is.null(model)){
+      #FIT BASIC MODEL
+      model <- gamlss_lambda_etiv(pheno,
+                                  total_var=total, total_moment=total_include,
+                                  fs_ver=fs, fs_moment=fs_include, 
+                                  fam=family,
+                                  nu_form=nu,
+                                  start.from = "first_mod") #use first model as starting point
+    }
   
     #if model isn't fit, skip to next loop
     if (is.null(model)) {
