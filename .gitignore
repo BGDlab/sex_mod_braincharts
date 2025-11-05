@@ -10,3 +10,4 @@ containers
 cv_sample_*/
 *.pdf
 figs/
+slurm-*
