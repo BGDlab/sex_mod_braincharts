@@ -109,7 +109,7 @@ if ("logAge_days" %in% pred_list){
 
 #CENTILE FAN PLOT
 print("creating centile fan plot")
-fan_plot <- make_centile_fan(gamlssModel=model, 
+fan_plot <- make_centile_fan(gamlssModel=model,
                              df=df, 
                              x_var=age_var, 
                              color_var="sexMale",
@@ -117,6 +117,7 @@ fan_plot <- make_centile_fan(gamlssModel=model,
                              desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
                              remove_point_effect = resid_terms,
+                             x_axis="log_lifespan_fetal",
                              y_scale=unscale)  +
   theme_linedraw() +
   scale_color_discrete(name = "Sex", labels = c("Female", "Male")) +
@@ -154,3 +155,65 @@ fwrite(results_df, file=paste0(save_path, "/cent_csvs/", pheno, "_centiles.csv")
 
 #BIC & AIC
 fwrite(summary_df, file=paste0(save_path, "/model_sums/", pheno, "_summary.csv"))
+
+### MALE - FEMALE DIFFS
+print("calculating sex diffs")
+
+#initialize empty list(s)
+centile_result_list <- list()
+fname <- model$family[[1]]
+qfun <- paste0("q", fname)
+n_param <- length(model$parameters)
+
+# Predict 50th cent & sigma values for each simulated level of factor_var
+for (factor_level in names(sim_df)) {
+  
+  #make sure variable names are correct
+  sub_df <- sim_df[[factor_level]]
+  
+  # Predict centiles
+  print("predicting...")
+  pred_df <- predictAll(model, newdata=sub_df, type="response", data=df)
+  
+  median_centile <- pred_centile(0.5, df = pred_df, q_func = qfun, n_param = n_param)
+  centiles_df <- as.data.frame(median_centile)
+  
+  # check correct dim
+  stopifnot(nrow(centiles_df) == nrow(pred_df))
+  
+  #add x_vals, predicted sigma name centiles for factor_var level and append to results list
+  centiles_df$logAge_days <- sub_df$logAge_days
+  
+  # Sigma
+  centiles_df$sigma <- pred_df$sigma
+  sub_name <- paste0("pred_", factor_level)
+  centile_result_list[[sub_name]] <- centiles_df
+
+}
+
+result_df <- bind_rows(centile_result_list, .id = "sexMale") %>%
+  mutate(sex = if_else(sexMale=="pred_1", "Male", "Female")) %>%
+  select(!sexMale) %>%
+  tidyr:::pivot_wider(names_from=sex, values_from = c(median_centile, sigma)) 
+
+#Derivative diffs
+dy_male <- diff(result_df$median_centile_Male)
+dy_female <- diff(result_df$median_centile_Female)
+dx <- diff(result_df$logAge_days)
+
+male_deriv <- dy_male/dx
+female_deriv <- dy_female/dx
+
+x_mid <- zoo::rollmean(result_df$logAge_days, 2)
+
+deriv_df <- data.frame(deriv_Male = male_deriv,
+                       deriv_Female = female_deriv,
+                       logAge_days = x_mid)
+
+final_df <- full_join(result_df, deriv_df) %>%
+  mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
+         sigma_M_minus_F = sigma_Male - sigma_Female,
+         deriv_M_minus_F = deriv_Male - deriv_Female)
+
+print("saving sex diffs")
+fwrite(final_df, file=paste0(save_path, "/cent_csvs/", pheno, "_sexdiffs.csv"))
