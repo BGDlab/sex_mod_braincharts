@@ -36,25 +36,10 @@ if (log_age == TRUE & sm == "pb"){
                   siteAge = "study_site + logAge_days",
                   siteSex = "study_site + sexMale",
                   siteAgeSex = "study_site + logAge_days + sexMale",
-                  pbAge = "pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                  sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                  site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                  site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
-  )
-  
-} else if (log_age == TRUE & sm == "cs"){
-  nu_list <- list(int = "1", 
-                  site = "study_site", 
-                  sex = "sexMale",
-                  age = "logAge_days",
-                  sexAge = "sexMale + logAge_days",
-                  siteAge = "study_site + logAge_days", 
-                  siteSex = "study_site + sexMale", 
-                  siteAgeSex = "study_site + logAge_days + sexMale",
-                  pbage = "cs(logAge_days)",
-                  sex_pbAge = "sexMale + cs(logAge_days)",
-                  site_pbAge = "study_site + cs(logAge_days)",
-                  site_pbAgeSex = "study_site + cs(logAge_days) + sexMale"
+                  pbAge = "pb(logAge_days, method='GAIC', k=log(nrow(df)))",
+                  sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)))",
+                  site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)))",
+                  site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df))) + sexMale"
   )
   
 } else if (log_age == FALSE & sm == "pb"){
@@ -66,24 +51,10 @@ if (log_age == TRUE & sm == "pb"){
                   siteAge = "study_site + age_days", 
                   siteSex = "study_site + sexMale", 
                   siteAgeSex = "study_site + age_days + sexMale",
-                  pbage = "pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                  sex_pbAge = "sexMale + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                  site_pbAge = "study_site + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))",
-                  site_pbAgeSex = "study_site + pb(age_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3)) + sexMale"
-  )
-} else if (log_age == FALSE & sm == "cs"){
-  nu_list <- list(int = "1", 
-                  site = "study_site", 
-                  sex = "sexMale",
-                  age = "age_days",
-                  sexAge = "sexMale + age_days",
-                  siteAge = "study_site + age_days", 
-                  siteSex = "study_site + sexMale", 
-                  siteAgeSex = "study_site + age_days + sexMale",
-                  pbage = "cs(age_days)",
-                  sex_pbAge = "sexMale + cs(age_days)",
-                  site_pbAge = "study_site + cs(age_days)",
-                  site_pbAgeSex = "study_site + cs(age_days) + sexMale"
+                  pbage = "pb(age_days, method='GAIC', k=log(nrow(df)))",
+                  sex_pbAge = "sexMale + pb(age_days, method='GAIC', k=log(nrow(df)))",
+                  site_pbAge = "study_site + pb(age_days, method='GAIC', k=log(nrow(df)))",
+                  site_pbAgeSex = "study_site + pb(age_days, method='GAIC', k=log(nrow(df))) + sexMale"
   )
 }
 
