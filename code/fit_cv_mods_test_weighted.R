@@ -44,11 +44,7 @@ if (length(fs) == 1){
 if ("logAge_days" %in% pred_list){
   age_var <- "logAge_days"
   sex_age_var <- "sexMale_x_logAge"
-  print("simulate data for plotting")
-  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
 } else {
-  print("simulate data for plotting")
-  sim_df <- sim_data(df, "age_days", factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
   age_var <- "age_days"
   sex_age_var <- "sexMale_x_age"
 }
@@ -107,6 +103,15 @@ model$call$family <- model$family[[1]]
 
 #CENTILE FAN PLOT
 print("creating centile fan plot")
+#check if age is log-scaled
+if ("logAge_days" %in% pred_list){
+  print("simulate data for plotting")
+  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+} else {
+  print("simulate data for plotting")
+  sim_df <- sim_data(df, "age_days", factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
+}
+
   fan_plot <- make_centile_fan(gamlssModel=model, 
                                df=df, 
                                x_var=age_var, 
