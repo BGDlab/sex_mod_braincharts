@@ -18,6 +18,12 @@ mod_A <- readRDS(args[3])
 mod_B <- readRDS(args[4])
 save_path <- as.character(args[5])
 
+file_full <- paste0(save_path, "/model_objs/", pheno, "_brainchart.rds")
+#check if this pheno is already run, and if so, end
+if (file.exists(file_full)){
+  stop("Brainchart already fit, skipping pheno")
+}
+
 #load both A and B models
 mod_A$call$data <- "df"
 mod_B$call$data <- "df"
@@ -78,7 +84,6 @@ if (is.null(model)) {
 }
 
 print(paste("saving", pheno, "model"))
-file_full <- paste0(save_path, "/model_objs/", pheno, "_brainchart.rds")
 saveRDS(model, file=file_full)
 
 model$call$data <- "df"

@@ -10,45 +10,6 @@ base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 options(warn = 1)
 
-# ################
-# #testing new safe_gamlss version
-# safe_gamlss <- function (...) 
-# {
-#   print("new safe_gamlss")
-#   warn_list <- NULL
-#   mod <- withCallingHandlers({
-#     gamlss(...)
-#   }, warning = function(w) {
-#     warn_list <<- c(warn_list, w$message)
-#     if (grepl("Error", w$message, ignore.case = TRUE) || 
-#         grepl("converge", w$message, ignore.case = TRUE)) {
-#       stop(simpleError(w$message))
-#     }
-#   }, error = function(e) {
-#     stop(e)
-#   })
-#   null_mu <- is.null(coef(mod, what = "mu"))
-#   null_sigma <- is.null(coef(mod, what = "sigma"))
-#   if (null_mu && null_sigma) {
-#     stop("Model fit failed: coefficients are NULL")
-#   }
-#   if (mod$converged == FALSE) {
-#     stop("Model did not converge:", warn_msg)
-#   }
-#   
-#   #check warnings again
-#   warn_combined <- paste(warn_list, collapse = " | ")
-#   if (grepl("Error", warn_combined, ignore.case = TRUE) || 
-#       grepl("converge", warn_combined, ignore.case = TRUE)) {
-#     stop(paste("Model failed due to warning:", warn_combined))
-#   }
-#   
-#   return(mod)
-# }
-# #####################
-
-
-
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
@@ -56,6 +17,15 @@ df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 total <- as.logical(args[4])
+
+filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
+filename <- sub("BestMod", "test", filename_no_ext)
+file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
+
+#check if this pheno is already run, and if so, end
+if (file.exists(file_full)){
+  stop("Already tested, skipping pheno")
+}
 
 base_mod$call$data <- "df"
 pheno <- base_mod$mu.terms[[2]] %>% as.character()
@@ -116,9 +86,6 @@ if (is.null(model)) {
 	nu_diff <- base_mod$nu.lambda - model$nu.lambda
 	stopifnot(nu_diff < 0.01)}
 
-filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
-filename <- sub("BestMod", "test", filename_no_ext)
-file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
 print (paste("saving to", file_full))
 saveRDS(model, file=file_full)
 
