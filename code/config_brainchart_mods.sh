@@ -104,6 +104,12 @@ do
       modA=$(find $(realpath ./cv_sample_A_train/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods/) -type f -name "${pheno_line}_*_BestMod.rds")
       modB=$(find $(realpath ./cv_sample_B_train/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods/) -type f -name "${pheno_line}_*_BestMod.rds")
       
+      # skip to next pheno_line if either model is missing
+      if [[ -z "$modA" || -z "$modB" ]]; then
+          echo "Skipping $pheno_line — missing modA or modB"
+          continue
+      fi
+      
       # Write the CSV file path and the formula to the output file (tab-delimited)
       echo -e "$pheno_line\t$csv\t$modA\t$modB\t$save_path" >> "$config_file"
       done < "$pheno_list"
