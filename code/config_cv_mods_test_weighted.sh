@@ -42,7 +42,7 @@ do
     touch $config_file
   
   #get split df
-  file=$data_path/cv_sample_${split}_euler.csv
+  file=$(realpath $data_path/cv_sample_${split}_euler.csv)
   
   #LOOP THROUGH PHENO CATEGORIES
   for pheno_list in $(find $(realpath $pheno_lists) -type f -name "*.txt")
@@ -85,7 +85,7 @@ do
         # find training BestModel from model selection
         mapfile -t matches < <(find "$search_path" -type f -name "${pheno_line}_*weighted.rds")
         if [ ${#matches[@]} -eq 1 ]; then
-          og_mod="${matches[0]}"
+          og_mod=$(realpath "${matches[0]}")
           
           # Write the CSV file path and the formula to the output file (tab-delimited)
           echo -e "$file\t$og_mod\t$save_path\t$total" >> "$config_file"

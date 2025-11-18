@@ -51,7 +51,7 @@ if ("logAge_days" %in% pred_list){
 
 ##### PREP DATAFRAME #####
 #drop extra variables
-if (total == 'NULL'){
+if (total == "FALSE"){
   df <- full_df %>%
     dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "study_site", "w_norm"))) %>%
     na.omit() %>%

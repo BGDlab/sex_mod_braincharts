@@ -42,7 +42,7 @@ do
     touch $config_file
   
   #get split df
-  file=$data_path/cv_sample_${split}_euler.csv
+  file=$(realpath $data_path/cv_sample_${split}_euler.csv)
   
   #LOOP THROUGH PHENO CATEGORIES
   for pheno_list in $(find $(realpath $pheno_lists) -type f -name "*.txt")
@@ -74,7 +74,6 @@ do
         mkdir $save_dir
       fi
       save_path=$save_dir/weighted_${pheno_cat}_total${total}_logAge${log_age}_pbmods
-      #save_path=$(realpath $save_path) #get full paths
       if ! [ -d $save_path ]
       then
         mkdir $save_path
@@ -100,7 +99,7 @@ do
        -name "${pheno_line}_*BestMod.rds"
        )
         if [ ${#matches[@]} -eq 1 ]; then
-          og_mod="${matches[0]}"
+          og_mod=$(realpath "${matches[0]}")
           
           # Write the CSV file path and the formula to the output file (tab-delimited)
           echo -e "$file\t$fs\t$og_mod\t$save_path\t$total" >> "$config_file"
