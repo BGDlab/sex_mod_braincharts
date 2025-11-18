@@ -7,7 +7,7 @@ library(gamlss)
 gamlss_lambda <- function(pheno, lambda=NULL, 
                            fs_ver, fs_moment=c("both", "mu", "none", "all"), 
                            fam="GG",
-                           weight= FALSE,
+                           weight=NULL,
                            nu_form="1",
                            start.from=NULL){
   
@@ -50,8 +50,8 @@ gamlss_lambda <- function(pheno, lambda=NULL,
     control <- paste0("start.from = ", start.from,", ", control)
   }
   
-  if (weight==TRUE) {
-    control <- paste0("weights = weight, ", control)
+  if (!is.null(weight)) {
+    control <- paste0("weights =", weight, ", control")
   }
   
   #try methods
@@ -121,7 +121,7 @@ gamlss_lambda_rep <- function(og_mod,
                                null_mod=c("false", "true", "allSex"),
                                keep_lambdas=TRUE,
                                start.from=NULL,
-                               weight=FALSE){
+                               weight=NULL){
   
   pheno <- paste0(og_mod$mu.formula)[[2]]
   fam <- og_mod$family[1]
@@ -210,8 +210,8 @@ gamlss_lambda_rep <- function(og_mod,
     control <- paste0("start.from = ", start.from,", ", control)
   }
   
-  if (weight==TRUE) {
-    control <- paste0("weights = weight, ", control)
+  if (!is.null(weight)) {
+    control <- paste0("weights =", weight, ", control")
   }
   
   #try methods
@@ -289,7 +289,7 @@ gamlss_lambda_etiv <- function(pheno, lambda=NULL,
                                 total_var, total_moment=c("both", "mu", "none", "all"),
                                 fs_ver, fs_moment=c("both", "mu", "none", "all"), 
                                 fam="GG", 
-                                weight= FALSE,
+                                weight= NULL,
                                 nu_form="1",
                                 start.from=NULL){
   
@@ -346,8 +346,8 @@ gamlss_lambda_etiv <- function(pheno, lambda=NULL,
     control <- paste0("start.from = ", start.from,", ", control)
   }
   
-  if (weight==TRUE) {
-    control <- paste0("weights = weight, ", control)
+  if (!is.null(weight)) {
+    control <- paste0("weights =", weight, ", control")
   }
   
   #try methods
@@ -416,7 +416,7 @@ gamlss_lambda_etiv <- function(pheno, lambda=NULL,
 gamlss_age <- function(pheno, lambda=NULL, 
                            fs_ver, fs_moment=c("both", "mu", "none", "all"), 
                            fam="GG",
-                           weight= FALSE,
+                           weight= NULL,
                            nu_form="1",
                            start.from=NULL){
   
@@ -459,8 +459,8 @@ gamlss_age <- function(pheno, lambda=NULL,
     control <- paste0("start.from = ", start.from,", ", control)
   }
   
-  if (weight==TRUE) {
-    control <- paste0("weights = weight, ", control)
+  if (!is.null(weight)) {
+    control <- paste0("weights =", weight, ", control")
   }
   
   #try methods
