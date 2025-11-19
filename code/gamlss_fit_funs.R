@@ -51,7 +51,7 @@ gamlss_lambda <- function(pheno, lambda=NULL,
   }
   
   if (!is.null(weight)) {
-    control <- paste0("weights =", weight, ", control")
+    control <- paste0("weights = df$", weight, ",", control)
   }
   
   #try methods
@@ -211,7 +211,7 @@ gamlss_lambda_rep <- function(og_mod,
   }
   
   if (!is.null(weight)) {
-    control <- paste0("weights =", weight, ", control")
+    control <- paste0("weights = df$", weight, ",", control)
   }
   
   #try methods
@@ -347,7 +347,7 @@ gamlss_lambda_etiv <- function(pheno, lambda=NULL,
   }
   
   if (!is.null(weight)) {
-    control <- paste0("weights =", weight, ", control")
+    control <- paste0("weights = df$", weight, ",", control)
   }
   
   #try methods
@@ -460,7 +460,7 @@ gamlss_age <- function(pheno, lambda=NULL,
   }
   
   if (!is.null(weight)) {
-    control <- paste0("weights =", weight, ", control")
+    control <- paste0("weights = df$", weight, ",", control)
   }
   
   #try methods
