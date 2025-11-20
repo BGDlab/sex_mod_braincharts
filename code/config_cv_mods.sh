@@ -7,13 +7,15 @@ data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 
-# Parse named arguments
+rerun="FALSE"
+
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --log_pheno) log_pheno="$2"; shift 2 ;;
     --total) total="$2"; shift 2 ;;
     --log_age) log_age="$2"; shift 2 ;;
     --sm) sm="$2"; shift 2 ;;
+    --rerun) rerun="$2"; shift 2 ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
 done
@@ -21,7 +23,7 @@ done
 # Check that all required arguments are provided
 if [[ -z "$log_pheno" || -z "$total" || -z "$log_age" || -z "$sm" ]]; then
   echo "Missing arguments. Usage:"
-  echo "--log_pheno TRUE/FALSE --total TRUE/FALSE --log_age TRUE/FALSE --sm 'pb'/'cs'"
+  echo "--log_pheno TRUE/FALSE --total TRUE/FALSE --log_age TRUE/FALSE --sm 'pb'/'cs' [--rerun TRUE/FALSE]"
   exit 1
 fi
 
@@ -33,7 +35,12 @@ echo "smooth = $sm"
 
 
 #make config file dir or remove old file if necessary
+if [[ "$rerun" == "TRUE" ]]; then
+  date_tag=$(date +%Y%m%d)
+  config_file=$config_path/cv_mods_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_rerun${date_tag}_config.txt
+else
   config_file=$config_path/cv_mods_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_config.txt
+fi
     if ! [ -d $config_path ]
     then
       mkdir $config_path
@@ -104,10 +111,17 @@ do
         #LOOP THROUGH PHENOS
         while read -r pheno_line
         do
-        
+        if [[ "$rerun" == "TRUE" ]]; then
+          best_file=$(ls ${save_path}/model_objs/${pheno_line}*_BestMod.rds 2>/dev/null | head -n 1 || true)
+          if [[ -n "$best_file" ]]; then
+            echo "Skipping $pheno_line (BestMod found)"
+            continue
+          fi
+        fi
+
         csv=$data_path/${filename}_dfs/${pheno_line}_totalTRUE_logPheno${log_pheno}_logAge${log_age}.csv
         csv=$(realpath $csv)
-        
+
         # Write the CSV file path and the formula to the output file (tab-delimited)
           echo -e "$csv\t$pheno_line\t$fs\t$tot\t$save_path\t$log_pheno\t$log_age\t$sm" >> "$config_file"
         done < "$pheno_list"
@@ -117,7 +131,14 @@ do
         #LOOP THROUGH PHENOS
         while read -r pheno_line
         do
-        
+        if [[ "$rerun" == "TRUE" ]]; then
+          best_file=$(ls ${save_path}/model_objs/${pheno_line}*_BestMod.rds 2>/dev/null | head -n 1 || true)
+          if [[ -n "$best_file" ]]; then
+            echo "Skipping $pheno_line (BestMod found)"
+            continue
+          fi
+        fi
+
         csv=$data_path/${filename}_dfs/${pheno_line}_totalFALSE_logPheno${log_pheno}_logAge${log_age}.csv
         csv=$(realpath $csv)
 
