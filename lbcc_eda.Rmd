@@ -85,7 +85,7 @@ df2 <- df %>%
             TRUE ~  rowSums(across(all_of(ss_subcort_list)), na.rm=FALSE)),
          WMV = case_when(!is.na(WMV) ~ WMV,
             !is.na(CerebralWhiteMatterVol) ~ CerebralWhiteMatterVol,
-            !is.na(lhCerebralWhiteMatterVol) & !is.na(rhCerebralWhiteMatterVol) ~  lhCerebralWhiteMatterVol + rhCerebralWhiteMatterVol,
+            #!is.na(lhCerebralWhiteMatterVol) & !is.na(rhCerebralWhiteMatterVol) ~  lhCerebralWhiteMatterVol + rhCerebralWhiteMatterVol,
             #!is.na(right.cerebral.white.matter) & !is.na(left.cerebral.white.matter) ~ right.cerebral.white.matter + left.cerebral.white.matter
             ),
          CSF = case_when(!is.na(CSF) ~ CSF,
@@ -751,13 +751,13 @@ fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 # Visualize Data
 
 ```{r, eval=FALSE}
-# df_clean <- fread("./data/v3_CN_cleaned.csv", stringsAsFactors=T)
-# glob_vol_list <- readRDS("./pheno_lists/global_vols.rds")
-# gmv_list <- readRDS("./pheno_lists/cortical_vols.rds")
-# subcort_list <- readRDS("./pheno_lists/subcortical_vols.rds")
-# ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
-# sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
-# pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
+df_clean <- fread("./data/v3_CN_cleaned.csv", stringsAsFactors=T)
+glob_vol_list <- readRDS("./pheno_lists/global_vols.rds")
+gmv_list <- readRDS("./pheno_lists/cortical_vols.rds")
+subcort_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
+sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
+pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
 ```
 
 basic demographics

@@ -1,0 +1,46 @@
+---
+title: "sample_review"
+output: html_document
+date: "2025-10-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, skimr, dplyr, gamlss)
+```
+
+# CV Split A
+
+rh.CT.transversetemporal A
+```{r}
+rh.CT.transversetemporal <- fread("data/cv_sample_A_dfs/rh.CT.transversetemporal_totalFALSE_logPhenoFALSE_logAgeTRUE.csv")
+
+ggplot(rh.CT.transversetemporal) +
+  geom_point(aes(x=logAge_days, y=rh.CT.transversetemporal), alpha=.4)
+
+#compare to lh
+lh.CT.transversetemporal <- fread("data/cv_sample_A_dfs/lh.CT.transversetemporal_totalFALSE_logPhenoFALSE_logAgeTRUE.csv")
+
+ggplot(lh.CT.transversetemporal) +
+  geom_point(aes(x=logAge_days, y=lh.CT.transversetemporal), alpha=.4)
+
+fitDist(rh.CT.transversetemporal$rh.CT.transversetemporal) #BCTo
+fitDist(lh.CT.transversetemporal$lh.CT.transversetemporal) #BCTo
+
+ggplot() +
+  geom_histogram(aes(x=rh.CT.transversetemporal$rh.CT.transversetemporal))
+ggplot() +
+  geom_histogram(aes(x=lh.CT.transversetemporal$lh.CT.transversetemporal))
+```
+
+#
