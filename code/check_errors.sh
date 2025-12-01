@@ -25,28 +25,28 @@ if [ ${#err_files[@]} -eq 0 ]; then
     echo "${#err_files[@]} files found, checking..."
 fi
 
-for error_pattern in "Error in" "Killed" "halted" "error"; do
-    grep -RH --after-context=2 "$error_pattern" "${err_files[@]}" 2>/dev/null | awk -v pat="$error_pattern" '
-    BEGIN { filename = "" }
-    /^--$/ { next }
-    {
-      if ($1 ~ /\.err:/) {
-        newfile = substr($1, 1, index($1, ":")-1)
-        if (newfile != filename) {
-          filename = newfile
-          print "\nFile: " filename
-        }
-        $1=""
-        sub(/^:/,"")
-      }
-      # Highlight the error pattern line
-      if (index($0, pat) > 0) {
-        print "ERROR FOUND: "$0
-      } else {
-        print $0
-      }
-    }'
-done
+# Search for common error patterns once to avoid duplicate printing when multiple patterns hit the same lines
+grep -RH --after-context=2 -E "Error in|Killed|halted|error" "${err_files[@]}" 2>/dev/null | awk '
+BEGIN { filename = "" }
+/^--$/ { next }
+{
+  if ($1 ~ /\.err:/) {
+    newfile = substr($1, 1, index($1, ":")-1)
+    if (newfile != filename) {
+      filename = newfile
+      print "\nFile: " filename
+    }
+    $1=""
+    sub(/^:/,"")
+  }
+  line = $0
+  # Highlight the error pattern line
+  if (line ~ /Error in|Killed|halted|error/) {
+    print "ERROR FOUND: " line
+  } else {
+    print line
+  }
+}'
 
 
 
