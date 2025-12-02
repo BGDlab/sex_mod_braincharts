@@ -99,8 +99,7 @@ if ("logAge_days" %in% pred_list){
                                get_peaks=TRUE, 
                                desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df,
-                               remove_point_effect = resid_terms,
-                               y_scale=unscale_fun)  +
+                               remove_point_effect = resid_terms)  +
     labs(title=paste(pheno, "QC-weighted model"),
          x ="log Age (days)",
          color = "Sex=Male", fill="Sex=Male")

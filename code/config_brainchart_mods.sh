@@ -10,7 +10,6 @@ pheno_lists=./pheno_lists
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    --log_pheno) log_pheno="$2"; shift 2 ;;
     --total) total="$2"; shift 2 ;;
     --log_age) log_age="$2"; shift 2 ;;
     --sm) sm="$2"; shift 2 ;;
@@ -19,21 +18,20 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Check that all required arguments are provided
-if [[ -z "$log_pheno" || -z "$total" || -z "$log_age" || -z "$sm" ]]; then
+if [[ -z "$total" || -z "$log_age" || -z "$sm" ]]; then
   echo "Missing arguments. Usage:"
-  echo "--log_pheno TRUE/FALSE --total TRUE/FALSE --log_age TRUE/FALSE --sm 'pb'/'cs'"
+  echo "--total TRUE/FALSE --log_age TRUE/FALSE --sm 'pb'/'cs'"
   exit 1
 fi
 
 # Print arguments
-echo "log scale pheno = $log_pheno"
 echo "include total value = $total"
 echo "log scale age = $log_age"
 echo "smooth = $sm"
 
 
 #make config file dir or remove old file if necessary
-  config_file=$config_path/brainchart_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_config.txt
+  config_file=$config_path/brainchart_total${total}_logAge${log_age}_sm${sm}_config.txt
     if ! [ -d $config_path ]
     then
       mkdir $config_path
@@ -59,7 +57,7 @@ do
         mkdir $save_dir
       fi
       #name subdir based on whether total is controlled for
-      save_path=$save_dir/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods
+      save_path=$save_dir/${pheno_cat}_total${total}_logAge${log_age}_${sm}mods
       save_path=$(realpath $save_path) #get full paths
       if ! [ -d $save_path ]
       then
@@ -96,13 +94,41 @@ do
       while read -r pheno_line
       do
         
-      #get data for pheno
-      csv=$data_path/pheno_dfs_total${total}/${pheno_line}_total${total}_logPheno${log_pheno}_logAge${log_age}.csv
-      csv=$(realpath $csv)
+      #get data for pheno - handle optional _logPheno*_ in filename
+      mapfile -t csv_matches < <(find $(realpath $data_path/pheno_dfs_total${total}) -type f -name "${pheno_line}_total${total}*logAge${log_age}.csv" 2>/dev/null)
+      if [ ${#csv_matches[@]} -gt 1 ]; then
+        echo "Error: Multiple CSV files found for $pheno_line:"
+        printf '%s\n' "${csv_matches[@]}"
+        exit 1
+      elif [ ${#csv_matches[@]} -eq 0 ]; then
+        echo "Warning: No CSV found for $pheno_line, skipping"
+        continue
+      else
+        csv=$(realpath "${csv_matches[0]}")
+      fi
       
-      #get models from 1/2 data sets
-      modA=$(find $(realpath ./cv_sample_A_train/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods/) -type f -name "${pheno_line}_*_BestMod.rds")
-      modB=$(find $(realpath ./cv_sample_B_train/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods/) -type f -name "${pheno_line}_*_BestMod.rds")
+      #get models from 1/2 data sets - handle optional _logPheno*_ in directory names
+      mapfile -t modA_matches < <(find $(realpath ./cv_sample_A_train) -path "*${pheno_cat}_total${total}*logAge${log_age}_${sm}mods/*" -type f -name "${pheno_line}_*_BestMod.rds" 2>/dev/null)
+      if [ ${#modA_matches[@]} -gt 1 ]; then
+        echo "Error: Multiple modA files found for $pheno_line:"
+        printf '%s\n' "${modA_matches[@]}"
+        exit 1
+      elif [ ${#modA_matches[@]} -eq 1 ]; then
+        modA="${modA_matches[0]}"
+      else
+        modA=""
+      fi
+      
+      mapfile -t modB_matches < <(find $(realpath ./cv_sample_B_train) -path "*${pheno_cat}_total${total}*logAge${log_age}_${sm}mods/*" -type f -name "${pheno_line}_*_BestMod.rds" 2>/dev/null)
+      if [ ${#modB_matches[@]} -gt 1 ]; then
+        echo "Error: Multiple modB files found for $pheno_line:"
+        printf '%s\n' "${modB_matches[@]}"
+        exit 1
+      elif [ ${#modB_matches[@]} -eq 1 ]; then
+        modB="${modB_matches[0]}"
+      else
+        modB=""
+      fi
       
       # skip to next pheno_line if either model is missing
       if [[ -z "$modA" || -z "$modB" ]]; then

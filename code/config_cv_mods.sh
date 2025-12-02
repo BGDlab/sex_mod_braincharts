@@ -11,7 +11,6 @@ rerun="FALSE"
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    --log_pheno) log_pheno="$2"; shift 2 ;;
     --total) total="$2"; shift 2 ;;
     --log_age) log_age="$2"; shift 2 ;;
     --sm) sm="$2"; shift 2 ;;
@@ -21,14 +20,13 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Check that all required arguments are provided
-if [[ -z "$log_pheno" || -z "$total" || -z "$log_age" || -z "$sm" ]]; then
+if [[ -z "$total" || -z "$log_age" || -z "$sm" ]]; then
   echo "Missing arguments. Usage:"
-  echo "--log_pheno TRUE/FALSE --total TRUE/FALSE --log_age TRUE/FALSE --sm 'pb'/'cs' [--rerun TRUE/FALSE]"
+  echo "--total TRUE/FALSE --log_age TRUE/FALSE --sm 'pb'/'cs' [--rerun TRUE/FALSE]"
   exit 1
 fi
 
 # Print arguments
-echo "log scale pheno = $log_pheno"
 echo "include total value = $total"
 echo "log scale age = $log_age"
 echo "smooth = $sm"
@@ -37,9 +35,9 @@ echo "smooth = $sm"
 #make config file dir or remove old file if necessary
 if [[ "$rerun" == "TRUE" ]]; then
   date_tag=$(date +%Y%m%d)
-  config_file=$config_path/cv_mods_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_rerun${date_tag}_config.txt
+  config_file=$config_path/cv_mods_total${total}_logAge${log_age}_sm${sm}_rerun${date_tag}_config.txt
 else
-  config_file=$config_path/cv_mods_logPheno${log_pheno}_total${total}_logAge${log_age}_sm${sm}_config.txt
+  config_file=$config_path/cv_mods_total${total}_logAge${log_age}_sm${sm}_config.txt
 fi
     if ! [ -d $config_path ]
     then
@@ -77,7 +75,7 @@ do
         mkdir $save_dir
       fi
       #name subdir based on whether total is controlled for
-      save_path=$save_dir/${pheno_cat}_total${total}_logPheno${log_pheno}_logAge${log_age}_${sm}mods
+      save_path=$save_dir/${pheno_cat}_total${total}_logAge${log_age}_${sm}mods
       save_path=$(realpath $save_path) #get full paths
       if ! [ -d $save_path ]
       then
@@ -119,11 +117,21 @@ do
           fi
         fi
 
-        csv=$data_path/${filename}_dfs/${pheno_line}_totalTRUE_logPheno${log_pheno}_logAge${log_age}.csv
-        csv=$(realpath $csv)
+        # Handle optional _logPheno*_ in filename
+        mapfile -t csv_matches < <(find $(realpath $data_path/${filename}_dfs) -type f -name "${pheno_line}_totalTRUE*logAge${log_age}.csv" 2>/dev/null)
+        if [ ${#csv_matches[@]} -gt 1 ]; then
+          echo "Error: Multiple CSV files found for $pheno_line:"
+          printf '%s\n' "${csv_matches[@]}"
+          exit 1
+        elif [ ${#csv_matches[@]} -eq 0 ]; then
+          echo "Warning: No CSV found for $pheno_line, skipping"
+          continue
+        else
+          csv=$(realpath "${csv_matches[0]}")
+        fi
 
         # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$csv\t$pheno_line\t$fs\t$tot\t$save_path\t$log_pheno\t$log_age\t$sm" >> "$config_file"
+          echo -e "$csv\t$pheno_line\t$fs\t$tot\t$save_path\t$log_age\t$sm" >> "$config_file"
         done < "$pheno_list"
       
       elif [[ $total == "FALSE" ]]; then
@@ -139,11 +147,21 @@ do
           fi
         fi
 
-        csv=$data_path/${filename}_dfs/${pheno_line}_totalFALSE_logPheno${log_pheno}_logAge${log_age}.csv
-        csv=$(realpath $csv)
+        # Handle optional _logPheno*_ in filename
+        mapfile -t csv_matches < <(find $(realpath $data_path/${filename}_dfs) -type f -name "${pheno_line}_totalFALSE*logAge${log_age}.csv" 2>/dev/null)
+        if [ ${#csv_matches[@]} -gt 1 ]; then
+          echo "Error: Multiple CSV files found for $pheno_line:"
+          printf '%s\n' "${csv_matches[@]}"
+          exit 1
+        elif [ ${#csv_matches[@]} -eq 0 ]; then
+          echo "Warning: No CSV found for $pheno_line, skipping"
+          continue
+        else
+          csv=$(realpath "${csv_matches[0]}")
+        fi
 
         # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$csv\t$pheno_line\t$fs\tNULL\t$save_path\t$log_pheno\t$log_age\t$sm" >> "$config_file"
+          echo -e "$csv\t$pheno_line\t$fs\tNULL\t$save_path\t$log_age\t$sm" >> "$config_file"
         done < "$pheno_list"
       fi
   chmod 777 -R $save_path

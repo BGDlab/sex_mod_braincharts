@@ -43,7 +43,7 @@ dir_paths <- list()
 dir_paths[[1]] <- list(
   csv_dir = "data/pheno_dfs_totalFALSE",
   rds_dir = "braincharts/subcortical_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods",
-  csv_path = "totalFALSE_logPhenoTRUE_logAgeTRUE\\.csv$",
+  csv_path = "totalFALSE.*logAgeTRUE\\.csv$",  # Handle optional _logPheno*_ in filename
   log_age=TRUE
 )
 

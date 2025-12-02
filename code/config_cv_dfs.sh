@@ -10,7 +10,6 @@ pheno_lists=./pheno_lists
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    --log_pheno) log_pheno="$2"; shift 2 ;;
     --total) total="$2"; shift 2 ;;
     --log_age) log_age="$2"; shift 2 ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
@@ -18,14 +17,13 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Check that all required arguments are provided
-if [[ -z "$log_pheno" || -z "$total" || -z "$log_age" ]]; then
+if [[ -z "$total" || -z "$log_age" ]]; then
   echo "Missing arguments. Usage:"
-  echo "--log_pheno TRUE/FALSE --total TRUE/FALSE --log_age TRUE/FALSE"
+  echo "--total TRUE/FALSE --log_age TRUE/FALSE"
   exit 1
 fi
 
 # Print arguments
-echo "log scale pheno = $log_pheno"
 echo "include total value = $total"
 echo "log scale age = $log_age"
 
@@ -49,7 +47,7 @@ do
   
   #CREATE OUTPUT DIRS
   #make config file dir or remove old file if necessary
-  config_file=$config_path/${filename}_logPheno${log_pheno}_total${total}_logAge${log_age}_df_config.txt
+  config_file=$config_path/${filename}_total${total}_logAge${log_age}_df_config.txt
   if ! [ -d $config_path ]
   then
     mkdir $config_path
@@ -91,7 +89,7 @@ do
       while read -r pheno_line
       do
       # Write the CSV file path and the formula to the output file (tab-delimited) test
-        echo -e "$file\t$pheno_line\t$fs\t$tot\t$log_pheno\t$log_age\t$save_path" >> "$config_file"
+        echo -e "$file\t$pheno_line\t$fs\t$tot\t$log_age\t$save_path" >> "$config_file"
       done < "$pheno_list"
       
     elif [[ $total == "FALSE" ]]; then
@@ -100,7 +98,7 @@ do
       while read -r pheno_line
       do
       # Write the CSV file path and the formula to the output file (tab-delimited)
-        echo -e "$file\t$pheno_line\t$fs\tNULL\t$log_pheno\t$log_age\t$save_path" >> "$config_file"
+        echo -e "$file\t$pheno_line\t$fs\tNULL\t$log_age\t$save_path" >> "$config_file"
       done < "$pheno_list"
     fi
   done
