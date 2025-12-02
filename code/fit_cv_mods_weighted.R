@@ -24,9 +24,9 @@ filename <- sub("BestMod", "train", filename_no_ext)
 file_full <- paste0(save_path, "/model_objs/", filename, "_weighted.rds")
 
 #check if this pheno is already run, and if so, end
-if (file.exists(file_full)){
-  stop("Already tested, skipping pheno")
-}
+#if (file.exists(file_full)){
+ # stop("Already tested, skipping pheno")
+#}
 
 ##### READ INFO #####
 base_mod$call$data <- "df"
@@ -78,7 +78,7 @@ if (is.null(model)) {
 print (paste("saving to", file_full))
 saveRDS(model, file=file_full)
 
-model$call$data <- df
+model$call$data <- "df"
 model$call$family <- model$family[[1]]
 
 #CENTILE FAN PLOT
@@ -115,6 +115,8 @@ if ("logAge_days" %in% pred_list){
   #COMPILE
     print("compiling stats")
     #centiles
+    #print(names(df))
+    #print(list_predictors(model))
     results_df <- cent_cdf(model, df, plot=FALSE, group="sexMale")
     
     #BIC & AIC
