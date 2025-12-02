@@ -119,17 +119,16 @@ if ("logAge_days" %in% pred_list){
                                get_peaks=TRUE, 
                                desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df,
-                               remove_point_effect = resid_terms,
-                               y_scale=unscale_fun)  +
+                               remove_point_effect = resid_terms)  +
     labs(title=paste(pheno, "QC-weighted validation model"),
-         x ="log Age (days)",
+         x =age_var,
          color = "Sex=Male", fill="Sex=Male")
     
     ggsave(file=paste0(save_path, "/centile_plots/", filename, ".png"), fan_plot)
     
   #WORM PLOT
     print("creating worm plot")
-    wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=6)$plot +
+    wp <- wp.taki(xvar=df[[age_var]], resid=resid(model), n.inter=6)$plot +
       ggtitle(paste(pheno, "QC-weighted validation model"))
     ggsave(file=paste0(save_path, "/worm_plots/", filename, ".png"), wp)
     

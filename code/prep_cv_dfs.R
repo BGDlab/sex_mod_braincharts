@@ -16,9 +16,8 @@ df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 pheno <- as.character(args[2]) #phenotype
 fs <- as.character(args[3]) #freesurfer version
 total <- as.character(args[4]) # total pheno to control for (or NULL)
-log_pheno <- as.logical(args[5]) #log-scale pheno TRUE/FALSE
-log_age <- as.logical(args[6]) #log-scale age TRUE/FALSE
-save_path <- as.character(args[7]) #path to save df
+log_age <- as.logical(args[5]) #log-scale age TRUE/FALSE
+save_path <- as.character(args[6]) #path to save df
 
 
 #log-scale age if necessary
@@ -45,14 +44,6 @@ if (total == 'NULL'){
 
 print(names(df))
 
-#log-scale pheno if necessary
-if (log_pheno == TRUE){
-  pheno_sym <- sym(pheno)
-  
-  df <- df %>%
-    mutate(!!pheno_sym := log_scale(!!pheno_sym)) #transform
-}
-
 #total name
 if (total=="NULL"){
   total_tf <- "FALSE"
@@ -60,6 +51,6 @@ if (total=="NULL"){
   total_tf <- "TRUE"
 }
 
-fwrite(df, file=paste0(save_path, "/", pheno, "_total", total_tf, "_logPheno", log_pheno, "_logAge" , log_age, ".csv"))
+fwrite(df, file=paste0(save_path, "/", pheno, "_total", total_tf, "_logAge" , log_age, ".csv"))
 
 print("DONE")

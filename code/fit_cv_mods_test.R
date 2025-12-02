@@ -50,14 +50,6 @@ if ("logAge_days" %in% pred_list){
   age_var <- "age_days"
 }
 
-#check if pheno is log-scaled
-log_pheno <- gsub(".*_logPheno(TRUE|FALSE)_.*", "\\1", as.character(args[1])) %>%
-  as.logical()
-if (log_pheno==TRUE){
-  unscale_fun <- unscale
-} else {
-  unscale_fun <- NULL
-}
 
 #FIT BASIC MODEL
 model <- gamlss_lambda_rep(base_mod, null_mod="false")
@@ -101,8 +93,7 @@ print("creating centile fan plot")
                                get_peaks=TRUE, 
                                desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df,
-                               remove_point_effect = resid_terms,
-                               y_scale=unscale_fun)  +
+                               remove_point_effect = resid_terms)  +
     labs(title=paste(pheno, "validation model"),
          x ="log Age (days)",
          color = "Sex=Male", fill="Sex=Male")
@@ -111,7 +102,7 @@ print("creating centile fan plot")
     
   #WORM PLOT
     print("creating worm plot")
-    wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=6)$plot +
+    wp <- wp.taki(xvar=df[[age_var]], resid=resid(model), n.inter=6)$plot +
       ggtitle(paste(pheno, "validation model"))
     ggsave(file=paste0(save_path, "/worm_plots/", filename, ".png"), wp)
     

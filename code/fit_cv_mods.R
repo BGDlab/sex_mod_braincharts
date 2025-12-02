@@ -17,9 +17,8 @@ pheno <- as.character(args[2])
 fs <- as.character(args[3])
 total <- as.character(args[4])
 save_path <- as.character(args[5])
-log_pheno <- as.logical(args[6])
-log_age <- as.logical(args[7])
-sm <- as.character(args[8])
+log_age <- as.logical(args[6])
+sm <- as.character(args[7])
 
 family <- "BCTo"
 
@@ -236,20 +235,13 @@ if (fs %in% list_predictors(best_mod)){
   resid_terms <- "study_site"
 }
 
-if (log_pheno==TRUE){
-  unscale_fun <- unscale
-} else {
-  unscale_fun <- NULL
-}
-
 #plot
 fan_plot <- make_centile_fan(gamlssModel=best_mod, df=df,
                              x_var=age_var,
                              color_var="sexMale",
                              get_peaks=FALSE, desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
-                             remove_point_effect = resid_terms,
-                             y_scale=unscale_fun) +
+                             remove_point_effect = resid_terms) +
   labs(title=paste(pheno, "\nsmoothed w/", sm, ",", best_bic$m_name),
        x = age_var,
        color = "Sex=Male", fill="Sex=Male")
