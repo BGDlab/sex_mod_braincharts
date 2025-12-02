@@ -51,23 +51,31 @@ if (length(term_list_A) == length(term_list_B)) {
   print(paste("randomly selecting model", random_mod))
   if (random_mod == "A"){
     mod_to_fit <- mod_A
+    alt_mod <- mod_B
   } else {
     mod_to_fit <- mod_B
+    alt_mod <- mod_A
   }
 
 } else if (length(term_list_A) < length(term_list_B)) {
   # use mod A
   print("using model A")
   mod_to_fit <- mod_A
+  alt_mod <- mod_B
   
 } else if (length(term_list_A) > length(term_list_B)){
   # use mod B
   print("using model B")
   mod_to_fit <- mod_B
+  alt_mod <- mod_A
   
 } else {
   stop("can't find simpler model")
 }
+
+#clean up
+rm(mod_A)
+rm(mod_B)
 
 ######### FIT MODEL #########
 
@@ -75,13 +83,24 @@ model <- gamlss_lambda_rep(mod_to_fit,
                    null_mod="false",
                    keep_lambdas=FALSE,
                    start.from=NULL,
-                   weight=FALSE)
+                   weight=NULL)
 
-#if model isn't fit, skip to next loop
+#if model isn't fit, try other model
+if (is.null(model)) {
+  message("model fitting failed, trying other CV mod")
+  model <- gamlss_lambda_rep(alt_mod,
+                             null_mod="false",
+                             keep_lambdas=FALSE,
+                             start.from=NULL,
+                             weight=NULL)
+}
+
+#if fails again, stop
 if (is.null(model)) {
   message("model fitting failed")
   stop()
 }
+
 
 print(paste("saving", pheno, "model"))
 saveRDS(model, file=file_full)
