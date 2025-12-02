@@ -26,26 +26,27 @@ if [ ${#err_files[@]} -eq 0 ]; then
 fi
 
 # Search for common error patterns once to avoid duplicate printing when multiple patterns hit the same lines
-grep -RH --after-context=2 --before-context=2 -E "Error in|Killed|halted|error" "${err_files[@]}" 2>/dev/null | awk '
+grep -RH --before-context=2 --after-context=2 -E "Error in|Killed|halted|error" "${err_files[@]}" 2>/dev/null | awk '
+
 BEGIN { filename = "" }
-/^--$/ { next }
+/^--$/ { 
+  # Reset filename when we hit a separator so next file prints its header
+  filename = ""
+  next 
+}
 {
-  if ($1 ~ /\.err:/) {
-    newfile = substr($1, 1, index($1, ":")-1)
+  # Check if line starts with a filename (contains .err:)
+  if (match($0, /^[^:]+\.err:/)) {
+    newfile = substr($0, 1, RLENGTH - 1)
+    # Remove filename prefix from the line
+    $0 = substr($0, RLENGTH + 1)
+    # Print filename header only if it changed
     if (newfile != filename) {
       filename = newfile
       print "\nFile: " filename
     }
-    $1=""
-    sub(/^:/,"")
   }
-  line = $0
-  # Highlight the error pattern line
-  if (line ~ /Error in|Killed|halted|error/) {
-    print "ERROR FOUND: " line
-  } else {
-    print line
-  }
+  print $0
 }'
 
 
