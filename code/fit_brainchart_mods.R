@@ -98,7 +98,7 @@ if (is.null(model)) {
 #if fails again, stop
 if (is.null(model)) {
   message("model fitting failed")
-  stop()
+  stop("model fitting failed")
 }
 
 

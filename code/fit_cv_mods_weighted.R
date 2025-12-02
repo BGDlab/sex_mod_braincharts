@@ -72,7 +72,7 @@ model <- gamlss_lambda_rep(base_mod,
 #if model isn't fit, skip to next loop
 if (is.null(model)) {
   message("model fitting failed")
-  stop()
+  stop("model fitting failed")
 }
 
 print (paste("saving to", file_full))

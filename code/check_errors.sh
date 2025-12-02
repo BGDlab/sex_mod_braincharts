@@ -26,7 +26,7 @@ if [ ${#err_files[@]} -eq 0 ]; then
 fi
 
 # Search for common error patterns once to avoid duplicate printing when multiple patterns hit the same lines
-grep -RH --before-context=2 --after-context=2 -E "Error in|Killed|halted|error" "${err_files[@]}" 2>/dev/null | awk '
+grep -RH --after-context=2 -E "Error in|Killed|halted|error" "${err_files[@]}" 2>/dev/null | awk '
 
 BEGIN { filename = "" }
 /^--$/ { 
