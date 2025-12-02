@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
-#SBATCH --array=1-239%20 #total count = 239
+#SBATCH --array=1-239%100 #total count = 239
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/bc_dfs/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/bc_dfs/R-%A_%a.err
 
@@ -19,15 +19,13 @@ DF=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFI
 PHENO=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
 FS=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
 TOTAL=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
-LOG_PHENO=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
-LOG_AGE=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
-SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $8}' $CONFIGFN )
+LOG_AGE=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
+SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
 
 echo "DF: $DF"
 echo "PHENOTYPE: $PHENO"
 echo "FREESURFER: $FS"
 echo "TOTAL: $TOTAL"
-echo "SCALE PHENO: $LOG_PHENO"
 echo "SCALE AGE: $LOG_AGE"
 echo "SAVE_PATH: $SAVE_PATH"
 
@@ -40,7 +38,7 @@ singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
     Rscript $BASE/code/prep_cv_dfs.R \
-    $DF $PHENO $FS $TOTAL $LOG_PHENO $LOG_AGE $SAVE_PATH
+    $DF $PHENO $FS $TOTAL $LOG_AGE $SAVE_PATH
 
 # Done!
 echo "Job finished running!"

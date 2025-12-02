@@ -7,12 +7,14 @@ data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 
-# Parse named arguments
+rerun="FALSE"
+
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --log_pheno) log_pheno="$2"; shift 2 ;;
     --total) total="$2"; shift 2 ;;
     --log_age) log_age="$2"; shift 2 ;;
+    --rerun) rerun="$2"; shift 2 ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
 done
@@ -20,9 +22,14 @@ done
 # Check that all required arguments are provided
 if [[ -z "$log_pheno" || -z "$total" || -z "$log_age" ]]; then
   echo "Missing arguments. Usage:"
-  echo "--log_pheno TRUE/FALSE --total TRUE/FALSE --log_age TRUE/FALSE"
+  echo "--log_pheno TRUE/FALSE --total TRUE/FALSE --log_age TRUE/FALSE [--rerun TRUE/FALSE]"
   exit 1
 fi
+
+# Print arguments
+echo "log scale pheno = $log_pheno"
+echo "include total value = $total"
+echo "log scale age = $log_age"
 
 #LOOP THROUGH 1/2 CSVS
 for split in A B #og_file in $(find $(realpath $data_path/cv_sample_?_dfs)  -type f -name "*total${total}_logPheno${log_pheno}_logAge${log_age}.csv")
@@ -31,7 +38,12 @@ do
   echo "prepping: $split"
   
     #make config file dir or remove old file if necessary
-    config_file=$config_path/cv_sample_${split}_logPheno${log_pheno}_total${total}_logAge${log_age}_test_config.txt
+    if [[ "$rerun" == "TRUE" ]]; then
+      date_tag=$(date +%Y%m%d)
+      config_file=$config_path/cv_sample_${split}_logPheno${log_pheno}_total${total}_logAge${log_age}_test_rerun${date_tag}_config.txt
+    else
+      config_file=$config_path/cv_sample_${split}_logPheno${log_pheno}_total${total}_logAge${log_age}_test_config.txt
+    fi
     if ! [ -d $config_path ]
     then
       mkdir $config_path
@@ -80,6 +92,16 @@ do
       #LOOP THROUGH BESTMODS
       while read -r pheno_line
       do
+      
+      #skip already tested models if rerunning
+      if [[ "$rerun" == "TRUE" ]]; then
+          test_csv=$(ls ${save_path}/model_sums/${pheno_line}*_LRtest.csv 2>/dev/null | head -n 1 || true)
+          if [[ -n "$test_csv" ]]; then
+            echo "Skipping $pheno_line (LR Test found)"
+            continue
+          fi
+        fi
+      
         #write csv to test in
 	file=$(find $(realpath $data_path/cv_sample_${split}_dfs) -type f -name "${pheno_line}_total${total}_logPheno${log_pheno}_logAge${log_age}.csv")
 	
