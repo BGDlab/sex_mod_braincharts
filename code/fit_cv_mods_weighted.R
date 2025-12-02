@@ -19,7 +19,7 @@ base_mod <- readRDS(args[3])
 save_path <- as.character(args[4])
 total <- as.logical(args[5])
 
-filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
+filename_no_ext <- sub("\\.[^.]*$", "", basename(args[1]))
 filename <- sub("BestMod", "train", filename_no_ext)
 file_full <- paste0(save_path, "/model_objs/", filename, "_weighted.rds")
 

@@ -230,9 +230,9 @@ female_deriv <- dy_female/dx
 
 x_mid <- zoo::rollmean(result_df$logAge_days, 2)
 
-deriv_df <- data.frame(deriv_Male = male_deriv,
-                       deriv_Female = female_deriv,
-                       logAge_days = x_mid)
+deriv_df <- data.frame("deriv_Male" = male_deriv,
+                       "deriv_Female" = female_deriv,
+                       "logAge_days" = x_mid)
 
 final_df <- full_join(result_df, deriv_df) %>%
   mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
