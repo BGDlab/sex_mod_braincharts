@@ -49,9 +49,23 @@ do
   do
     echo "pheno list: $pheno_list"
 
-    #get filename -> freesurfer variable name
+    #get filename -> total variable name
     pheno_cat=$(basename -- "$pheno_list")
     pheno_cat="${pheno_cat%.*}"
+    
+    if [[ "$total" == "FALSE" ]]; then
+        tot="FALSE"
+      elif [[ $pheno_cat == *"global"* ]]; then
+        tot="TBV"
+      elif [[ $pheno_cat == *"vols"* ]]; then
+        tot="TBV"
+      elif [[ $pheno_cat == *"thickness"* ]]; then
+        tot="mean.CT"
+      elif [[ $pheno_cat == *"surf"* ]]; then
+        tot="total.SA"
+      else
+        echo "can't find appropriate variables"
+      fi
   
     #CREATE OUTPUT DIRS
     #make output dir
@@ -83,12 +97,12 @@ do
       do
         
         # find training BestModel from model selection
-        mapfile -t matches < <(find "$search_path" -type f -name "${pheno_line}_*weighted.rds")
+        mapfile -t matches < <(find $search_path -type f -name "${pheno_line}_*weighted.rds")
         if [ ${#matches[@]} -eq 1 ]; then
           og_mod=$(realpath "${matches[0]}")
           
           # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$og_mod\t$save_path\t$total" >> "$config_file"
+          echo -e "$file\t$og_mod\t$save_path\t$tot" >> "$config_file"
         elif [ ${#matches[@]} -eq 0 ]; then
           echo "Warning: No matching file found in '$search_path' for prefix '$pheno_line' and suffix 'weighted.rds'" >&2
           #exit 1
