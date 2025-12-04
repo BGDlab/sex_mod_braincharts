@@ -19,6 +19,7 @@ mod_B <- readRDS(args[4])
 save_path <- as.character(args[5])
 
 file_full <- paste0(save_path, "/model_objs/", pheno, "_brainchart.rds")
+
 #check if this pheno is already run, and if so, end
 if (file.exists(file_full)){
   stop("Brainchart already fit, skipping pheno")
@@ -45,7 +46,7 @@ if (length(term_list_A) == length(term_list_B)) {
   } else {
     print("models from A and B are NOT identical")
   }
-  
+
   #pick random mod
   random_mod <- sample(c("A", "B"), 1)
   print(paste("randomly selecting model", random_mod))
@@ -62,13 +63,13 @@ if (length(term_list_A) == length(term_list_B)) {
   print("using model A")
   mod_to_fit <- mod_A
   alt_mod <- mod_B
-  
+
 } else if (length(term_list_A) > length(term_list_B)){
   # use mod B
   print("using model B")
   mod_to_fit <- mod_B
   alt_mod <- mod_A
-  
+
 } else {
   stop("can't find simpler model")
 }
@@ -111,25 +112,22 @@ model$call$family <- model$family[[1]]
 ######### PLOTS #########
 birth <- log(280, base=10)
 pred_list <- list_predictors(model)
-#see if fs_version included as covariate
-fs <- pred_list[grep("^fs_version", pred_list)]
-if (length(fs) == 1){
-  resid_terms <- c(fs, "study_site")
-} else {
-  resid_terms <- "study_site"
-}
 
 #check if age is log-scaled
 if ("logAge_days" %in% pred_list){
   age_var <- "logAge_days"
   print("simulate data for plotting")
-  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+  vars_of_interest <- c("sexMale_x_logAge", age_var, "sexMale")
 } else {
   print("simulate data for plotting")
-  sim_df <- sim_data(df, "age_days", factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
   age_var <- "age_days"
+  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
+  vars_of_interest <- c("sexMale_x_age", age_var, "sexMale")
 }
 
+#define nuisance covars to residualize from points
+resid_terms <- setdiff(pred_list, vars_of_interest)
 
 #CENTILE FAN PLOT
 print("creating centile fan plot")
@@ -141,12 +139,11 @@ fan_plot <- make_centile_fan(gamlssModel=model,
                              desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                              sim_data_list = sim_df,
                              remove_point_effect = resid_terms,
-                             x_axis="log_lifespan_fetal",
-                             y_scale=unscale)  +
+                             x_axis="log_lifespan_fetal")  +
   theme_linedraw() +
   scale_color_discrete(name = "Sex", labels = c("Female", "Male")) +
   guides(fill=FALSE) +
-  geom_vline(xintercept=birth)
+  geom_vline(xintercept=birth) +
   labs(title=paste(pheno, "brainchart"),
        x ="Age (log days)")
 
@@ -154,7 +151,7 @@ ggsave(file=paste0(save_path, "/centile_plots/", pheno, "_centilefan.png"), fan_
 
 #WORM PLOT
 print("creating worm plot")
-wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=10) 
+wp <- wp.taki(xvar=df$logAge_days, resid=resid(model), n.inter=10)
 plt <- wp$plot
 ggsave(file=paste0(save_path, "/worm_plots/", pheno, "_wp.png"), plt)
 print(wp$outliers)
@@ -191,23 +188,23 @@ n_param <- length(model$parameters)
 
 # Predict 50th cent & sigma values for each simulated level of factor_var
 for (factor_level in names(sim_df)) {
-  
+
   #make sure variable names are correct
   sub_df <- sim_df[[factor_level]]
-  
+
   # Predict centiles
   print("predicting...")
   pred_df <- predictAll(model, newdata=sub_df, type="response", data=df)
-  
+
   median_centile <- pred_centile(0.5, df = pred_df, q_func = qfun, n_param = n_param)
   centiles_df <- as.data.frame(median_centile)
-  
+
   # check correct dim
   stopifnot(nrow(centiles_df) == nrow(pred_df))
-  
+
   #add x_vals, predicted sigma name centiles for factor_var level and append to results list
   centiles_df$logAge_days <- sub_df$logAge_days
-  
+
   # Sigma
   centiles_df$sigma <- pred_df$sigma
   sub_name <- paste0("pred_", factor_level)
@@ -218,7 +215,7 @@ for (factor_level in names(sim_df)) {
 result_df <- bind_rows(centile_result_list, .id = "sexMale") %>%
   mutate(sex = if_else(sexMale=="pred_1", "Male", "Female")) %>%
   select(!sexMale) %>%
-  tidyr:::pivot_wider(names_from=sex, values_from = c(median_centile, sigma)) 
+  tidyr:::pivot_wider(names_from=sex, values_from = c(median_centile, sigma))
 
 #Derivative diffs
 dy_male <- diff(result_df$median_centile_Male)
