@@ -122,10 +122,10 @@ do
           # Write the CSV file path and the formula to the output file (tab-delimited)
           echo -e "$file\t$og_mod\t$save_path\t$total" >> "$config_file"
         elif [ ${#matches[@]} -eq 0 ]; then
-          echo "Warning: No matching file found in '$search_path' for prefix '$pheno_line' and suffix 'BestMod.rds'" >&2
+          echo "Warning: No matching file found in '$search_dir' for prefix '$pheno_line' and suffix 'BestMod.rds'" >&2
           #exit 1
         else
-          echo "Warning: Multiple matching files found in '$search_path':" >&2
+          echo "Warning: Multiple matching files found in '$search_dir':" >&2
           printf '%s\n' "${matches[@]}" >&2
           #exit 1
         fi
