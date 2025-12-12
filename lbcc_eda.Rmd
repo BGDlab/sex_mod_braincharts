@@ -533,6 +533,29 @@ df_qc_filt <- left_join(df_select, study_mad) %>%
 nrow(df_select) - nrow(df_qc_filt)
 ```
 
+```{r}
+both_qc <- df_select %>%
+  filter(!is.na(QC.SS) & !is.na(QC.RCA))
+nrow(both_qc)
+
+unique(both_qc$study)
+unique(both_qc$fs_version)
+
+both_qc %>% 
+  filter(QC.SS > 0.65 & QC.RCA <= 0.65) %>%
+  nrow()
+
+both_qc %>% 
+  filter(QC.SS <= 0.65 & QC.RCA > 0.65) %>%
+  nrow()
+
+both_qc %>%
+  pivot_longer(cols=c(QC.SS, QC.RCA), values_to = "QC", names_to = "type") %>%
+  ggplot() +
+  geom_histogram(aes(x=QC, fill=type), position="identity", alpha=.6) +
+  geom_vline(xintercept=0.65)
+```
+
 
 look at IDPs=0
 ```{r}
