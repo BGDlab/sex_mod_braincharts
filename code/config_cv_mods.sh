@@ -164,7 +164,7 @@ do
           echo -e "$csv\t$pheno_line\t$fs\tNULL\t$save_path\t$log_age\t$sm" >> "$config_file"
         done < "$pheno_list"
       fi
-  chmod 777 -R $save_path
+  #chmod 777 -R $save_path
   done
 done  
 #add numbering

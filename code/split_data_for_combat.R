@@ -1,35 +1,26 @@
 #sub-divide IDPs into the largest possible complete chunks for ComBat harmonization
 
-#tempdir()
-#get_hostname <- function(){
-#	    return(as.character(Sys.info()["nodename"]))
-#}
-#print(get_hostname())
- 
-#system('du -s /tmp')
-#system('df -h /tmp')
-
 #LOAD PACKAGES
 library(data.table)
 library(dplyr)
 library(rlang)
 
-#GET ARGS
+###### GET ARGS ######
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
 df_orig <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 idp_list <- readRDS(args[2]) #path to .rds obj of list
 save_path <- as.character(args[3])
-name_prefix <- as.character(args[4])
+batch_arg <- as.character(args[4])
 
-#DEFINE FUNCTIONS
+###### DEFINE FUNCTIONS ######
 
 #function to split out complete dataframes
 get_complete_df <- function(var, df, batch=NULL){
   #print(var)
   new_df <- df %>%
-    dplyr::filter(!is.na(!!sym(var))) %>% #can't handle var name as string, fix this!
-    select_if(~ !any(is.na(.)))
+    dplyr::filter(!is.na(!!sym(var))) %>%
+    select(where(~ !any(is.na(.))))
   if (!is.null(batch)){
     new_df <- new_df %>%
       group_by(!!sym(batch)) %>%
@@ -99,7 +90,7 @@ rename_cols <- function(df_list, col_list){
 
 #write out csvs - written with help from ChatGPT
 save_csv_list <- function(df_list, path = ".", name_prefix) {
-  lapply(seq(length(df_list)), function(idx) {
+  lapply(seq_along(df_list), function(idx) {
     # Construct the file path using the dataframe's name
     file_path <- paste0(path,"/", name_prefix, "_", idx, ".csv")
     
@@ -108,10 +99,37 @@ save_csv_list <- function(df_list, path = ".", name_prefix) {
   })
 }
 
-#PROCESS DATA
+###### PROCESS DATA ######
+
+# DROP R PHENOS FROM OTHER CATEGORIES
+# Read other IDP lists from the same directory and exclude those columns
+idp_list_dir <- dirname(args[2])
+other_rds_files <- list.files(idp_list_dir, pattern = "\\.rds$", full.names = TRUE)
+# Exclude the current idp_list file
+other_rds_files <- other_rds_files[other_rds_files != args[2]]
+
+# Read all other RDS lists and extract column names to exclude
+cols_to_exclude <- character(0)
+if (length(other_rds_files) > 0) {
+  for (rds_file in other_rds_files) {
+    other_list <- readRDS(rds_file)
+    # Handle both list and vector formats
+    if (is.list(other_list)) {
+      cols_to_exclude <- c(cols_to_exclude, unlist(other_list))
+    } else if (is.vector(other_list)) {
+      cols_to_exclude <- c(cols_to_exclude, other_list)
+    }
+  }
+  # Remove duplicates
+  cols_to_exclude <- unique(cols_to_exclude)
+
+  # Exclude columns from df_orig (only if they exist in the dataframe)
+  df_filt <- df_orig %>%
+    select(!any_of(cols_to_exclude))
+}
 
 #split out data
-df_list <- lapply(idp_list, get_complete_df, df_orig, batch="study_site")
+df_list <- lapply(idp_list, get_complete_df, df_filt, batch = batch_arg)
 #name
 names(df_list) <- idp_list
 
@@ -122,6 +140,7 @@ df_list_clean <- merge_identical_dfs(df_list)
 df_list_final <- rename_cols(df_list_clean, idp_list)
 
 #save
+name_prefix <- sub(pattern = "(.*)\\..*$", replacement = "\\1", basename(args[2]))
 save_csv_list(df_list_final, save_path, name_prefix)
 
 print(paste("Saved", length(df_list_final), "files :)"))

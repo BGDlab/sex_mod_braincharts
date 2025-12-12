@@ -27,22 +27,22 @@ args <- commandArgs(trailingOnly = TRUE)
 raw.df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "")
 feature_list <- readRDS(args[2])
 feature_list <- c(feature_list, paste0(feature_list, "_X"))
-batch.arg <- args[3]
-#if batch arg is csv, merge csv into raw.df and designate last col as batch ID
-if (endsWith(batch.arg, '.csv')){
-  batch.df <- fread(batch.arg, stringsAsFactors = TRUE, na.strings = "")
-  batch <- as.factor(batch.df[,ncol(batch.df)])
-  raw.df <- base::merge(raw.df, batch.df)
-} else {
-  #if batch arg is a column name, select that column name from raw.df
-  batch.col <- as.character(batch.arg)
-  batch <- as.factor(raw.df[[batch.col]])
-}
-
+batch.col <- as.character(args[3])
 #DEF COVARS
 covar.list <- as.character(unlist(strsplit(args[4], ",")))
-covar.df <- raw.df %>%
+
+#FILTER DF
+filt.df <- raw.df %>%
+  dplyr::select(any_of(c(covar.list, feature_list, batch.col))) %>%
+  na.omit() %>%
+  group_by(!!sym(batch.col)) %>%
+  filter(n() >=5) %>% #remove sites with < 5 ppl
+  ungroup()
+
+covar.df <- filt.df %>%
   dplyr::select(all_of(covar.list))
+
+batch <- as.factor(filt.df[[batch.col]])
 
 stopifnot(length(batch) == nrow(covar.df))
 #covar df only works with numeric variables (otherwise need to use matrix to dummy-code). sticking with just df for now, can update later
@@ -63,7 +63,7 @@ csv_basename <- gsub("_", "-", csv_basename)
 
 #COMBAT
 
-df <- raw.df %>%
+df <- filt.df %>%
   dplyr::select(any_of(feature_list))
 stopifnot(all(sapply(df, is.numeric)))
 
@@ -119,7 +119,7 @@ if (total_missing_values > 0) {
 }
 
 #merge back into the rest of the raw dataset (demographics, etc.)
-nonpheno.df <- raw.df %>%
+nonpheno.df <- filt.df %>%
   dplyr::select(!any_of(feature_list)) %>%
   mutate(id = row_number())
 

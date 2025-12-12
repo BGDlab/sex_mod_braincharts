@@ -21,9 +21,9 @@ save_path <- as.character(args[5])
 file_full <- paste0(save_path, "/model_objs/", pheno, "_brainchart.rds")
 
 #check if this pheno is already run, and if so, end
-if (file.exists(file_full)){
-  stop("Brainchart already fit, skipping pheno")
-}
+# if (file.exists(file_full)){
+#   stop("Brainchart already fit, skipping pheno")
+# }
 
 #load both A and B models
 mod_A$call$data <- "df"
@@ -83,7 +83,7 @@ rm(mod_B)
 model <- gamlss_lambda_rep(mod_to_fit,
                    null_mod="false",
                    keep_lambdas=FALSE,
-                   start.from=NULL,
+                   start.from="mod_to_fit",
                    weight=NULL)
 
 #if model isn't fit, try other model
@@ -92,7 +92,7 @@ if (is.null(model)) {
   model <- gamlss_lambda_rep(alt_mod,
                              null_mod="false",
                              keep_lambdas=FALSE,
-                             start.from=NULL,
+                             start.from="alt_mod",
                              weight=NULL)
 }
 

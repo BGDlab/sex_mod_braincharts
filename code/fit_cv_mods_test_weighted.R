@@ -16,14 +16,14 @@ print(args)
 full_df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
-total <- as.logical(args[4])
+total <- as.character(args[4])
 
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("train", "test", filename_no_ext)
 file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
 
 #check if this pheno is already run, and if so, end
-if (file.exists(file_full)){
+if (file.exists(paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))){
   stop("Already tested, skipping pheno")
 }
 
@@ -31,14 +31,6 @@ if (file.exists(file_full)){
 base_mod$call$data <- "df"
 pheno <- base_mod$mu.terms[[2]] %>% as.character()
 pred_list <- list_predictors(base_mod)
-
-#see if fs_version included as covariate
-fs <- pred_list[grep("^fs_version", pred_list)]
-if (length(fs) == 1){
-  resid_terms <- c(fs, "study_site")
-} else {
-  resid_terms <- "study_site"
-}
 
 #check if age is log-scaled
 if ("logAge_days" %in% pred_list){
@@ -48,22 +40,23 @@ if ("logAge_days" %in% pred_list){
   age_var <- "age_days"
   sex_age_var <- "sexMale_x_age"
 }
-
+#define nuisance covars to residualize from points
+vars_of_interest <- c(age_var, sex_age_var, "sexMale")
+resid_terms <- setdiff(pred_list, vars_of_interest)
 
 ##### PREP DATAFRAME #####
 #drop extra variables
 if (total == "FALSE"){
   df <- full_df %>%
-    dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "study_site", "w_norm"))) %>%
+    dplyr::select(all_of(c(pred_list, pheno, "w_norm"))) %>%
     na.omit() %>%
     trunc_coverage(age_var) #drop points at ends if too sparse
 } else {
   df <- full_df %>%
-    dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "study_site", total, "w_norm"))) %>%
-    na.omit() %>%
+    dplyr::select(all_of(c(pred_list, pheno, "w_norm")))
+  na.omit() %>%
     trunc_coverage(c(total, age_var)) #drop points at ends if too sparse
 }
-
 
 ##### FIT TEST MODEL #####
 model <- gamlss_lambda_rep(base_mod, 

@@ -50,7 +50,8 @@ names(output_fread) <- paths
 
 LR.df <- bind_rows(output_fread, .id="file") %>%
   mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
-         total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)")) %>%
+         total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
+         weighted  = stringr::str_detect(file, "weight")) %>%
   select(!file)
 ```
 
@@ -126,11 +127,19 @@ setdiff(unique(LR.df_plot$label), c(unique(dk$data$label), unique(aseg$data$labe
 
 "Left-Accumbens-area", "Right-Accumbens-area", "Left-Cerebellum-Cortex" & "Left-Cerebellum-White-Matter" aren't in field of view for aseg atlas
 
+check scales for plotting
+
+```{r}
+LR.df_plot %>%
+  group_by(effect) %>%
+  summarise(max_resi = max(resi))
+```
+
 #Non-Corrected Model
 
 ```{r}
 LR.df_uncor <- LR.df_plot %>%
-  dplyr::filter(total==FALSE) %>%
+  dplyr::filter(total==FALSE & weighted == FALSE) %>%
   mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
   mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
   mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
@@ -194,7 +203,7 @@ ggsave("figs/resi_uncorrected.png", full_plt_uncor, width=7, height=10)
 
 ```{r}
 LR.df_tot <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  dplyr::filter(total==TRUE & effect=="sex_age" & weighted == FALSE) %>%
   mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
   mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
   mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
@@ -255,7 +264,7 @@ ggsave("figs/resi_tbv.png", full_plt_tot, width=7, height=10)
 
 ```{r}
 LR.df_tot_sex <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all") %>%
+  dplyr::filter(total==TRUE & effect=="sex_all" & weighted == FALSE) %>%
   mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
   mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
   mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
@@ -310,4 +319,31 @@ full_plt_tot_sex <- glob_plt_tot_sex /plot_spacer()/ cort_plt_tot_sex / plot_spa
   plot_layout(guides = 'collect', heights = unit(c(3, -1.2, 6, -1.2, 3), c('in', 'in', 'in')))
 full_plt_tot_sex
 ggsave("figs/resi_tbv_allsex.png", full_plt_tot_sex, width=7, height=10)
+```
+
+
+quick figs for data blitz
+```{r}
+LR.df_uncor %>%
+  filter(pheno_cat == "Regional Vol" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
+  filter(cv_sample=="B") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = dk_clean, 
+             position = position_brain(hemi ~ side),
+            aes(fill=sig_resi)) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
+  facet_wrap(~pheno_cat) 
+
+LR.df_uncor %>%
+  filter(pheno_cat == "Subcortical Vol") %>%
+  filter(cv_sample=="B") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  ggseg::geom_brain(atlas = aseg_clean, 
+            aes(fill=sig_resi)) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c("grDevices::Greens 3", name = "RESI", limits = c(0, 0.18), direction = -1) +
+  facet_wrap(~pheno_cat)
 ```

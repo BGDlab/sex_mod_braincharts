@@ -1,16 +1,16 @@
 #!/bin/bash
 #
 #SBATCH --job-name=cv_mods
-#SBATCH --time=336:00:00
+#SBATCH --time=400:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=12G
+#SBATCH --mem-per-cpu=16G
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_total_train/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_total_train/R-%A_%a.err
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
 
-CONFIGFN=$BASE/code/config_files/cv_mods_totalTRUE_logAgeTRUE_smpb_config.txt
+CONFIGFN=$BASE/code/config_files/cv_mods_totalTRUE_logAgeTRUE_smpb_rerun20251208_config.txt
 
 echo "Config file: $CONFIGFN"
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"

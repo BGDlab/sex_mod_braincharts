@@ -1,11 +1,11 @@
 #!/bin/bash
 #
 #SBATCH --job-name=bc_mods
-#SBATCH --time=10:00:00
+#SBATCH --time=20:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=7G
-#SBATCH --array=1-239%100
+#SBATCH --array=42,85,171,196,233#1-239%100
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/bc_mods/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/bc_mods/R-%A_%a.err
 

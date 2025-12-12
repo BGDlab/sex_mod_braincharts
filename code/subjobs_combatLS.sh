@@ -5,9 +5,9 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=50G
-#SBATCH --array=1
-#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combatls_%A_%a.out
-#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combatls_%A_%a.err
+#SBATCH --array=2-72
+#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combat/R-%A_%a.out
+#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combat/R-%A_%a.err
 
 CONFIGFN=$1
 
@@ -35,7 +35,7 @@ echo "SAVE_PATH: $SAVE_PATH"
 
 #------------------
 
-BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
+BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
 
 module load R/4.4.0
 

@@ -2,11 +2,15 @@
 #script to write config file that will be used to submit pre-ComBat data-splitting jobs using `subjobs_datasplit.sh`
 #run from outside code dir
 
-#list csvs to be harmonized
-data_path=./data/csvs_by_pheno
-config_path=./code/config_files
-pheno_lists=./pheno_lists
-save_path=./data/to_combat
+# Set values for pheno_lists
+base_path=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
+pheno_lists=$base_path/pheno_lists
+config_path=$base_path/code/config_files
+file=$base_path/data/v3_CN_cleaned.csv
+save_path=$base_path/data/to_combat
+batch_arg="study_site"
+
+file=$(realpath $file)
 
 #make config file dir or remove old file if necessary
 if ! [ -d $config_path ]
@@ -17,30 +21,25 @@ if ! [ -d $config_path ]
 	rm -rf $config_path/datasplit_config.txt
 fi
 
+# create the output file
+tmp_path=$(realpath $config_path)
+touch $config_path/datasplit_config.txt
+
 #make output dir
 if ! [ -d $save_path ]
 	then
 	mkdir $save_path
 fi
-save_path=$(realpath $save_path)
-
-# create the output file
-touch $config_path/datasplit_config.txt
 
 count=1
 
-#loop through each CSV of IDPs separated by phenotype category
-for file in $(find $(realpath $data_path)  -type f -name "*.csv")
+#loop through each list of IDPs separated by phenotype category
+for pheno_list in $(find $(realpath $pheno_lists)  -type f -name "*.rds")
 do
-  echo "prepping: $file"
-  #find corresponding pheno list
-  filename=$(basename -- "$file")
-  filename="${filename%.*}"
-  pheno_list=$(find $(realpath $pheno_lists) -type f -name "$filename.rds")
-  echo "pheno list: $pheno_list"
+  echo "prepping: $pheno_list"
 
-  # Write the CSV file path and the formula to the output file (tab-delimited)
-  echo -e "$count\t$file\t$pheno_list\t$save_path\t$filename" >> "$config_path/datasplit_config.txt"
+  # write out args
+  echo -e "$count\t$file\t$pheno_list\t$save_path\t$batch_arg" >> "$config_path/datasplit_config.txt"
   
   count=$(( count+1 ))
 done

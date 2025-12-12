@@ -4,6 +4,7 @@ Script for cleaning and preparing LBCC data.
 
 
 ```{r}
+set.seed(5678)
 setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 ```
 
@@ -150,7 +151,7 @@ saveRDS(sa_list, "./pheno_lists/cortical_surf.rds")
 Adding HBCD release
 
 ```{r}
-hbcd <- fread("/mnt/isilon/bgdlab_hbcd/v2/HBCD_idps.csv")
+hbcd <- fread("/mnt/isilon/bgdlab_hbcd/v2/derivatives/HBCD_idps.csv")
 hbcd_rename <- hbcd %>%
   rename_with(~ gsub("-", ".", .)) %>%
   rename_with(~ gsub("SubcGM", "SUBC", .))
@@ -242,10 +243,6 @@ csv created with `build_your_cohort_dev_mg.Rmd`
 slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release_updated.csv") #updated b/c mismatched scans
 names(slip)
 skim(slip)
-
-# unlist(unique(names(slip)[names(slip) %in% names(df_with_hbcd)]))
-# setdiff(names(slip), names(df_with_hbcd))
-# setdiff(names(df_with_hbcd), names(slip))
 ```
 
 ```{r}
@@ -261,7 +258,8 @@ slip_rename <- slip %>%
          session = session_id) %>%
   filter(!is.na(device_serial_number)) %>%
   mutate(site = gsub(" ", "", paste0("CHOP", device_serial_number)),
-         QC.RCA = do.call(pmin, c(across(starts_with("QC")), na.rm = TRUE)))
+         QC.RCA = do.call(pmin, c(across(starts_with("QC")), na.rm = TRUE)),
+         SurfaceHoles = euler_rh + euler_lh)
 
 slip_rename %>%
   summarise(n_pass = sum(QC.RCA > 0.65),
@@ -854,6 +852,87 @@ df_clean_inf %>%
 ```
 
 for whatever reason there's very little data ~ 2 months post-birth
+
+visualize sample
+```{r}
+#tmp fun
+format_y_axis <- function (y_axis = c("custom", "lifespan", "log_lifespan", "lifespan_fetal", 
+    "log_lifespan_fetal"), y_values) 
+{
+    y_axis <- match.arg(y_axis)
+    if (y_axis == "custom") {
+        message("no formatting required")
+        return(NULL)
+    }
+    if (grepl("fetal", y_axis, fixed = TRUE)) {
+        add_val <- 280
+        tickLabels <- c("Conception")
+        tickMarks <- c(0)
+    }
+    else {
+        add_val <- 0
+        tickLabels <- c()
+        tickMarks <- c()
+    }
+    if (grepl("log", y_axis, fixed = TRUE)) {
+        for (year in c(0, 1, 2, 5, 10, 20, 50, 100)) {
+            tickMarks <- append(tickMarks, log(year * 365.25 + 
+                add_val, base = 10))
+            tickMarks[is.infinite(tickMarks)] <- 0
+        }
+        tickLabels <- append(tickLabels, c("Birth", "1", "2", 
+            "5", "10", "20", "50", "100"))
+        unit_lab <- "(log years)"
+    }
+    else {
+        for (year in seq(0, 100, by = 10)) {
+            tickMarks <- append(tickMarks, year * 365.25 + add_val)
+        }
+        tickLabels <- append(tickLabels, c("Birth", "10", "20", 
+            "30", "40", "50", "60", "70", "80", "90", "100"))
+        unit_lab <- "(years)"
+    }
+    yrange <- range(y_values, na.rm = TRUE)
+    buffer <- diff(yrange) * 0.002
+    ylims <- c(yrange[1] - buffer, yrange[2] + buffer)
+    inside <- tickMarks >= ylims[1] & tickMarks <= ylims[2]
+    valid_ticks <- tickMarks[inside]
+    valid_labels <- tickLabels[inside]
+    list(scale_y_continuous(breaks = valid_ticks, labels = valid_labels, 
+        limits = ylims), labs(y = paste("Age at Scan", unit_lab)))
+}
+
+```
+
+read in split info
+```{r}
+splitA <- fread( "./data/cv_sample_A.csv")
+splitB <- fread("./data/cv_sample_B.csv")
+splitA$split <- "A"
+splitB$split <- "B"
+comp_df <- bind_rows(splitA, splitB)
+```
+
+```{r}
+#reorder studies by age
+age.df <- comp_df %>%
+  group_by(study) %>%
+  summarize(mean_age = mean(age_days)) %>%
+  arrange(mean_age)
+
+sample_bxplot <- comp_df %>%
+  mutate(sex=as.factor(ifelse(sexMale==1, "Male", "Female"))) %>%
+  mutate(study = factor(study, levels=c(age.df$study), ordered=TRUE)) %>%
+  ggplot(aes(y=age_days, x=study, color=sex)) +
+  geom_boxplot(outlier.size = 1, outlier.colour=NULL) +
+  theme_linedraw(base_size = 11) +
+  #guides(y = ggh4x::guide_axis_nested(delim = "&")) +
+  theme(axis.title.x=element_blank(), axis.ticks.x = element_blank(), axis.text.x=element_blank(),  panel.grid.major.x = element_blank(), legend.position = "bottom") +
+  labs(color="Sex", x = "Study", y="Age (years)") +
+  format_y_axis("lifespan_fetal", df_clean$age_days)
+
+ggsave("figs/sample_boxplot.png", sample_bxplot)
+```
 
 ### Euler QC
 looking at associations between Euler and demographics (in control sample and held-out psychosis sample)

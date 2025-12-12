@@ -19,7 +19,6 @@ total <- as.character(args[4]) # total pheno to control for (or NULL)
 log_age <- as.logical(args[5]) #log-scale age TRUE/FALSE
 save_path <- as.character(args[6]) #path to save df
 
-
 #log-scale age if necessary
 if (log_age == TRUE){
   age_var <- "logAge_days"
@@ -34,12 +33,12 @@ if (total == 'NULL'){
   df <- df %>%
     dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "study_site"))) %>%
     na.omit() %>%
-    trunc_coverage(age_var) #drop points at ends if too sparse
+    trunc_coverage(age_var, n_min = 20,  max_loops=100) #drop points at ends if too sparse
 } else {
   df <- df %>%
     dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "study_site", total))) %>%
     na.omit() %>%
-    trunc_coverage(c(total, age_var)) #drop points at ends if too sparse
+    trunc_coverage(c(total, age_var), n_min = 20,  max_loops=100) #drop points at ends if too sparse
 }
 
 print(names(df))
