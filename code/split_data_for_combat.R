@@ -13,10 +13,18 @@ idp_list <- readRDS(args[2]) #path to .rds obj of list
 save_path <- as.character(args[3])
 batch_arg <- as.character(args[4])
 
+#optional truncating arg
+if (length(args) > 4) {
+  trunc_arg <- as.character(args[5])
+} else {
+  trunc_arg <- NULL
+}
+
+
 ###### DEFINE FUNCTIONS ######
 
 #function to split out complete dataframes
-get_complete_df <- function(var, df, batch=NULL){
+get_complete_df <- function(var, df, batch=NULL, trunc=NULL){
   #print(var)
   new_df <- df %>%
     dplyr::filter(!is.na(!!sym(var))) %>%
@@ -27,6 +35,15 @@ get_complete_df <- function(var, df, batch=NULL){
       filter(n() >=5) %>% #remove sites with < 5 ppl
       ungroup()
   }
+  
+  if (!is.null(trunc) & !is.null(batch)){
+    new_df <- new_df %>%
+      trunc_coverage(!!sym(batch), n_min = 20,  max_loops=100) %>% #remove trunc coverage
+      group_by(!!sym(batch)) %>%
+      filter(n() >=5) %>% #remove sites with < 5 ppl again
+      ungroup()
+  }
+  
   return(new_df)
 }
 
@@ -101,35 +118,8 @@ save_csv_list <- function(df_list, path = ".", name_prefix) {
 
 ###### PROCESS DATA ######
 
-# DROP R PHENOS FROM OTHER CATEGORIES
-# Read other IDP lists from the same directory and exclude those columns
-idp_list_dir <- dirname(args[2])
-other_rds_files <- list.files(idp_list_dir, pattern = "\\.rds$", full.names = TRUE)
-# Exclude the current idp_list file
-other_rds_files <- other_rds_files[other_rds_files != args[2]]
-
-# Read all other RDS lists and extract column names to exclude
-cols_to_exclude <- character(0)
-if (length(other_rds_files) > 0) {
-  for (rds_file in other_rds_files) {
-    other_list <- readRDS(rds_file)
-    # Handle both list and vector formats
-    if (is.list(other_list)) {
-      cols_to_exclude <- c(cols_to_exclude, unlist(other_list))
-    } else if (is.vector(other_list)) {
-      cols_to_exclude <- c(cols_to_exclude, other_list)
-    }
-  }
-  # Remove duplicates
-  cols_to_exclude <- unique(cols_to_exclude)
-
-  # Exclude columns from df_orig (only if they exist in the dataframe)
-  df_filt <- df_orig %>%
-    select(!any_of(cols_to_exclude))
-}
-
 #split out data
-df_list <- lapply(idp_list, get_complete_df, df_filt, batch = batch_arg)
+df_list <- lapply(idp_list, get_complete_df, df_filt, batch = batch_arg, trunc = trunc_arg)
 #name
 names(df_list) <- idp_list
 

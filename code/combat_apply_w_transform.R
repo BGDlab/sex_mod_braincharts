@@ -85,7 +85,10 @@ stopifnot(all(sapply(df, is.numeric)))
     eb_arg <- TRUE
   }
   
-  cf.obj <- eval(parse(text = paste0("comfam(df, batch, covar.df, gamlss, formula= y", mu.form, ", sigma.formula=", sig.form, ", eb = ", eb_arg, ")")))
+  cf.obj <- eval(parse(text = paste0("comfam(df, batch, covar.df, gamlss, formula= y", mu.form, 
+                                     ", sigma.formula=", sig.form, 
+                                     ", eb = ", eb_arg, 
+                                     ", control=gamlss.control(n.cyc=400))")))
 
   #un-log-transform vals
   cf.obj$dat.combat <- cf.obj$dat.combat %>%

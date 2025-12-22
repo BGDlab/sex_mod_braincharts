@@ -1,0 +1,288 @@
+---
+title: "brainchart_results"
+output: html_document
+date: "2025-12-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr, gamlssTools)
+```
+
+Set paths
+
+```{r}
+bc_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/braincharts/"
+
+glob_vol_list <- readRDS("./pheno_lists/global_vols.rds")
+gmv_list <- readRDS("./pheno_lists/cortical_vols.rds")
+subcort_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
+sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
+```
+
+#Load CSVs
+
+Read in sexdiff csvs
+
+```{r}
+raw_files <- list.files(path = bc_path, pattern = "_sexdiffs\\.csv$", recursive = TRUE, full.names = TRUE)
+
+df_list <- list() #new empty list
+for (file in raw_files) {
+  # Read each CSV file
+  data <- fread(file)
+  
+  #Get pheno name, TOTAL true/false
+  pheno  <- str_remove(basename(file), "_sexdiffs\\.csv")
+  total <- str_extract(file, "total(TRUE|FALSE)")
+  total <- str_remove(total, "total")
+  
+  data$pheno <- pheno
+  data$total <- total
+
+  # Bind the data to the combined dataframe
+  df_list[[file]] <- as.data.frame(data)
+}
+length(df_list)
+sexdiff_df <- bind_rows(df_list) %>%
+  mutate(pheno_cat = as.factor(case_when(
+      pheno %in% glob_vol_list ~ "Global Volume",
+      pheno %in% gmv_list ~ "Regional Volume",
+      pheno %in% sa_list ~ "Regional Surface Area",
+      pheno %in% ct_list ~ "Regional Cortical Thickness",
+      TRUE ~ NA_character_)))
+rm(df_list) #save space
+```
+
+scale diffs within each pheno cat
+```{r}
+sexdiff_df_sc <- sexdiff_df %>%
+  #filter(logAge_days >= log(280+365.25, base=10)) %>% #tmp removing fetal data
+  group_by(total, pheno_cat) %>%
+  mutate(centile_M_minus_F_sc = scale(centile_M_minus_F, center=FALSE),
+         sigma_M_minus_F_sc = scale(sigma_M_minus_F, center=FALSE),
+         deriv_M_minus_F_sc = scale(deriv_M_minus_F, center=FALSE)) %>%
+  ungroup()
+```
+
+tmp function copy
+```{r}
+format_x_axis <- function(x_axis = c("custom", 
+                                     "lifespan", 
+                                     "log_lifespan", 
+                                     "lifespan_fetal",
+                                     "log_lifespan_fetal"),
+                          x_values){
+  x_axis <- match.arg(x_axis)
+  
+  if (x_axis == "custom") {
+    message("no formatting required")
+    return(NULL)  # return nothing, so `+ NULL` does nothing
+  }
+  
+  # add days for fetal development?
+  if (grepl("fetal", x_axis, fixed = TRUE)) {
+    add_val <- 280
+    tickLabels <- c("Conception")
+    tickMarks <- c(0)
+  } else {
+    add_val <- 0
+    tickLabels <- c()
+    tickMarks <- c()
+  }
+  
+  # log scaled?
+  if (grepl("log", x_axis, fixed = TRUE)) {
+    for (year in c(0, 1, 2, 5, 10, 20, 50, 100)) {
+      tickMarks <- append(tickMarks, log(year*365.25 + add_val, base = 10))
+      tickMarks[is.infinite(tickMarks)] <- 0
+    }
+    tickLabels <- append(tickLabels, c("Birth", "1", "2", "5", "10", "20", "50", "100"))
+    unit_lab <- "(log years)"
+  } else {
+    for (year in seq(0, 100, by = 10)) {
+      tickMarks <- append(tickMarks, year*365.25 + add_val)
+    }
+    tickLabels <- append(tickLabels, c("Birth", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100"))
+    unit_lab <- "(years)"
+  }
+  
+  # get actual range of data points
+  xrange <- range(x_values, na.rm = TRUE)
+  buffer <- diff(xrange) * 0.01
+  xlims <- c(xrange[1] - buffer, xrange[2] + buffer)
+  
+  # keep only ticks within buffered range
+  inside <- tickMarks >= xlims[1] & tickMarks <= xlims[2]
+  valid_ticks <- tickMarks[inside]
+  valid_labels <- tickLabels[inside]
+  
+  # return a list of components to add to ggplot
+  list(
+    scale_x_continuous(
+      breaks = valid_ticks,
+      labels = valid_labels,
+      limits = xlims
+    ),
+    labs(y = paste("Age at Scan", unit_lab))
+  )
+}
+```
+
+#Plots
+
+## Non-corrected
+```{r}
+#median centile
+med_cent_diff_df <- sexdiff_df_sc %>%
+  filter(total==FALSE) %>%
+  select(centile_M_minus_F_sc, pheno, logAge_days, pheno_cat) %>%
+  na.omit() %>%
+  arrange(pheno, logAge_days)
+
+cent_plt <- ggplot(med_cent_diff_df) +
+  geom_line(aes(x=logAge_days, y=centile_M_minus_F_sc, group=pheno, color=pheno)) +
+  facet_wrap(~pheno_cat, scales="free_y", nrow=1) +
+  theme_linedraw() +
+  theme(legend.position = "none", 
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank()) +
+  labs(y="Median Centile")
+  
+
+#sigma
+sig_diff_df <- sexdiff_df_sc %>%
+  filter(total==FALSE) %>%
+  select(sigma_M_minus_F_sc, pheno, logAge_days, pheno_cat) %>%
+  na.omit() %>%
+  arrange(pheno, logAge_days)
+
+sig_plt <- ggplot(sig_diff_df) +
+  geom_line(aes(x=logAge_days, y=sigma_M_minus_F_sc, group=pheno, color=pheno)) +
+  facet_wrap(~pheno_cat, scales="free_y", nrow=1) +
+  theme_linedraw() + 
+  theme(legend.position = "none", 
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        strip.background = element_blank(),
+  strip.text.x = element_blank()) +
+  labs(y="Variance (Sigma)")
+
+#derivative
+deriv_diff_df <- sexdiff_df_sc %>%
+  filter(total==FALSE) %>%
+  select(deriv_M_minus_F_sc, pheno, logAge_days, pheno_cat) %>%
+  na.omit() %>%
+  arrange(pheno, logAge_days)
+
+deriv_plt <- ggplot(deriv_diff_df) +
+  geom_line(aes(x=logAge_days, y=deriv_M_minus_F_sc, group=pheno, color=pheno)) +
+  facet_wrap(~pheno_cat, scales="free_y", nrow=1) +
+  theme_linedraw() +
+  format_x_axis("log_lifespan_fetal", deriv_diff_df$logAge_days) +
+  theme(legend.position = "none",
+        strip.background = element_blank(),
+  strip.text.x = element_blank()) +
+  labs(y="Median Centile Derivative",
+       x= "Age (years)")
+
+diffs_plt <- ggarrange(cent_plt, sig_plt, deriv_plt, 
+          nrow=3)
+
+ggsave("figs/diffs_plt.png", diffs_plt, width = 12, height=7)
+```
+
+## TBV-corrected
+```{r}
+#median centile
+med_cent_diff_tbv_df <- sexdiff_df_sc %>%
+  filter(total==TRUE) %>%
+  select(centile_M_minus_F_sc, pheno, logAge_days, pheno_cat) %>%
+  na.omit() %>%
+  arrange(pheno, logAge_days)
+
+cent_tbv_plt <- ggplot(med_cent_diff_tbv_df) +
+  geom_line(aes(x=logAge_days, y=centile_M_minus_F_sc, group=pheno, color=pheno)) +
+  facet_wrap(~pheno_cat, scales="free_y", nrow=1) +
+  theme_linedraw() +
+  theme(legend.position = "none", 
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank()) +
+  labs(y="Median Centile")
+  
+
+#sigma
+sig_diff_tbv_df <- sexdiff_df_sc %>%
+  filter(total==TRUE) %>%
+  select(sigma_M_minus_F_sc, pheno, logAge_days, pheno_cat) %>%
+  na.omit() %>%
+  arrange(pheno, logAge_days)
+
+sig_tbv_plt <- ggplot(sig_diff_tbv_df) +
+  geom_line(aes(x=logAge_days, y=sigma_M_minus_F_sc, group=pheno, color=pheno)) +
+  facet_wrap(~pheno_cat, scales="free_y", nrow=1) +
+  theme_linedraw() + 
+  theme(legend.position = "none", 
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        strip.background = element_blank(),
+  strip.text.x = element_blank()) +
+  labs(y="Variance (Sigma)")
+
+#derivative
+deriv_diff_tbv_df <- sexdiff_df_sc %>%
+  filter(total==TRUE) %>%
+  select(deriv_M_minus_F_sc, pheno, logAge_days, pheno_cat) %>%
+  na.omit() %>%
+  arrange(pheno, logAge_days)
+
+deriv_tbv_plt <- ggplot(deriv_diff_tbv_df) +
+  geom_line(aes(x=logAge_days, y=deriv_M_minus_F_sc, group=pheno, color=pheno)) +
+  facet_wrap(~pheno_cat, scales="free_y", nrow=1) +
+  theme_linedraw() +
+  format_x_axis("log_lifespan_fetal", deriv_diff_tbv_df$logAge_days) +
+  theme(legend.position = "none",
+        strip.background = element_blank(),
+  strip.text.x = element_blank()) +
+  labs(y="Median Centile Derivative",
+       x= "Age (years)")
+
+diffs_tbv_plt <- ggarrange(cent_tbv_plt, sig_tbv_plt, deriv_tbv_plt, 
+          nrow=3)
+ggsave("figs/diffs_tbv_plt.png", diffs_tbv_plt, width = 12, height=7)
+
+```
+
+
+#CT Troubleshooting
+looking at lambda for age*sex effect across CT 
+
+Read in sexdiff csvs
+
+```{r}
+bc_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/braincharts_dec4/cortical_thickness_totalFALSE_logAgeTRUE_pbmods/model_objs"
+raw_files <- list.files(path = bc_path, pattern = ".rds", full.names = TRUE)
+
+lambda_list <- list() #new empty list
+for (mod in raw_files) {
+  # Read each CSV file
+  model <- readRDS(mod)
+  pheno <- get_y(model)
+  lambda <- model$mu.coefSmo[[1]]
+  
+  lambda_list[[pheno]] <- lambda
+  rm(model)
+}
+```
+

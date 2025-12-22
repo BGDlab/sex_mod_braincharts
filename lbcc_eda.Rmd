@@ -601,12 +601,6 @@ ggplot(df_nozero) +
   geom_histogram(aes(x=age_days, fill=has_qc))
 ```
 
-SurfaceHoles
-"qc.general.white.matter"            "qc.general.grey.matter"            
-[645] "qc.cerebellum"                      "qc.brainstem"
-"avg_grade"                          "useable"
-euler_mean
-qc_general_grey_matter
 
 ### Final Filtering
 

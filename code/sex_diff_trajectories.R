@@ -19,11 +19,24 @@ save_path <- as.character(args[3])
 
 #initialize empty list(s)
 centile_result_list <- list()
+
+#setup
 fname <- model$family[[1]]
 qfun <- paste0("q", fname)
 n_param <- length(model$parameters)
 model$call$data <- "df"
 model$call$family <- fname
+pred_list <- list_predictors(model)
+
+if ("logAge_days" %in% pred_list){
+  age_var <- "logAge_days"
+  print("simulate data for plotting")
+  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+} else {
+  print("simulate data for plotting")
+  age_var <- "age_days"
+  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
+}
 
 # Predict 50th cent & sigma values for each simulated level of factor_var
 for (factor_level in names(sim_df)) {

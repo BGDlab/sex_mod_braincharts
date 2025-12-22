@@ -4,7 +4,7 @@ library(png)
 library(tools)
 
 # Define root directory
-root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*/centile_plots/")
+root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/figs/")
 #root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 
 args <- commandArgs(trailingOnly=TRUE)
@@ -15,7 +15,7 @@ pattern <- if (length(args) >= 2) args[2] else ".*\\.png$"  # Optional pattern f
 message("Discovering PNG files...")
 png_files <- unlist(lapply(root_dirs, function(dir) {
   # Use system find command which is often faster than list.files for deep directories
-  cmd <- paste0("find '", dir, "' -type f -name '*.png' 2>/dev/null")
+  cmd <- paste0("find '", dir, "' -type f -name '*sexdiff_plt.png' 2>/dev/null")
   system(cmd, intern = TRUE)
 }))
 
