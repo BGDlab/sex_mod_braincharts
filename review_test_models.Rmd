@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -438,6 +438,12 @@ for (df in list(sexdiffs_tbv, sexdiffs)){
 plot absolute value centile sex-diffs -> magnitude sex-diffs
 
 ```{r}
+cent_df <- sexdiffs_df_sc %>%
+  filter(weighted==FALSE & total==TRUE) %>%
+  select(centile_M_minus_F_sc, pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F) %>%
+  na.omit() %>%
+  arrange(pheno, logAge_days)
+
 cent_df %>%
     ggplot() +
     geom_line(aes(x=logAge_days, y=abs(centile_M_minus_F_sc), group=pheno, color=pheno)) +
@@ -470,18 +476,21 @@ cent_df2 <- cent_df %>%
 cent_df2 %>%
     ggplot() +
     geom_line(aes(x=logAge_days, y=sq_deriv, group=pheno, color=pheno)) +
+  #geom_smooth(aes(x=logAge_days, y=sq_deriv)) +
     facet_grid(pheno_cat~cv_sample, scales="free_y") +
     theme_linedraw() +
     theme(legend.position = "none") +
     format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
     labs(y="Change in Magnitude Sex Diff")
+  
 
 #try getting integral
 diff_int <- cent_df2 %>%
   group_by(pheno, cv_sample, pheno_cat)%>%
   arrange(logAge_days, .by_group = TRUE) %>%
   na.omit() %>%
-  summarise(sq_int = trapz(logAge_days, sq_deriv))
+  summarise(sq_int = trapz(logAge_days, sq_deriv)
+            )
   
 diff_int_wide <- diff_int %>%
   pivot_wider(id_cols=c(pheno, pheno_cat), names_from=cv_sample, values_from=sq_int) %>%
@@ -503,6 +512,38 @@ diff_int %>%
   facet_wrap(~ pheno_cat, scales="free")
 ```
 
+
+try finding points at which derivative crosses 0 increasing vs decreasing
+
+```{r}
+tol <- 1e-10
+
+cent_df3 <- cent_df2 %>%
+  group_by(pheno, cv_sample, pheno_cat)%>%
+  arrange(logAge_days, .by_group = TRUE) %>%
+  na.omit() %>%
+  mutate(trajectory = case_when(
+    sq_deriv > tol ~ "increasing",
+    abs(sq_deriv) < tol ~ "constant",
+    sq_deriv < -tol ~ "decreasing",
+  ))
+
+ggplot(cent_df3) +
+  geom_line(aes(x=logAge_days, y=interaction(pheno, pheno_cat, sep=":"), color=trajectory)) +
+  guides(y = guide_axis_nested(key=key_range_auto(":"))) +
+  format_x_axis("log_lifespan_fetal", cent_df3$logAge_days) +
+  facet_wrap(~cv_sample)
+
+ggplot(cent_df3) +
+  geom_histogram(aes(x=logAge_days, fill=trajectory), position="identity", alpha=.4) +
+  facet_grid(pheno_cat ~ cv_sample, scales="free_y") +
+  format_x_axis("log_lifespan_fetal", cent_df3$logAge_days)
+
+ggplot(cent_df3) +
+  geom_density(aes(x=logAge_days, fill=trajectory), position="identity", alpha=.4) +
+  facet_grid(pheno_cat ~ cv_sample, scales="free_y") +
+  format_x_axis("log_lifespan_fetal", cent_df3$logAge_days)
+```
 
 Get across-sample correlations
 ```{r}
