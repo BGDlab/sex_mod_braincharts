@@ -6,13 +6,10 @@ date: "2025-10-30"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 ```
 
 Prep split-half dataframes for sensitivity analyses with stricter scan QC
-
-```{r}
-setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
-```
 
 ```{r, warning=FALSE}}
 if(!require('pacman')) {
@@ -23,14 +20,14 @@ pacman::p_load(data.table, ggplot2, dplyr)
 
 load data cleaned data
 ```{r}
-df_clean <- fread("./data/v3_CN_cleaned.csv", stringsAsFactors=T)
-skimr::skim(df_clean$SurfaceHoles)
+df_euler <- fread("./data/euler_tmp.csv", stringsAsFactors=T)
+skimr::skim(df_euler$SurfaceHoles)
 ```
 
 look just at data with euler
 
 ```{r}
-df_euler <- df_clean %>%
+df_euler <- df_euler %>%
   filter(!is.na(SurfaceHoles))
 range(df_euler$SurfaceHoles)
 range(df_euler$age_days)
@@ -72,71 +69,18 @@ df_euler2 %>%
   geom_point(aes(x=weight, y=SurfaceHoles_scaled))
 ```
 
-split data for cv modeling using code from `lbcc_eda.Rmd`
-
+use the original splits and just add back in Euler weights for consistency with main analyses
 ```{r}
-valid_sites <- df_euler2 %>%
-  mutate(sex=as.factor(sexMale)) %>%
-  group_by(study_site, sex) %>%
-  summarise(n = n(), .groups = "drop") %>%
-  group_by(study_site) %>%
-  summarise(
-    valid = all(c("0", "1") %in% sex) && all(n[match(c("0", "1"), sex, nomatch = 0)] >= 10),
-    .groups = "drop"
-  ) %>%
-  filter(valid) %>%
-  pull(study_site)
+#remove any cols that could be different/imact merge
+rm_cols <- c("SurfaceHoles", "study_euler_mad", "study_euler_median", "euler_threshold", "has_qc")
 
-df_euler_sites <- df_euler2 %>%
-  filter(study_site %in% valid_sites)
-nrow(df_euler_sites)
-nrow(df_euler2) - nrow(df_euler_sites)
+og_sample_A <- fread("./data/cv_sample_A.csv", stringsAsFactors=T) %>% 
+  select(!any_of(rm_cols))
+og_sample_B <- fread("./data/cv_sample_B.csv", stringsAsFactors=T) %>% 
+  select(!any_of(rm_cols))
 
-df_euler_sites %>%
-  ggplot() +
-  geom_point(aes(x=logAge_days, y=SurfaceHoles_scaled))
-```
-
-divide
-```{r}
-set.seed(5678)
-#add sex factor var
-df_euler_sites2 <- df_euler_sites %>% mutate(sex=as.factor(sexMale))
-
-split_samples <- splitstackshape::stratified(df_euler_sites2, group=c("study_site", "sex"), size=0.5, bothSets = TRUE)
-
-samp_A <- split_samples$SAMP1
-samp_B <- split_samples$SAMP2
-
-ggplot(samp_A) +
-  geom_histogram(aes(x=age_days, fill=sex))
-ggplot(samp_B) +
-  geom_histogram(aes(x=age_days, fill=sex))
-
-samp_A$sample <- "A"
-samp_B$sample <- "B"
-full_df <- rbind(samp_A, samp_B)
-
-ggplot(full_df)+
-  geom_violin(aes(x=sample, y=age_days, fill=as.factor(sexMale))) +
-  theme_linedraw() +
-  labs(fill = "Male")
-
-ggplot(full_df)+
-  geom_histogram(aes(x=weight, fill=as.factor(sample)), position="identity", alpha=0.5)
-
-ggplot(full_df)+
-  geom_bar(aes(x=study_site, fill=sample), position = "fill") +
-  theme_linedraw()
-```
-
-what if we use the original splits and just add back in Euler weights?
-```{r}
-og_sample_A <- fread("./data/cv_sample_A.csv", stringsAsFactors=T) %>% filter(!is.na(SurfaceHoles))
-og_sample_B <- fread("./data/cv_sample_B.csv", stringsAsFactors=T) %>% filter(!is.na(SurfaceHoles))
-
-og_sample_A_weight <- left_join(og_sample_A, df_euler_sites)
-og_sample_B_weight <- left_join(og_sample_B, df_euler_sites)
+og_sample_A_weight <- left_join(og_sample_A, df_euler2)
+og_sample_B_weight <- left_join(og_sample_B, df_euler2)
 
 og_sample_A_weight$sample <- "A"
 og_sample_B_weight$sample <- "B"
@@ -153,7 +97,6 @@ ggplot(og_splits)+
   geom_histogram(aes(x=weight, fill=as.factor(sample)), position="identity", alpha=0.5)
 
 table(og_splits$sample, og_splits$sex)
-table(full_df$sample, full_df$sex)
 
 ggplot(og_splits)+
   geom_bar(aes(x=study_site, fill=sample), position = "fill") +
@@ -164,8 +107,6 @@ ggplot(og_splits)+
   theme_linedraw() +
   theme(legend.position="none")
 ```
-
-very comparable, using OG splits for consistency with original models
 
 save
 ```{r}
