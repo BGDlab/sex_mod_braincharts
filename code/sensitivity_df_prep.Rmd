@@ -79,12 +79,14 @@ og_sample_A <- fread("./data/cv_sample_A.csv", stringsAsFactors=T) %>%
 og_sample_B <- fread("./data/cv_sample_B.csv", stringsAsFactors=T) %>% 
   select(!any_of(rm_cols))
 
-og_sample_A_weight <- left_join(og_sample_A, df_euler2)
-og_sample_B_weight <- left_join(og_sample_B, df_euler2)
+og_sample_A_weight <- right_join(og_sample_A, df_euler2)
+og_sample_B_weight <- right_join(og_sample_B, df_euler2)
 
 og_sample_A_weight$sample <- "A"
 og_sample_B_weight$sample <- "B"
+
 og_splits <- rbind(og_sample_A_weight, og_sample_B_weight)
+stopifnot(sum(is.na(og_splits$SurfaceHoles))==0)
 ```
 
 ```{r}
@@ -106,6 +108,14 @@ ggplot(og_splits)+
   geom_bar(aes(x=sample, fill=study_site), position = "fill") +
   theme_linedraw() +
   theme(legend.position="none")
+```
+
+
+```{r}
+og_splits %>% 
+  filter(study=="SLIP") %>%
+  ggplot() +
+  geom_violin(aes(x=sample, y=age_days, fill=as.factor(sexMale)))
 ```
 
 save
