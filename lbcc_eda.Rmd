@@ -53,7 +53,7 @@ df <- df %>%
   rename(CBV = Cerebellum.all)
 
 #global volumes
-glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF", "CBV")
+glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF", "CBV", "mean.CT", "total.SA")
 write_lines(glob_vol_list, "./pheno_lists/global_vols.txt")
 saveRDS(glob_vol_list, "./pheno_lists/global_vols.rds")
 ```
@@ -618,6 +618,8 @@ df_clean2 <- df_clean1 %>%
   dplyr::filter(dx == "CN")
 nrow(df_clean1) - nrow(df_clean2)
 n_unique(df_clean2$INDEX.ID)
+
+fwrite(df_clean2, "./data/euler_tmp.csv")
 
 df_clean <- df_clean2 %>%
   group_by(INDEX.ID) %>% #remove duplicate participants

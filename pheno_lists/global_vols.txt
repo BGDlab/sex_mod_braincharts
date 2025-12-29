@@ -3,3 +3,5 @@ GMV
 WMV
 CSF
 CBV
+mean.CT
+total.SA

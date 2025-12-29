@@ -10,7 +10,7 @@
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
 
-CONFIGFN=$BASE/code/config_files/cv_mods_totalFALSE_logAgeTRUE_smpb_rerun20251209_config.txt
+CONFIGFN=$BASE/code/config_files/cv_mods_totalFALSE_logAgeTRUE_smpb_rerun20251225_config.txt
 
 echo "Config file: $CONFIGFN"
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
