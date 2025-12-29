@@ -31,7 +31,7 @@ base_mod$call$data <- "df"
 base_mod$call$family <- base_mod$family[[1]]
 
 #FIT BASIC MODEL
-model <- gamlss_lambda_rep(base_mod, null_mod="false")
+model <- gamlss_lambda_rep(base_mod, null_mod="false", n.cyc=800)
 
 #if model isn't fit, skip to next loop
 if (is.null(model)) {
@@ -134,7 +134,7 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 ##################
 #FIT NULL MODEL
 print("fitting null model")
-null_model <- gamlss_lambda_rep(base_mod, null_mod="true")
+null_model <- gamlss_lambda_rep(base_mod, null_mod="true", n.cyc=800)
 #test saving null 
 file_null <- paste0(save_path, "/model_objs/", filename, "_null_mod.rds")
 print (paste("saving to", file_null))
@@ -157,7 +157,7 @@ test_df <- data.frame(
 #FIT NULL MODEL WITH NO SEX-EFFECT FOR TBV-CORRECTED MODELS
 if (total == TRUE) {
   print("fitting null model of all sex effects")
-  null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex")
+  null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex", n.cyc=800)
   
   test_out2 <- LR.test(null_model2, model, print=FALSE) #significance test
   f2_2 <- cohens_f2_local(model, null_model2) #effect size

@@ -121,7 +121,8 @@ gamlss_lambda_rep <- function(og_mod,
                                null_mod=c("false", "true", "allSex"),
                                keep_lambdas=TRUE,
                                start.from=NULL,
-                               weight=NULL){
+                               weight=NULL,
+                               n.cyc=400){
   
   pheno <- paste0(og_mod$mu.formula)[[2]]
   fam <- og_mod$family[1]
@@ -204,7 +205,7 @@ gamlss_lambda_rep <- function(og_mod,
   
   nu_form <- paste0("nu.formula = ~", nu_base)
   
-  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")
+  control <- paste("control = gamlss.control(n.cyc=", n.cyc,", nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")
 
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
