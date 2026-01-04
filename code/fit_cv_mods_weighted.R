@@ -51,19 +51,20 @@ if (total == "FALSE"){
   df <- full_df %>%
     dplyr::select(all_of(c(pred_list, pheno, "w_norm"))) %>%
     na.omit() %>%
-    trunc_coverage(age_var) #drop points at ends if too sparse
+    trunc_coverage(age_var, max_loops=100) #drop points at ends if too sparse
 } else {
   df <- full_df %>%
     dplyr::select(all_of(c(pred_list, pheno, "w_norm")))
     na.omit() %>%
-    trunc_coverage(c(total, age_var)) #drop points at ends if too sparse
+    trunc_coverage(c(total, age_var), max_loops=100) #drop points at ends if too sparse
 }
 
 ##### FIT TRAINING MODEL #####
 model <- gamlss_lambda_rep(base_mod, 
                            null_mod="false",
                            keep_lambdas=FALSE,
-                           weight="w_norm")
+                           weight="w_norm",
+			   n.cyc=800)
 
 #if model isn't fit, skip to next loop
 if (is.null(model)) {
