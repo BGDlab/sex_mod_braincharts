@@ -49,12 +49,12 @@ resid_terms <- setdiff(pred_list, vars_of_interest)
 #drop extra variables
 if (total == "FALSE"){
   df <- full_df %>%
-    dplyr::select(all_of(c(pred_list, pheno, "w_norm"))) %>%
+    dplyr::select(all_of(c(pred_list, pheno, "weight"))) %>%
     na.omit() %>%
     trunc_coverage(age_var, max_loops=100) #drop points at ends if too sparse
 } else {
   df <- full_df %>%
-    dplyr::select(all_of(c(pred_list, pheno, "w_norm")))
+    dplyr::select(all_of(c(pred_list, pheno, "weight")))
     na.omit() %>%
     trunc_coverage(c(total, age_var), max_loops=100) #drop points at ends if too sparse
 }
@@ -63,7 +63,7 @@ if (total == "FALSE"){
 model <- gamlss_lambda_rep(base_mod, 
                            null_mod="false",
                            keep_lambdas=FALSE,
-                           weight="w_norm",
+                           weight="weight",
 			   n.cyc=800)
 
 #if model isn't fit, skip to next loop

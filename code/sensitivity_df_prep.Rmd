@@ -20,7 +20,13 @@ pacman::p_load(data.table, ggplot2, dplyr)
 
 load data cleaned data
 ```{r}
-df_euler <- fread("./data/euler_tmp.csv", stringsAsFactors=T)
+df_euler <- fread("./data/euler_tmp.csv", stringsAsFactors=T) %>%
+#remove SA from dHCP due to segmentation issues
+  mutate(across(
+    contains("SA."),
+    ~ if_else(study == "dHCP-fetal", NA_real_, .x)
+  ))
+
 skimr::skim(df_euler$SurfaceHoles)
 ```
 
@@ -67,6 +73,8 @@ stopifnot(all.equal(sum(df_euler2$weight), nrow(df_euler2)))
 df_euler2 %>%
   ggplot() +
   geom_point(aes(x=weight, y=SurfaceHoles_scaled))
+
+range(df_euler2$weight)
 ```
 
 use the original splits and just add back in Euler weights for consistency with main analyses
