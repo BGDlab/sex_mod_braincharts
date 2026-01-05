@@ -635,6 +635,7 @@ df_clean <- df_clean2 %>%
   ))
 ```
 
+
 basic demographics
 
 ```{r}
@@ -800,6 +801,92 @@ df_sub <- df_clean %>%
   filter_at(vars(any_of(subcort_list)), any_vars(complete.cases(.)))
 fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 ```
+
+## Patient Sample
+
+save patient sample
+```{r}
+df_pt <- df_clean1 %>%
+  tidyr::drop_na(dx) %>%
+  dplyr::filter(dx != "CN") %>%
+  group_by(INDEX.ID) %>% #remove duplicate participants
+  slice_sample() %>%
+  ungroup()
+
+nrow(df_pt)
+table(df_pt$dx)
+
+#check most common dx
+df_pt %>%
+  count(dx) %>%
+  arrange(desc(n)) %>%
+  slice(1:40)
+```
+
+```{r}
+#recode dx
+#edit to remove family/risk categories
+exclude_family_risk <- function(x) {
+  x[!grepl("\\b(risk|family|relative|sibling)\\b", x, ignore.case = TRUE)]
+}
+mdd_list <- c(grep("Major Depressive Disorder|Dysthymia|depression", unique(df_pt$dx), ignore.case=TRUE, value=TRUE), "Depression", "MDD") %>% 
+  unique() %>% 
+  exclude_family_risk()
+
+alz_list <- c(grep("alz", unique(df_pt$dx), ignore.case=TRUE, value=TRUE), "AD") %>% 
+  unique() %>%
+  exclude_family_risk()
+
+gad_list <- c(grep("generalized anxiety|GAD", unique(df_pt$dx), ignore.case=TRUE, value=TRUE), "GAD") %>% 
+  unique() %>%
+  exclude_family_risk()
+
+asd_list <- c(grep("autism|ASD", unique(df_pt$dx), ignore.case=TRUE, value=TRUE), "ASD") %>% 
+  unique() %>%
+  exclude_family_risk() 
+#editing to remove subthreshold, 22q
+asd_list <- asd_list[!grepl("22q|Not full", asd_list, ignore.case = TRUE)]
+
+scz_list <- c(grep("schizo|SCZ", unique(df_pt$dx), ignore.case=TRUE, value=TRUE), "SCZ", "Psychosis") %>% 
+  unique() %>%
+  exclude_family_risk()
+#remove schizotypy
+scz_list <- scz_list[!grepl("SCZTypy", scz_list, ignore.case = TRUE)]
+
+adhd_list <- c("ADHD", "Attention-Deficit/Hyperactivity Disorder")
+
+mci_list <- c(grep("mci", unique(df_pt$dx), ignore.case=TRUE, value=TRUE), "MCI", "LMCI", "EMCI") %>% 
+  unique() %>%
+  exclude_family_risk()
+
+df_pt_recode <- df_pt %>%
+  mutate(dx_recode = case_when(
+    dx %in% scz_list ~ "SCZ",
+    dx %in% alz_list ~ "ALZ",
+    dx %in% asd_list ~ "ASD",
+    dx %in% mci_list ~ "MCI",
+    dx %in% mdd_list ~ "MDD",
+    dx %in% gad_list ~ "GAD",
+    dx %in% adhd_list ~ "ADHD",
+    TRUE ~ NA
+  ))
+
+table(df_pt_recode$dx_recode)
+sum(!is.na(df_pt_recode$dx_recode))/nrow(df_pt)
+
+df_pt_recode %>%
+  filter(is.na(dx_recode)) %>%
+  count(dx) %>%
+  arrange(desc(n)) %>%
+  slice(1:40)
+
+#drop NAs
+df_pt_recode2 <- df_pt_recode %>%
+  tidyr::drop_na(dx_recode)
+
+fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
+```
+
 
 # Visualize Data
 
