@@ -272,6 +272,35 @@ gamlss_lambda_rep <- function(og_mod,
     } )
     
   }
+  
+  #if needed, try one last time with mixed method
+  if(is.null(result)){
+    result <- tryCatch({
+      gamlss_Mformula <-paste(mu_form, sig_form, nu_form, "method=mixed(10,500)", control, sep=", ")
+      print(gamlss_Mformula)
+      
+      eval(parse(text = gamlss_Mformula))
+      
+    } , warning = function(w) {
+      message("warning")
+      eval(parse(text = gamlss_Mformula))
+      
+    } , error = function(e) {
+      message(e$message, ", trying method=CG()")
+      tryCatch({
+        gamlss_Mformula <-paste(mu_form, sig_form, nu_form, "method=mixed(10,800)", control, sep=", ")
+        eval(parse(text = gamlss_Mformula))
+        
+        #if CG also fails, return NULL
+      }, error = function(e2) {
+        message(e2$message, ", returning NULL")
+        return(NULL)
+      })
+    } , finally = {
+      message("done")
+    } )
+    
+  }
   return(result)
 }
 

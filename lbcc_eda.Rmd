@@ -887,6 +887,22 @@ df_pt_recode2 <- df_pt_recode %>%
 fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
 ```
 
+demographics
+```{r}
+nrow(df_pt_recode2)
+table(df_pt_recode2$sexMale)
+table(df_pt_recode2$sexMale)[[1]] -> n_female
+n_female/nrow(df_pt_recode2) * 100
+
+#yrs from birth
+(min(df_pt_recode2$age_days) - 280)/365.25
+(max(df_pt_recode2$age_days) - 280)/365.25
+
+ggplot(df_pt_recode2) +
+  geom_histogram(aes(x=age_days, fill=dx_recode), position = "identity", alpha=.4) +
+  gamlssTools::format_x_axis("lifespan_fetal", df_pt_recode2$age_days)
+```
+
 
 # Visualize Data
 
