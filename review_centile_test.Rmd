@@ -1,0 +1,151 @@
+---
+title: "Review Centile Tests"
+output: html_document
+date: "2024-10-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats)
+
+#devtools::install_github("BGDlab/gamlssTools", force=TRUE)
+library(gamlssTools)
+
+sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
+ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
+vol_list <- readRDS("./pheno_lists/cortical_vols.rds")
+global_list <- readRDS("./pheno_lists/global_vols.rds")
+sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
+test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*/"
+
+# install.packages("remotes")
+remotes::install_github("BGDlab/ggsegTissue")
+library(ggsegTissue)
+remotes::install_github("ggseg/ggsegExtra")
+```
+
+#Read & Prep CSVs
+
+centiles
+
+```{r}
+# Use Sys.glob to expand wildcard paths
+paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent.csv"))
+
+# Read all matching CSVs
+output_fread <- lapply(paths, function(p) {
+  fread(p) %>%
+    mutate(
+      cv_sample = stringr::str_extract(p, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+      total     = stringr::str_extract(p, "(?<=total)(TRUE|FALSE)"),
+      weighted  = stringr::str_detect(p, "weight")
+    )
+})
+
+length(output_fread)
+#stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
+
+cent.df <- Reduce(
+  function(x, y) full_join(x, y, by = intersect(names(x), names(y))),
+  output_fread
+)
+
+skim(cent.df)
+```
+
+Test results
+```{r}
+# Use Sys.glob to expand wildcard paths
+paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent_pt_test.csv"))
+
+# Read all matching CSVs
+output_fread <- lapply(paths, fread)
+length(output_fread)
+names(output_fread) <- paths
+#stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
+
+
+cent_test.df <- bind_rows(output_fread, .id="file") %>%
+  mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+         total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
+         weighted  = stringr::str_detect(file, "weight")) %>%
+  select(!file) %>%
+  group_by(total, weighted, cv_sample) %>% #apply FDR correction within each combo
+  mutate(
+    p.val_fdr = p.adjust(
+      p,
+      method = "fdr"
+    )
+  ) %>%
+  ungroup() %>%
+  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) 
+```
+
+clean up
+
+## Non TBV-Corrected
+
+```{r}
+#full model
+cent_test.df_uncor <- cent_test.df %>%
+  filter(total == "FALSE" & weighted == "FALSE")
+
+cent_test.df_uncor %>%
+  ggplot() +
+  geom_bar(aes(x=dx, fill=sig_fdr)) +
+  facet_grid(model~cv_sample)
+
+cent_test.df_uncor %>%
+  ggplot() +
+  geom_bar(aes(x=pheno, fill=cv_sample)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~dx) +
+  gghighlight(sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
+```
+
+
+```{r}
+skim(cent.df)
+
+cent.df %>%
+  filter(dx_recode=="CN") %>%
+  skim()
+
+cent.df %>%
+  filter(dx_recode!="CN") %>%
+  skim()
+```
+
+## TBV-Corrected
+
+```{r}
+#full model
+cent_test.df_tbv <- cent_test.df %>%
+  filter(total == "TRUE" & weighted == "FALSE")
+cent_test.df_tbv <- adjust_p(cent_test.df_tbv)
+
+cent_test.df_tbv %>%
+  ggplot() +
+  geom_bar(aes(x=dx, fill=sig_fdr)) +
+  facet_grid(model~cv_sample)
+
+cent_test.df_tbv %>%
+  ggplot() +
+  geom_bar(aes(x=pheno, fill=cv_sample)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~dx) +
+  gghighlight(sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
+```
