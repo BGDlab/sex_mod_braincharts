@@ -22,18 +22,30 @@ filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("BestMod", "test", filename_no_ext)
 file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
 
-#check if this pheno is already run, and if so, end
-# if (file.exists(file_full)){
-#   stop("Already tested, skipping pheno")
-# }
-
 base_mod$call$data <- "df"
 base_mod$call$family <- base_mod$family[[1]]
 
 #FIT BASIC MODEL
-model <- gamlss_lambda_rep(base_mod, null_mod="false", n.cyc=800)
+#check if this pheno is already run, and if so, load
+model <- NULL
 
-#if model isn't fit, skip to next loop
+if (file.exists(file_full)){
+  print("loading pre-fit model")
+  model <- tryCatch({readRDS(file_full)
+  }, error = function(e){
+    message(e$message, "- trying again")
+    tryCatch({readRDS(file_full)
+    }, error = function(e){
+      message(e$message, "- refit")
+      NULL
+    })
+  })
+}
+if (is.null(model)){
+  model <- gamlss_lambda_rep(base_mod, null_mod="false", n.cyc=800)
+}
+
+#if model doesn't fit, fail
 if (is.null(model)) {
   message("model fitting failed")
   stop("model fitting failed")
@@ -134,9 +146,33 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 ##################
 #FIT NULL MODEL
 print("fitting null model")
-null_model <- gamlss_lambda_rep(base_mod, null_mod="true", n.cyc=800)
-#test saving null 
+
+#check if null is already run, and if so, load
+null_model <- NULL
 file_null <- paste0(save_path, "/model_objs/", filename, "_null_mod.rds")
+
+if (file.exists(file_null)){
+  print("loading pre-fit model")
+  null_model <- tryCatch({readRDS(file_null)
+  }, error = function(e){
+    message(e$message, "- trying again")
+    tryCatch({readRDS(file_null)
+    }, error = function(e){
+      message(e$message, "- refit")
+      NULL
+    })
+  })
+}
+if (is.null(null_model)){
+  null_model <- gamlss_lambda_rep(base_mod, null_mod="true", n.cyc=800)
+}
+
+#if model doesn't fit, fail
+if (is.null(null_model)) {
+  message("null model fitting failed")
+  stop("null model fitting failed")
+}
+
 print (paste("saving to", file_null))
 saveRDS(null_model, file=file_null)
 
@@ -159,6 +195,10 @@ if (total == TRUE) {
   print("fitting null model of all sex effects")
   null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex", n.cyc=800)
   
+  file_null2 <- paste0(save_path, "/model_objs/", filename, "_null2_mod.rds")
+  print (paste("saving to", file_null2))
+  saveRDS(null_model2, file=file_null2)
+  
   test_out2 <- LR.test(null_model2, model, print=FALSE) #significance test
   f2_2 <- cohens_f2_local(model, null_model2) #effect size
   
@@ -173,7 +213,6 @@ if (total == TRUE) {
   )
   
   test_df <- rbind(test_df, test_df2)
-  
 }
 
 fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
@@ -226,16 +265,29 @@ dx <- diff(result_df$logAge_days)
 male_deriv <- dy_male/dx
 female_deriv <- dy_female/dx
 
-x_mid <- zoo::rollmean(result_df$logAge_days, 2)
-
 deriv_df <- data.frame("deriv_Male" = male_deriv,
                        "deriv_Female" = female_deriv,
-                       "logAge_days" = x_mid)
+                       "logAge_days" = result_df$logAge_days[-1]) #drop first age
 
+# zscore relative to initial y values
+mean_pheno <- mean(df[[pheno]])
+std_dev_pheno <- sd(df[[pheno]])
+z_score <- function(x){
+  (x - mean_pheno) / std_dev_pheno
+}
+
+#join
 final_df <- full_join(result_df, deriv_df) %>%
   mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
          sigma_M_minus_F = sigma_Male - sigma_Female,
-         deriv_M_minus_F = deriv_Male - deriv_Female)
+         deriv_M_minus_F = deriv_Male - deriv_Female) %>%
+  mutate(
+    across(
+      .cols = matches("centile|sigma|deriv"),
+      .fns = z_score,
+      .names = "{.col}_z"
+    ))
+
 
 print("saving sex diffs")
 fwrite(final_df, file=paste0(save_path, "/cent_csvs/", pheno, "_sexdiffs.csv"))
