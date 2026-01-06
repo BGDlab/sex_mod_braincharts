@@ -108,7 +108,19 @@ LR.df_plot <- LR.df2 %>%
     pheno == "CBV" ~ "Cerebellum",
     pheno == "SUBC.Brain.Stem" ~ "Brainstem",
     TRUE ~ NA_character_
-  ))
+  )) %>%
+  group_by(total, weighted, cv_sample) %>% #apply FDR correction within each combo
+  mutate(
+    p.val_fdr = p.adjust(
+      p_val,
+      method = "fdr"
+    )
+  ) %>%
+  ungroup() %>%
+  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
+  mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
+         sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
+
 LR.df_plot$cv_sample <- factor(LR.df_plot$cv_sample, levels = c("A", "B"))
 
 #check cortical
@@ -134,15 +146,12 @@ LR.df_plot %>%
   summarise(max_resi = max(resi))
 ```
 
+
 #Non-Corrected Model
 
 ```{r}
 LR.df_uncor <- LR.df_plot %>%
-  dplyr::filter(total==FALSE & weighted == FALSE) %>%
-  mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
-  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
-  mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
-         sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
+  dplyr::filter(total==FALSE & weighted == FALSE)
 
 table(LR.df_uncor$sig_fdr)
 
@@ -202,11 +211,7 @@ ggsave("figs/resi_uncorrected.png", full_plt_uncor, width=7, height=10)
 
 ```{r}
 LR.df_tot <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age" & weighted == FALSE) %>%
-  mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
-  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
-  mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
-         sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
+  dplyr::filter(total==TRUE & effect=="sex_age" & weighted == FALSE)
 
 table(LR.df_tot$sig_fdr)
 
@@ -263,11 +268,7 @@ ggsave("figs/resi_tbv.png", full_plt_tot, width=7, height=10)
 
 ```{r}
 LR.df_tot_sex <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all" & weighted == FALSE) %>%
-  mutate(p.val_fdr = p.adjust(p_val, method="fdr", n = nrow(LR.df))) %>%
-  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) %>%
-  mutate(sig_fsq = ifelse(sig_fdr==TRUE, fsq, NA),
-         sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
+  dplyr::filter(total==TRUE & effect=="sex_all" & weighted == FALSE)
 
 table(LR.df_tot_sex$sig_fdr)
 
@@ -1005,7 +1006,7 @@ reg_dom_plt <- LR.df_tot_dominance %>%
     position = position_brain(hemi ~ side)
   ) +
   geom_brain(
-    data = LR.df_tot_dominance_reg %>% 
+    data = LR.df_tot_dominance %>% 
       filter(pheno %in% consistent_sex),
     aes(fill = dominance),
     atlas = dk_clean,
