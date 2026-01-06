@@ -15,7 +15,7 @@ gamlss_lambda <- function(pheno, lambda=NULL,
   
   #define formulas for each moment
   mu_base <- paste(
-    "safe_gamlss(formula =", pheno, "~",
+    "safe_gamlss_old(formula =", pheno, "~",
     make_pb("sexMale_x_logAge", lambda), "+",
     make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
   )
@@ -158,7 +158,7 @@ gamlss_lambda_rep <- function(og_mod,
     }
   }
   
-  mu_form <- paste0("safe_gamlss(formula =", pheno, "~", mu_base)
+  mu_form <- paste0("safe_gamlss_old(formula =", pheno, "~", mu_base)
   
   #SIGMA
   sig_base <- paste0(og_mod$sigma.formula)[[2]]
@@ -329,7 +329,7 @@ gamlss_lambda_etiv <- function(pheno, lambda=NULL,
   #define formulas for each moment
   #MU BASE
   mu_base <- paste(
-    "safe_gamlss(formula =", pheno, "~",
+    "safe_gamlss_old(formula =", pheno, "~",
     make_pb("sexMale_x_logAge", lambda), "+",
     make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
   )
@@ -454,7 +454,7 @@ gamlss_age <- function(pheno, lambda=NULL,
   
   #define formulas for each moment
   mu_base <- paste(
-    "safe_gamlss(formula =", pheno, "~",
+    "safe_gamlss_old(formula =", pheno, "~",
     make_pb("sexMale_x_age", lambda), "+",
     make_pb("age_days", lambda), "+ sexMale + random(study_site)"
   )
@@ -576,4 +576,43 @@ rm_lambdas <- function(formula_string){
     perl = TRUE
   )
   return(text_clean)
+}
+
+#tmp rollback to fix CG() and mixed() methods
+safe_gamlss_old <- function(...) {
+  warn_msg <- NULL
+  
+  
+  mod <- withCallingHandlers({
+    gamlss(...)
+  }, warning = function(w) {
+    # Capture the warning message
+    warn_msg <<- w$message
+    
+    # Example condition: promote warnings containing "Error" or convergence issues
+    if (grepl("Error", w$message, ignore.case = TRUE) ||
+        grepl("converge", w$message, ignore.case = TRUE)) {
+      # Turn this warning into an error
+      stop(simpleError(w$message))
+    }
+  },
+  error = function(e) {
+    stop(e)  # propagate any real errors
+  }
+  )
+  
+  # Check for NULL coefficients
+  null_mu <- is.null(coef(mod, what = "mu"))
+  null_sigma <- is.null(coef(mod, what = "sigma"))
+  
+  if (null_mu && null_sigma) {
+    stop("Model fit failed: coefficients are NULL")
+  }
+  
+  #backup check
+  if (mod$converged==FALSE) {
+    stop("Model did not converge:", warn_msg)
+  }
+  
+  return(mod)
 }
