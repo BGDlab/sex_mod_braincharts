@@ -7,11 +7,13 @@ data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 
-# Parse named arguments
+rerun="FALSE"
+
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --total) total="$2"; shift 2 ;;
     --log_age) log_age="$2"; shift 2 ;;
+    --rerun) rerun="$2"; shift 2 ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
 done
@@ -19,7 +21,7 @@ done
 # Check that all required arguments are provided
 if [[ -z "$total" || -z "$log_age" ]]; then
   echo "Missing arguments. Usage:"
-  echo "--total TRUE/FALSE --log_age TRUE/FALSE"
+  echo "--total TRUE/FALSE --log_age TRUE/FALSE [--rerun TRUE/FALSE]"
   exit 1
 fi
 
@@ -30,7 +32,13 @@ do
   echo "prepping: $split"
   
     #make config file dir or remove old file if necessary
-    config_file=$config_path/cv_sample_${split}_total${total}_logAge${log_age}_weighted_config.txt
+    if [[ "$rerun" == "TRUE" ]]; then
+      date_tag=$(date +%Y%m%d)
+      config_file=$config_path/cv_sample_${split}_total${total}_logAge${log_age}_weighted_rerun${date_tag}_config.txt
+    else
+      config_file=$config_path/cv_sample_${split}_total${total}_logAge${log_age}_weighted_config.txt
+    fi
+    
     if ! [ -d $config_path ]
     then
       mkdir $config_path
@@ -94,12 +102,19 @@ do
       save_path=$(realpath $save_path)
       
       #SET SEARCH PATH FOR TRAINING MODELS
-      #replace 'test' with 'train' and swap A and B
       search_path=$save_dir/${pheno_cat}_total${total}_*logAge${log_age}_pbmods #wildcard to allow for old logPheno naming convention
       
       #LOOP THROUGH BESTMODS
       while read -r pheno_line
       do
+        #skip any phenos that have already been fit
+        if [[ "$rerun" == "TRUE" ]]; then
+          best_file=$(ls ${save_path}/model_objs/${pheno_line}*_train_weighted.rds 2>/dev/null | head -n 1 || true)
+          if [[ -n "$best_file" ]]; then
+            echo "Skipping $pheno_line (already fit)"
+            continue
+          fi
+        fi
         
         # find training BestModel from model selection
        mapfile -t matches < <(find "$save_dir" -type f \

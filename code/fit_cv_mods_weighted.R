@@ -54,7 +54,7 @@ if (total == "FALSE"){
     trunc_coverage(age_var, max_loops=100) #drop points at ends if too sparse
 } else {
   df <- full_df %>%
-    dplyr::select(all_of(c(pred_list, pheno, "weight")))
+    dplyr::select(all_of(c(pred_list, pheno, "weight"))) %>%
     na.omit() %>%
     trunc_coverage(c(total, age_var), max_loops=100) #drop points at ends if too sparse
 }

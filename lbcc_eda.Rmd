@@ -619,7 +619,7 @@ df_clean2 <- df_clean1 %>%
 nrow(df_clean1) - nrow(df_clean2)
 n_unique(df_clean2$INDEX.ID)
 
-fwrite(df_clean2, "./data/euler_tmp.csv")
+#fwrite(df_clean2, "./data/euler_tmp.csv")
 
 df_clean <- df_clean2 %>%
   group_by(INDEX.ID) %>% #remove duplicate participants
@@ -682,7 +682,7 @@ df_clean %>%
 
 write out full dataframe
 ```{r}
-fwrite(df_clean, "./data/v3_CN_cleaned.csv")
+#fwrite(df_clean, "./data/v3_CN_cleaned.csv")
 ```
 
 ###Split for CV Modeling
@@ -752,8 +752,8 @@ pretty good distributions of ages and Euler within sex, no significant differenc
 
 save
 ```{r}
-fwrite(split_samples$SAMP1, "./data/cv_sample_A.csv")
-fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
+#fwrite(split_samples$SAMP1, "./data/cv_sample_A.csv")
+#fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
 ```
 
 ###Subdivide by Feature Category
@@ -764,7 +764,7 @@ Write out separate csvs for each pheno category. These will be further subdivide
 #save out QC separately since these would only be used for sensitivity analyses
 df_covars <- df_clean %>%
   dplyr::select(all_of(covar_list))
-fwrite(df_covars, file="./data/v3_CN_covars.csv")
+#fwrite(df_covars, file="./data/v3_CN_covars.csv")
 
 covar_subset <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale_x_age", 
                   "age_days", "logAge_days", "sexMale_x_logAge", "study_site")
@@ -775,31 +775,31 @@ df_global <- df_clean %>%
                          "fs_version", "fs_version_SA", "fs_version_CT", "fs_version_GM", 
                          "eTIV", "TBV"))) %>%
   filter_at(glob_vol_list, any_vars(complete.cases(.)))
-fwrite(df_global, "./data/csvs_by_pheno/global_vols.csv")
+#fwrite(df_global, "./data/csvs_by_pheno/global_vols.csv")
 
 #regional gmv
 df_gmv <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, gmv_list, "fs_version_GM", "eTIV")))%>%
   filter_at(gmv_list, any_vars(complete.cases(.)))
-fwrite(df_gmv, "./data/csvs_by_pheno/cortical_vols.csv")
+#fwrite(df_gmv, "./data/csvs_by_pheno/cortical_vols.csv")
 
 #regional sa
 df_sa <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, sa_list, "fs_version_SA", "total.SA")))%>%
   filter_at(sa_list, any_vars(complete.cases(.)))
-fwrite(df_sa, "./data/csvs_by_pheno/cortical_surf.csv")
+#fwrite(df_sa, "./data/csvs_by_pheno/cortical_surf.csv")
 
 #regional ct
 df_ct <- df_clean %>%
   dplyr::select(all_of(c(covar_subset, ct_list, "fs_version_CT", "mean.CT")))%>%
   filter_at(ct_list, any_vars(complete.cases(.)))
-fwrite(df_ct, "./data/csvs_by_pheno/cortical_thickness.csv")
+#fwrite(df_ct, "./data/csvs_by_pheno/cortical_thickness.csv")
 
 #subcortical vols
 df_sub <- df_clean %>%
   dplyr::select(any_of(c(covar_subset, subcort_list, "fs_version_GM", "eTIV")))%>%
   filter_at(vars(any_of(subcort_list)), any_vars(complete.cases(.)))
-fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
+#fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
 ```
 
 ## Patient Sample
@@ -869,7 +869,8 @@ df_pt_recode <- df_pt %>%
     dx %in% gad_list ~ "GAD",
     dx %in% adhd_list ~ "ADHD",
     TRUE ~ NA
-  ))
+  )) %>%
+  filter(study_site %in% valid_sites) #sites to match controls
 
 table(df_pt_recode$dx_recode)
 sum(!is.na(df_pt_recode$dx_recode))/nrow(df_pt)
@@ -884,7 +885,7 @@ df_pt_recode %>%
 df_pt_recode2 <- df_pt_recode %>%
   tidyr::drop_na(dx_recode)
 
-fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
+#fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
 ```
 
 demographics
@@ -903,6 +904,42 @@ ggplot(df_pt_recode2) +
   gamlssTools::format_x_axis("lifespan_fetal", df_pt_recode2$age_days)
 ```
 
+```{r}
+set.seed(5678)
+#add sex factor var
+df_pt_recode2 <- df_pt_recode2 %>% mutate(sex=as.factor(sexMale))
+
+split_samples <- splitstackshape::stratified(df_pt_recode2, group=c("study_site", "sex"), size=0.5, bothSets = TRUE)
+
+samp_A <- split_samples$SAMP1 %>% droplevels()
+samp_B <- split_samples$SAMP2 %>% droplevels()
+
+ggplot(samp_A) +
+  geom_histogram(aes(x=age_days, fill=sex))
+ggplot(samp_B) +
+  geom_histogram(aes(x=age_days, fill=sex))
+
+samp_A$sample <- "A"
+samp_B$sample <- "B"
+
+full_df <- rbind(samp_A, samp_B)
+
+#check diffs in study site between pts and controls
+cv_A <- fread("./data/cv_sample_A.csv")
+cv_B <- fread("./data/cv_sample_B.csv")
+setdiff(unique(samp_A$study_site), unique(cv_A$study_site))
+setdiff(unique(samp_B$study_site), unique(cv_B$study_site))
+
+ggplot(full_df)+
+  geom_violin(aes(x=sample, y=age_days, fill=as.factor(sexMale))) +
+  theme_linedraw() +
+  labs(fill = "Male")
+```
+
+```{r}
+# fwrite(split_samples$SAMP1, "./data/pt_sample_A.csv")
+# fwrite(split_samples$SAMP2, "./data/pt_sample_B.csv")
+```
 
 # Visualize Data
 

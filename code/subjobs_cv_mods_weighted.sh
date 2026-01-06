@@ -1,11 +1,11 @@
 #!/bin/bash
 #
 #SBATCH --job-name=w_mods
-#SBATCH --time=10:00:00
+#SBATCH --time=20:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=5G
-#SBATCH --array=1-239
+#SBATCH --mem-per-cpu=10G
+#SBATCH --array=10
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/w_train/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/w_train/R-%A_%a.err
 
@@ -30,7 +30,7 @@ echo "TBV-corrected: $TBV"
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.2.8.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.2.9.sif"
 
 singularity run --cleanenv \
     -B $BASE \
