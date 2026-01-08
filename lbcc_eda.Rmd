@@ -883,26 +883,84 @@ df_pt_recode %>%
 
 #drop NAs
 df_pt_recode2 <- df_pt_recode %>%
-  tidyr::drop_na(dx_recode)
+  tidyr::drop_na(dx_recode) %>% 
+  #removing MCI, too small
+  filter(dx_recode != "MCI")
 
 #fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
 ```
 
 demographics
 ```{r}
-nrow(df_pt_recode2)
-table(df_pt_recode2$sexMale)
-table(df_pt_recode2$sexMale)[[1]] -> n_female
-n_female/nrow(df_pt_recode2) * 100
-
-#yrs from birth
-(min(df_pt_recode2$age_days) - 280)/365.25
-(max(df_pt_recode2$age_days) - 280)/365.25
-
 ggplot(df_pt_recode2) +
   geom_histogram(aes(x=age_days, fill=dx_recode), position = "identity", alpha=.4) +
   gamlssTools::format_x_axis("lifespan_fetal", df_pt_recode2$age_days)
+
+df_pt_recode2 %>%
+  mutate(age_yrs = (age_days-280)/365.25) %>%
+  group_by(dx_recode) %>%
+  summarise(n = n(),
+            n_male = sum(sexMale),
+            pct_male = (sum(sexMale)/n())*100,
+            min_age = min(age_yrs),
+            max_age = max(age_yrs),
+            mean_age = mean(age_yrs)
+            )
+#table(df_pt_recode2$dx_recode, df_pt_recode2$study_site)
 ```
+
+site match controls
+
+```{r}
+cn_df_list <- list(samp_A, samp_B)
+names(cn_df_list) <- c("A", "B")
+dx_list <- unique(df_pt_recode2$dx_recode)
+
+for (dx_val in dx_list){
+  print(dx_val)
+  pts <- df_pt_recode2 %>%
+    filter(dx_recode == dx_val)
+  
+  sites <- unique(pts$study_site)
+  print(length(sites))
+  
+  for (n in names(cn_df_list)){
+  cn_df <- cn_df_list[[n]]
+  
+  new_df <- cn_df %>%
+    filter(study_site %in% sites) %>%
+    mutate(dx_recode = paste(dx, dx_val, sep="_"))
+  
+  #remove UKB controls from ASD - otherwise data is way too skewed!
+  if (dx_val == "ASD" | dx_val == "SCZ"){
+    new_df <- new_df %>%
+    filter(study != "UKB")
+  }
+    
+  full_samp <- rbind(new_df, pts, fill=TRUE)
+  
+  print(full_samp %>%
+          mutate(age_yrs = (age_days-280)/365.25) %>%
+  group_by(dx_recode) %>%
+  summarise(n = n(),
+            n_male = sum(sexMale),
+            pct_male = (sum(sexMale)/n())*100,
+            min_age = min(age_yrs),
+            max_age = max(age_yrs),
+            mean_age = mean(age_yrs)
+            ))
+  
+  print(ggplot(full_samp) +
+          geom_histogram(aes(x=age_days, fill=dx_recode), position="identity", alpha=.5))
+  
+  fname <- paste0("./data/case_control_dfs/cv_sample_", n, "_", dx_val, ".csv")
+  fwrite(full_samp, fname)
+  
+  }
+}
+
+```
+
 
 ```{r}
 set.seed(5678)
