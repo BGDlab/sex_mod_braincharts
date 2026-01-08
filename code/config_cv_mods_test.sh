@@ -94,9 +94,9 @@ do
       
       #skip already tested models if rerunning
       if [[ "$rerun" == "TRUE" ]]; then
-          test_csv=$(ls ${save_path}/model_sums/${pheno_line}*_LRtest.csv 2>/dev/null | head -n 1 || true)
+          test_csv=$(ls ${save_path}/cent_csvs/${pheno_line}*_sexdiffs.csv 2>/dev/null | head -n 1 || true)
           if [[ -n "$test_csv" ]]; then
-            echo "Skipping $pheno_line (LR Test found)"
+            echo "Skipping $pheno_line (sex diffs csv found)"
             continue
           fi
       fi

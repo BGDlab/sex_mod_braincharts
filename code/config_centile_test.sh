@@ -69,13 +69,17 @@ do
       save_path=$save_dir/${pheno_cat}_total${total}_logAge${log_age}_pbmods
       save_path=$(realpath $save_path)
 
-      #LOOP THROUGH BESTMODS
+      #LOOP THROUGH TEST MODELS
       while read -r pheno_line
+      do
+      
+      #LOOP THROUGH DX
+      for dx in "SCZ" "ALZ" "ASD" "MCI" "MDD" "GAD" "ADHD"
       do
       
       #skip already tested models if rerunning
       if [[ "$rerun" == "TRUE" ]]; then
-          test_csv=$(ls ${save_path}/model_sums/${pheno_line}*_cent_pt_test.csv 2>/dev/null | head -n 1 || true)
+          test_csv=$(ls ${save_path}/model_sums/${pheno_line}*_${dx}pt_cent_test.csv 2>/dev/null | head -n 1 || true)
           if [[ -n "$test_csv" ]]; then
             echo "Skipping $pheno_line (centile tests found)"
             continue
@@ -101,7 +105,7 @@ do
           og_mod="${matches[0]}"
           
           # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$og_mod\t$save_path" >> "$config_file"
+          echo -e "$file\t$og_mod\t$save_path\t$dx" >> "$config_file"
         elif [ ${#matches[@]} -eq 0 ]; then
           echo "Warning: No matching file found in '$save_dir' for prefix '$pheno_line' and suffix 'full_mod.rds'" >&2
           #exit 1
@@ -110,6 +114,7 @@ do
           printf '%s\n' "${matches[@]}" >&2
           #exit 1
         fi
+        done
       done < "$pheno_list"
 
   done
