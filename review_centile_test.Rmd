@@ -32,7 +32,7 @@ test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_samp
 # install.packages("remotes")
 remotes::install_github("BGDlab/ggsegTissue")
 library(ggsegTissue)
-remotes::install_github("ggseg/ggsegExtra")
+#remotes::install_github("ggseg/ggsegExtra")
 ```
 
 #Read & Prep CSVs
@@ -44,7 +44,7 @@ centiles
 paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent.csv"))
 
 # Read all matching CSVs
-output_fread <- lapply(paths, function(p) {
+cent_df_list <- lapply(paths, function(p) {
   fread(p) %>%
     mutate(
       cv_sample = stringr::str_extract(p, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
@@ -53,21 +53,38 @@ output_fread <- lapply(paths, function(p) {
     )
 })
 
-length(output_fread)
+
+length(cent_df_list)
 #stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
+```
 
-cent.df <- Reduce(
-  function(x, y) full_join(x, y, by = intersect(names(x), names(y))),
-  output_fread
-)
+Look at samples retained
 
-skim(cent.df)
+```{r}
+get_demos <- function(df){
+  demo <- df %>%
+    group_by(dx_recode) %>%
+    mutate(age_years=(un_log(logAge_days)-280)/265.25) %>%
+    summarise(n = n(),
+              n_female = sum(sex=="F"),
+              min_age = min(age_years),
+              mean_age = mean(age_years),
+              sd_age = sd(age_years),
+              max_age = max(age_years)
+              )
+  demo$total <- unique(df$total)
+  demo$cv_sample <- unique(df$cv_sample)
+  demo$weighted <- unique(df$weighted)
+  return(demo)
+}
+
+cent_df_demos <- lapply(cent_df_list, get_demos)
 ```
 
 Test results
 ```{r}
 # Use Sys.glob to expand wildcard paths
-paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent_pt_test.csv"))
+paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent_pt*_test.csv"))
 
 # Read all matching CSVs
 output_fread <- lapply(paths, fread)
@@ -77,19 +94,25 @@ names(output_fread) <- paths
 
 
 cent_test.df <- bind_rows(output_fread, .id="file") %>%
-  mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+  mutate(pheno = stringr::str_extract(basename(file), "^[^_]+"),
+        cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
          weighted  = stringr::str_detect(file, "weight")) %>%
   select(!file) %>%
   group_by(total, weighted, cv_sample) %>% #apply FDR correction within each combo
   mutate(
-    p.val_fdr = p.adjust(
-      p,
+    dx_p.val_fdr = p.adjust(
+      case.control_p.val,
+      method = "fdr"
+    ),
+    pt.sex_p.val_fdr = p.adjust(
+      pt.sex_p.val,
       method = "fdr"
     )
   ) %>%
   ungroup() %>%
-  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE)) 
+  mutate(dx_sig_fdr = ifelse(dx_p.val_fdr <=0.05, TRUE, FALSE),
+         pt.sex_sig_fdr = ifelse(pt.sex_p.val <=0.05, TRUE, FALSE))
 ```
 
 clean up
@@ -103,7 +126,12 @@ cent_test.df_uncor <- cent_test.df %>%
 
 cent_test.df_uncor %>%
   ggplot() +
-  geom_bar(aes(x=dx, fill=sig_fdr)) +
+  geom_bar(aes(x=dx, fill=dx_sig_fdr)) +
+  facet_grid(model~cv_sample)
+
+cent_test.df_uncor %>%
+  ggplot() +
+  geom_bar(aes(x=dx, fill=pt.sex_sig_fdr)) +
   facet_grid(model~cv_sample)
 
 cent_test.df_uncor %>%
@@ -112,7 +140,7 @@ cent_test.df_uncor %>%
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   facet_grid(model~dx) +
-  gghighlight(sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
+  gghighlight(dx_sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
 ```
 
 
@@ -134,11 +162,15 @@ cent.df %>%
 #full model
 cent_test.df_tbv <- cent_test.df %>%
   filter(total == "TRUE" & weighted == "FALSE")
-cent_test.df_tbv <- adjust_p(cent_test.df_tbv)
 
 cent_test.df_tbv %>%
   ggplot() +
-  geom_bar(aes(x=dx, fill=sig_fdr)) +
+  geom_bar(aes(x=dx, fill=dx_sig_fdr)) +
+  facet_grid(model~cv_sample)
+
+cent_test.df_tbv %>%
+  ggplot() +
+  geom_bar(aes(x=dx, fill=pt.sex_sig_fdr)) +
   facet_grid(model~cv_sample)
 
 cent_test.df_tbv %>%
@@ -147,5 +179,5 @@ cent_test.df_tbv %>%
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   facet_grid(model~dx) +
-  gghighlight(sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
+  gghighlight(dx_sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
 ```
