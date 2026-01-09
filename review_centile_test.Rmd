@@ -49,36 +49,17 @@ cent_df_list <- lapply(paths, function(p) {
     mutate(
       cv_sample = stringr::str_extract(p, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
       total     = stringr::str_extract(p, "(?<=total)(TRUE|FALSE)"),
-      weighted  = stringr::str_detect(p, "weight")
-    )
+      weighted  = stringr::str_detect(p, "weight"),
+      control = if_else(str_detect(dx_recode, "^CN_"), "CN", "PT"),
+      dx_tested  = str_remove(dx_recode, "^CN_")
+    ) %>%
+    select(!c(sexMale_x_logAge, sexMale, study_site, INDEX.ID, dx))
 })
 
 
 length(cent_df_list)
 #stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
-```
-
-Look at samples retained
-
-```{r}
-get_demos <- function(df){
-  demo <- df %>%
-    group_by(dx_recode) %>%
-    mutate(age_years=(un_log(logAge_days)-280)/265.25) %>%
-    summarise(n = n(),
-              n_female = sum(sex=="F"),
-              min_age = min(age_years),
-              mean_age = mean(age_years),
-              sd_age = sd(age_years),
-              max_age = max(age_years)
-              )
-  demo$total <- unique(df$total)
-  demo$cv_sample <- unique(df$cv_sample)
-  demo$weighted <- unique(df$weighted)
-  return(demo)
-}
-
-cent_df_demos <- lapply(cent_df_list, get_demos)
+cent_df <- bind_rows(cent_df_list)
 ```
 
 Test results
@@ -115,7 +96,34 @@ cent_test.df <- bind_rows(output_fread, .id="file") %>%
          pt.sex_sig_fdr = ifelse(pt.sex_p.val <=0.05, TRUE, FALSE))
 ```
 
-clean up
+lm test results
+```{r}
+# Use Sys.glob to expand wildcard paths
+paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent_pt*_lm.csv"))
+
+# Read all matching CSVs
+output_fread <- lapply(paths, fread)
+length(output_fread)
+names(output_fread) <- paths
+#stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
+
+
+cent_lm.df <- bind_rows(output_fread, .id="file") %>%
+  mutate(pheno = stringr::str_extract(basename(file), "^[^_]+"),
+          cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+         total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
+         weighted  = stringr::str_detect(file, "weight"),
+         dx = stringr::str_extract(basename(file), "(?<=pt)[^_]+")) %>%
+  select(!file) %>%
+  group_by(total, weighted, cv_sample) %>% #apply FDR correction within each combo
+  mutate(
+    p.val_fdr = p.adjust(
+      p.value,
+      method = "fdr"
+    )) %>%
+  ungroup() %>%
+  mutate(sig_fdr = ifelse(p.val_fdr <=0.05, TRUE, FALSE))
+```
 
 ## Non TBV-Corrected
 
@@ -131,29 +139,73 @@ cent_test.df_uncor %>%
 
 cent_test.df_uncor %>%
   ggplot() +
-  geom_bar(aes(x=dx, fill=pt.sex_sig_fdr)) +
-  facet_grid(model~cv_sample)
-
-cent_test.df_uncor %>%
-  ggplot() +
   geom_bar(aes(x=pheno, fill=cv_sample)) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   facet_grid(model~dx) +
   gghighlight(dx_sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
+
+cent_test.df_uncor %>%
+  filter(dx_sig_fdr == TRUE) %>%
+  ggplot() +
+  geom_col(aes(x=pheno, y= case.control_d, fill=cv_sample), position="dodge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~dx) 
 ```
 
+```{r}
+cent_df_uncor <- cent_df %>%
+  filter(total == "FALSE" & weighted == "FALSE")
+
+cent_df_full_long <- cent_df_uncor %>%
+  select(logAge_days, control, dx_tested, sex, ends_with("std_score_full")) %>%
+  pivot_longer(cols = ends_with("std_score_full"),
+    names_to = "pheno",
+    names_pattern = "^(.*)_std_score_full$",
+    values_to = "std_score_full") %>%
+  na.omit(std_score_full)
+
+ggplot(cent_df_full_long) +
+  geom_boxplot(aes(x=pheno, y=std_score_full, fill=control)) +
+  facet_wrap(~dx_tested)
+```
+
+patient sex differences
 
 ```{r}
-skim(cent.df)
+cent_test.df_uncor %>%
+  ggplot() +
+  geom_bar(aes(x=dx, fill=pt.sex_sig_fdr)) +
+  facet_grid(model~cv_sample)
 
-cent.df %>%
-  filter(dx_recode=="CN") %>%
-  skim()
+cent_test.df_uncor %>%
+  filter(pt.sex_sig_fdr == TRUE) %>%
+  ggplot() +
+  geom_col(aes(x=pheno, y= pt.sex_d, fill=cv_sample), position="dodge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~dx)
+```
 
-cent.df %>%
-  filter(dx_recode!="CN") %>%
-  skim()
+properly accounting for sex -> fewer differences between male and female patients
+
+```{r}
+cent_lm.df %>%
+  filter(str_detect(term, ":")) %>%
+  filter(total==FALSE & sig_fdr==TRUE) %>%
+  ggplot() +
+  geom_col(aes(x=pheno, y=estimate, fill=cv_sample), position="dodge") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~dx)
+```
+
+```{r}
+cent_df_full_long %>%
+  filter(control== "PT") %>%
+  ggplot() +
+  geom_boxplot(aes(x=pheno, y=std_score_full, fill=sex)) +
+  facet_wrap(~dx_tested)
 ```
 
 ## TBV-Corrected
@@ -170,14 +222,80 @@ cent_test.df_tbv %>%
 
 cent_test.df_tbv %>%
   ggplot() +
-  geom_bar(aes(x=dx, fill=pt.sex_sig_fdr)) +
-  facet_grid(model~cv_sample)
-
-cent_test.df_tbv %>%
-  ggplot() +
   geom_bar(aes(x=pheno, fill=cv_sample)) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   facet_grid(model~dx) +
   gghighlight(dx_sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
+
+cent_test.df_tbv %>%
+  filter(dx_sig_fdr == TRUE & model != "null") %>%
+  ggplot() +
+  geom_col(aes(x=pheno, y= case.control_d, fill=cv_sample), position="dodge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~dx) 
+```
+
+```{r}
+cent_df_tbv <- cent_df %>%
+  filter(total == "TRUE" & weighted == "FALSE")
+
+cent_df_tbv_full_long <- cent_df_tbv %>%
+  select(logAge_days, control, dx_tested, sex, ends_with("std_score_full")) %>%
+  pivot_longer(cols = ends_with("std_score_full"),
+    names_to = "pheno",
+    names_pattern = "^(.*)_std_score_full$",
+    values_to = "std_score_full") %>%
+  na.omit(std_score_full)
+
+ggplot(cent_df_tbv_full_long) +
+  geom_boxplot(aes(x=pheno, y=std_score_full, fill=control)) +
+  facet_wrap(~dx_tested)
+```
+
+patient sex differences
+
+```{r}
+cent_test.df_tbv %>%
+  ggplot() +
+  geom_bar(aes(x=dx, fill=pt.sex_sig_fdr)) +
+  facet_grid(model~cv_sample)
+
+cent_test.df_tbv %>%
+  filter(pt.sex_sig_fdr == TRUE & model != "null") %>%
+  ggplot() +
+  geom_col(aes(x=pheno, y= pt.sex_d, fill=cv_sample), position="dodge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~dx)
+
+cent_test.df_tbv %>%
+  filter(model != "null") %>%
+  ggplot() +
+  geom_col(aes(x=pheno, y= pt.sex_d, fill=cv_sample), position="dodge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~dx) +
+  gghighlight(pt.sex_sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
+
+```
+
+properly accounting for sex -> fewer differences between male and female patients
+```{r}
+cent_df_tbv_full_long %>%
+  filter(control== "PT") %>%
+  ggplot() +
+  geom_boxplot(aes(x=pheno, y=std_score_full, fill=sex)) +
+  facet_wrap(~dx_tested)
+```
+
+```{r}
+cent_lm.df %>%
+  filter(str_detect(term, ":")) %>%
+  filter(total==TRUE & sig_fdr==TRUE) %>%
+  ggplot() +
+  geom_col(aes(x=pheno, y=estimate, fill=cv_sample), position="dodge") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~dx)
 ```
