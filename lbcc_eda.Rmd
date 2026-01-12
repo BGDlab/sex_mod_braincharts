@@ -756,6 +756,22 @@ save
 #fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
 ```
 
+also saving sim_df() versions for plotting consistently on across phenos
+```{r}
+rm_list <- c(gmv_list, subcort_list, ct_list, sa_list)
+
+sampleA <- fread("./data/cv_sample_A.csv") %>%
+  select(!rm_list)
+sampleB <- fread("./data/cv_sample_B.csv") %>%
+  select(!rm_list)
+
+sampleA_sim <- sim_data(sampleA, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+sampleB_sim <- sim_data(sampleB, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+
+#saveRDS(sampleA_sim, "./data/cv_sample_A_sim.rds")
+#saveRDS(sampleB_sim, "./data/cv_sample_B_sim.rds")
+```
+
 ###Subdivide by Feature Category
 
 Write out separate csvs for each pheno category. These will be further subdivided into separate CSVs with maximally complete data in order to ComBat features (`subjobs_datasplit.sh` and `split_data_for_combat.R`), so for each feature (target feature to ComBat) keep as many other features as possible (as priors) without including any NAs.
