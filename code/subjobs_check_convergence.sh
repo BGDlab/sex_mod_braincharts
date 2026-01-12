@@ -5,9 +5,10 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=10G
-#SBATCH --array=1-20
+#SBATCH --array=1-482
 
-CONFIGFN=$1
+CONFIGFN=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/config_files/converge_check_config.txt
+
 DF=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
 echo "DF: $DF"
 

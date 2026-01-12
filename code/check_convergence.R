@@ -11,16 +11,19 @@ library(gamlss)
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
 dir <- as.character(args[1])
+pheno <- as.character(ars[2])
 
-# Find all RDS files ending in "BestMod" within those directories
-mod_files <- list.files(dir, pattern = ".rds$", full.names = TRUE)
+# Find all RDS files within those directories
+mod_files <- list.files(dir, pattern = paste0("*/model_objs/", pheno,"*.rds$"), full.names = TRUE)
 n <- length(mod_files)
 
 # Initialize results 
 df_results <- data.frame(
   cv_sample = character(n),
+  pheno = character(n),
   file = character(n),
   converged = logical(n),
+  correct_pheno = logical(n),
   stringsAsFactors = FALSE
 )
 
@@ -35,7 +38,13 @@ for (i in seq_len(n)) {
     obj <- readRDS(file)
     isTRUE(obj$converged)
   }, error = function(e) NA)
+  
+  df_results$correct_pheno[i] <- tryCatch({
+    obj <- readRDS(file)
+    pheno==gamlssModel$mu.terms[[2]]
+  }, error = function(e) NA)
 }
 
 # Write to CSV
-write.csv(df_results, file = file.path(dir, "convergence_summary.csv"), row.names = FALSE)
+csv_name <- paste0(pheno, "_convergence_summary.csv")
+write.csv(df_results, file = file.path(dir, csv_name), row.names = FALSE)
