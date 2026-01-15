@@ -17,6 +17,7 @@ df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 total <- as.logical(args[4])
+sim_df_uniform <- readRDS(args[5])
 
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("BestMod", "test", filename_no_ext)
@@ -252,23 +253,6 @@ for (factor_level in names(sim_df)) {
   
 }
 
-result_df <- bind_rows(centile_result_list, .id = "sexMale") %>%
-  mutate(sex = if_else(sexMale=="pred_1", "Male", "Female")) %>%
-  select(!sexMale) %>%
-  tidyr:::pivot_wider(names_from=sex, values_from = c(median_centile, sigma))
-
-#Derivative diffs
-dy_male <- diff(result_df$median_centile_Male)
-dy_female <- diff(result_df$median_centile_Female)
-dx <- diff(result_df$logAge_days)
-
-male_deriv <- dy_male/dx
-female_deriv <- dy_female/dx
-
-deriv_df <- data.frame("deriv_Male" = male_deriv,
-                       "deriv_Female" = female_deriv,
-                       "logAge_days" = result_df$logAge_days[-1]) #drop first age
-
 # zscore relative to initial y values
 mean_pheno <- mean(df[[pheno]])
 std_dev_pheno <- sd(df[[pheno]])
@@ -276,21 +260,97 @@ z_score <- function(x){
   (x - mean_pheno) / std_dev_pheno
 }
 
-#join
-final_df <- full_join(result_df, deriv_df) %>%
-  mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
-         sigma_M_minus_F = sigma_Male - sigma_Female,
-         deriv_M_minus_F = deriv_Male - deriv_Female) %>%
+#fun for derviative
+get_deriv <- function(x, age) {
+  c(NA, diff(x) / diff(age))
+}
+
+result_df <- bind_rows(centile_result_list, .id = "sexMale") %>%
+  mutate(sex = if_else(sexMale=="pred_1", "Male", "Female")) %>%
+  select(!sexMale) %>%
+  tidyr:::pivot_wider(names_from=sex, values_from = c(median_centile, sigma)) %>%
+  #z-score
   mutate(
     across(
-      .cols = matches("centile|sigma|deriv"),
+      .cols = matches("centile|sigma"),
       .fns = z_score,
       .names = "{.col}_z"
-    ))
-
+    )) %>%
+  #get_derivatives
+  mutate(across(
+    .cols = matches("centile"),
+    .fns = ~ get_deriv(.x, logAge_days),
+    .names = "deriv_{.col}"
+  )) %>%
+  #get M-F differences
+  mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
+         centile_M_minus_F_z = median_centile_Male_z - median_centile_Female_z,
+         sigma_M_minus_F = sigma_Male - sigma_Female,
+         sigma_M_minus_F_z = sigma_Male - sigma_Female_z,
+         deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
+         deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z)
 
 print("saving sex diffs")
-fwrite(final_df, file=paste0(save_path, "/cent_csvs/", pheno, "_sexdiffs.csv"))
+fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_sexdiffs.csv"))
 
+#### CALC ON SINGLE DATAFRAME ACROSS PHENOS ####
+centile_result_list2 <- list()
+min_age <- min(df$logAge_days)
+max_age <- max(df$logAge_days)
+for (factor_level in names(sim_df_uniform)) {
+  
+  #make sure variable names are correct
+  sub_df <- sim_df_uniform[[factor_level]]
+  sub_df <- sub_df %>%
+    select(all_of(pred_list)) %>%
+    filter(logAge_days >= min_age & logAge_days <= max_age)
+  
+  # Predict centiles
+  print("predicting...")
+  pred_df <- predictAll(model, newdata=sub_df, type="response", data=df)
+  
+  median_centile <- pred_centile(0.5, df = pred_df, q_func = qfun, n_param = n_param)
+  centiles_df <- as.data.frame(median_centile)
+  
+  # check correct dim
+  stopifnot(nrow(centiles_df) == nrow(pred_df))
+  
+  #add x_vals, predicted sigma name centiles for factor_var level and append to results list
+  centiles_df$logAge_days <- sub_df$logAge_days
+  
+  # Sigma
+  centiles_df$sigma <- pred_df$sigma
+  sub_name <- paste0("pred_", factor_level)
+  centile_result_list2[[sub_name]] <- centiles_df
+  
+}
+
+result_df2 <- bind_rows(centile_result_list2, .id = "sexMale") %>%
+  mutate(sex = if_else(sexMale=="pred_1", "Male", "Female")) %>%
+  select(!sexMale) %>%
+  tidyr:::pivot_wider(names_from=sex, values_from = c(median_centile, sigma)) %>%
+  #z-score
+  mutate(
+    across(
+      .cols = matches("centile|sigma"),
+      .fns = z_score,
+      .names = "{.col}_z"
+    )) %>%
+  #get_derivatives
+  mutate(across(
+    .cols = matches("centile"),
+    .fns = ~ get_deriv(.x, logAge_days),
+    .names = "deriv_{.col}"
+  )) %>%
+  #get M-F differences
+  mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
+         centile_M_minus_F_z = median_centile_Male_z - median_centile_Female_z,
+         sigma_M_minus_F = sigma_Male - sigma_Female,
+         sigma_M_minus_F_z = sigma_Male - sigma_Female_z,
+         deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
+         deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z)
+
+print("saving sex diffs")
+fwrite(result_df2, file=paste0(save_path, "/cent_csvs/", pheno, "_uniform_sexdiffs.csv"))
 
 print("SUCCESS")

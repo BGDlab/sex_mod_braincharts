@@ -94,9 +94,9 @@ do
       
       #skip already tested models if rerunning
       if [[ "$rerun" == "TRUE" ]]; then
-          test_csv=$(ls ${save_path}/cent_csvs/${pheno_line}*_sexdiffs.csv 2>/dev/null | head -n 1 || true)
+          test_csv=$(ls ${save_path}/cent_csvs/${pheno_line}*uniform_sexdiffs.csv 2>/dev/null | head -n 1 || true)
           if [[ -n "$test_csv" ]]; then
-            echo "Skipping $pheno_line (sex diffs csv found)"
+            echo "Skipping $pheno_line (uniform sex diffs csv found)"
             continue
           fi
       fi
@@ -113,14 +113,27 @@ do
         else
           file="${file_matches[0]}"
         fi
+        
+        #write csv to test in - handle optional _logPheno*_ in filename
+        mapfile -t sim_df_matches < <(find $(realpath $data_path) -type f -name "cv_sample_${split}_sim.rds" 2>/dev/null)
+        if [ ${#sim_df_matches[@]} -gt 1 ]; then
+          echo "Error: Multiple *sim.rds files found:"
+          printf '%s\n' "${sim_df_matches[@]}"
+          exit 1
+        elif [ ${#sim_df_matches[@]} -eq 0 ]; then
+          echo "Warning: No *sim.rds file found, skipping"
+          continue
+        else
+          sim_df="${sim_df_matches[0]}"
+        fi
 
-	# find training BestModel in other csv - handle optional _logPheno*_ in directory names
+	  # find training BestModel in other csv - handle optional _logPheno*_ in directory names
         mapfile -t matches < <(find "$(realpath "$search_dir")" -path "*${pheno_cat}_total${total}*logAge${log_age}_pbmods/model_objs/*" -type f -name "${pheno_line}_*BestMod.rds" 2>/dev/null)
         if [ ${#matches[@]} -eq 1 ]; then
           og_mod="${matches[0]}"
           
           # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$og_mod\t$save_path\t$total" >> "$config_file"
+          echo -e "$file\t$og_mod\t$save_path\t$total\t$sim_df" >> "$config_file"
         elif [ ${#matches[@]} -eq 0 ]; then
           echo "Warning: No matching file found in '$search_dir' for prefix '$pheno_line' and suffix 'BestMod.rds'" >&2
           #exit 1

@@ -42,11 +42,12 @@ fi
     if ! [ -d $config_path ]
     then
       mkdir $config_path
-    elif [ -f $config_file ]
+    fi
+    if [ -f $config_file ]
     then
       rm -rf $config_file
     fi
-
+    touch $config_file
 
 #LOOP THROUGH 1/2 CSVS
 for file in $(find $(realpath $data_path)  -type f -name "cv_sample_?.csv") 

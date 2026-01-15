@@ -74,7 +74,7 @@ do
       do
       
       #LOOP THROUGH DX
-      for dx in "SCZ" "ALZ" "ASD" "MCI" "MDD" "GAD" "ADHD"
+      for dx in "SCZ" "ALZ" "ASD" "MDD" "GAD" "ADHD"
       do
       
       #skip already tested models if rerunning
@@ -86,7 +86,20 @@ do
           fi
       fi
       
-        #write csv to test in - handle optional _logPheno*_ in filename
+        #find csv to test in - handle optional _logPheno*_ in filename
+        mapfile -t pt_file_matches < <(find $(realpath $data_path/case_control_dfs) -type f -name "cv_sample_${split}_${dx}.csv" 2>/dev/null)
+        if [ ${#pt_file_matches[@]} -gt 1 ]; then
+          echo "Error: Multiple CSV files found for $pheno_line:"
+          printf '%s\n' "${pt_file_matches[@]}"
+          exit 1
+        elif [ ${#pt_file_matches[@]} -eq 0 ]; then
+          echo "Warning: No CSV found for $pheno_line, skipping"
+          continue
+        else
+          pt_file="${pt_file_matches[0]}"
+        fi
+        
+        #find csv model test was fit in
         mapfile -t file_matches < <(find $(realpath $data_path/cv_sample_${split}_dfs) -type f -name "${pheno_line}_total${total}*logAge${log_age}.csv" 2>/dev/null)
         if [ ${#file_matches[@]} -gt 1 ]; then
           echo "Error: Multiple CSV files found for $pheno_line:"
@@ -105,7 +118,7 @@ do
           og_mod="${matches[0]}"
           
           # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$og_mod\t$save_path\t$dx" >> "$config_file"
+          echo -e "$pt_file\t$file\t$og_mod\t$save_path\t$dx" >> "$config_file"
         elif [ ${#matches[@]} -eq 0 ]; then
           echo "Warning: No matching file found in '$save_dir' for prefix '$pheno_line' and suffix 'full_mod.rds'" >&2
           #exit 1

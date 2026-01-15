@@ -10,7 +10,9 @@
 CONFIGFN=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/config_files/converge_check_config.txt
 
 DF=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
+PHENO=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
 echo "DF: $DF"
+echo "PHENO: $PHENO"
 
 # Singularity image path 
 SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.2.4.sif"
@@ -22,7 +24,7 @@ BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $BASE/code/check_convergence.R $DF
+    Rscript $BASE/code/check_convergence.R $DF $PHENO
 
 # Done!
 echo "Job finished running!"

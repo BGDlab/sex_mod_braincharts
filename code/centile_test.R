@@ -15,12 +15,11 @@ options(warn = 1)
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to control csv
-mod_path <- as.character(args[2]) #test model fit on df
-save_path <- as.character(args[3])
-dx_val <- as.character(args[4])
-
-pt_df <- fread(paste0(base,"data/v3_pts_cleaned.csv"), stringsAsFactors = TRUE, na.strings = "") #path to patient data
+df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #df to fit centiles on
+df.og <- fread(args[2], stringsAsFactors = TRUE, na.strings = "") #df model fit on
+mod_path <- as.character(args[3]) #test model fit on df
+save_path <- as.character(args[4])
+dx_val <- as.character(args[5])
 
 ##### READ IN MODS #####
 mod <- readRDS(mod_path)
@@ -55,32 +54,10 @@ all_list <- c(unlist(pred_list), pheno, "INDEX.ID", "dx", "dx_recode")
 # print(all_list)
 
 #drop extra variables
-pt_df_clean <- pt_df %>%
-  dplyr::select(all_of(all_list)) %>%
-  na.omit() %>%
-  mutate(dx_recode = as.character(dx_recode)) %>%
-  filter(dx_recode==dx_val)
-
-print(paste(nrow(pt_df_clean), "patients"))
-if(nrow(pt_df_clean)<1000){
-  warning(paste(nrow(pt_df_clean), "patients, fewer than 1k"))
-}
-##### PREP CONTROL DATAFRAME #####
-#find all sites with pt data
-sites <- unique(pt_df_clean$study_site)
 df_clean <- df %>%
-  filter(study_site %in% sites)
-
-print(paste(nrow(df_clean), "controls"))
-if(nrow(df_clean)<1000){
-  warning(paste(nrow(df_clean), "controls, fewer than 1k"))
-}
-
-##### JOIN #####
-df_clean$dx_recode <- paste("CN", dx_val, sep="_") #add dx_recode col to original df
-df_full <- rbind(pt_df_clean, df_clean, fill=TRUE)
-print(unique(df_full$dx_recode))
-stopifnot(length(unique(df_full$dx_recode))==2)
+  dplyr::select(all_of(all_list)) %>%
+  na.omit()
+stopifnot(length(unique(df_clean$dx_recode))==2)
 
 ##### CALCULATE CENTILES #####
 print("calculating centiles...")
@@ -89,8 +66,8 @@ df_cent <- lapply(names(mod_list), function(mn){
   m <- mod_list[[mn]]
   out_df <- pred_og_centile(
     m,
-    og.data = df,
-    new.data = df_full,
+    og.data = df.og,
+    new.data = df_clean,
     get.std.scores = TRUE
   )
   # rename columns dynamically to include pheno and model type
@@ -103,7 +80,7 @@ df_cent <- lapply(names(mod_list), function(mn){
 })
 
 #rejoin
-df_full_cent <- bind_cols(df_full, df_cent) %>%
+df_full_cent <- bind_cols(df_clean, df_cent) %>%
   mutate(sex = ifelse(sexMale==0, "F", "M"))
 
 #save

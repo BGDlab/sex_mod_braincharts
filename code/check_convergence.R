@@ -11,40 +11,40 @@ library(gamlss)
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
 dir <- as.character(args[1])
-pheno <- as.character(ars[2])
+pheno_val <- as.character(args[2])
 
 # Find all RDS files within those directories
-mod_files <- list.files(dir, pattern = paste0("*/model_objs/", pheno,"*.rds$"), full.names = TRUE)
+mod_files <- list.files(dir, pattern = paste0("^", pheno_val, ".*\\.rds$"), recursive = TRUE, full.names = TRUE)
 n <- length(mod_files)
+print(n)
 
 # Initialize results 
 df_results <- data.frame(
   cv_sample = character(n),
-  pheno = character(n),
   file = character(n),
   converged = logical(n),
-  correct_pheno = logical(n),
-  stringsAsFactors = FALSE
+  y = character(n)
 )
 
 # Loop through files
 for (i in seq_len(n)) {
+  
+  obj <- tryCatch({readRDS(file)
+  }, error = function(e) NA)
+  
   file <- mod_files[i]
   cv_sample_dir <- sub(".*(cv_sample[^/]+).*", "\\1", file)
   df_results$cv_sample[i] <- cv_sample_dir
-  df_results$file[i] <- basename(file)
+  df_results$file[i] <- file
   
-  df_results$converged[i] <- tryCatch({
-    obj <- readRDS(file)
-    isTRUE(obj$converged)
-  }, error = function(e) NA)
-  
-  df_results$correct_pheno[i] <- tryCatch({
-    obj <- readRDS(file)
-    pheno==gamlssModel$mu.terms[[2]]
-  }, error = function(e) NA)
+  df_results$converged[i] <- tryCatch({isTRUE(obj$converged)}, 
+                                      error = function(e) NA)
+  df_results$y[i] <- tryCatch({
+    as.character(obj$mu.terms[[2]])},
+    error = function(e) NA_character_)
 }
 
 # Write to CSV
-csv_name <- paste0(pheno, "_convergence_summary.csv")
+df_results$pheno <- pheno_val
+csv_name <- paste0(pheno_val, "_convergence_summary.csv")
 write.csv(df_results, file = file.path(dir, csv_name), row.names = FALSE)

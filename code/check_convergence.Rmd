@@ -16,22 +16,47 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 base_dir <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
 
 # Find all files named 'convergence_summary.csv' recursively
-csv_files <- list.files(base_dir, pattern = "^convergence_summary\\.csv$", 
+csv_files <- list.files(base_dir, pattern = "*_convergence_summary\\.csv$", 
                         recursive = TRUE, full.names = TRUE)
 
 # Check how many files were found
 cat("Found", length(csv_files), "files\n")
 
+```
+
+
+```{r}
 # Read and merge them all
-merged_df <- csv_files %>%
+merged_df <- csv_files[-length(csv_files)] %>%
   lapply(read.csv, stringsAsFactors = FALSE) %>%
+  lapply(na.omit) %>%
   bind_rows(.id = "source_file")
 
 # Optional: Add directory info for tracking
 merged_df <- merged_df %>%
   mutate(
-    source_dir = dirname(csv_files[as.integer(source_file)])
-  )
+    source_dir = dirname(csv_files[as.integer(source_file)]),
+    best_mod = stringr::str_detect(file, "BestMod"),
+    weighted = stringr::str_detect(file, "weight"),
+    correct_pheno = ifelse(pheno==y, TRUE, FALSE)
+  ) %>%
+  select(where(~!all(is.na(.))))
+```
+
+Check correct pheno
+
+```{r}
+skimr::skim(merged_df)
+table(merged_df$correct_pheno)
+stopifnot(unique(merged_df$correct_pheno)==TRUE)
+```
+
+```{r}
+merged_df %>%
+  filter(converged==FALSE & best_mod == TRUE)
+
+dnc <- merged_df %>%
+  filter(converged==FALSE)
 ```
 
 check by pheno
@@ -48,6 +73,6 @@ table(convergence_sum$rerun)
 For all phenos that have non-converged models, need to:
 1) delete non-converged models
 2) rename "_BestMod.rds" to "_mod.rds"
-3) remove pngs of fan plots, worm plots
+3) remove pngs of fan plots, worm plots, test outputs
 4) rerun fit_cv_mods.R - write new config file with just these phenos?
 
