@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, ggcorrplot)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, ggcorrplot, sf)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -34,35 +34,178 @@ vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventric
 # install.packages("remotes")
 #remotes::install_github("BGDlab/ggsegTissue")
 library(ggsegTissue)
-remotes::install_github("ggseg/ggsegExtra")
 ```
 
-Prep atlases for plotting
+#ggseg Prep
 
 ```{r}
-#clean up atlases to remove non-modeled phenos
+### dk for cortical ###
 #write out new dk atlas w/o medial wall
 dk_clean <- dk
 dk_clean$data <- dk_clean$data %>%
   dplyr::filter(!is.na(region) & region !="corpus callosum")
 
-#aseg for subcortical - only right cerebellum definded
-aseg_clean <- aseg
-aseg_clean$data <- aseg_clean$data %>%
-  dplyr::filter(!is.na(label)) %>%
-  filter(!str_detect(region, "ventricle"))
+#shrink for outlines
+dk_region_gap <- 0.3        # Space between regions
+dk_border_inset <- 0.3      # Additional inset for border
 
-#aseg for global
+# Create shrunk atlas for fills (creates gaps between regions)
+dk_fill <- dk_clean
+dk_fill$data <- dk_clean$data %>%
+  st_as_sf() %>%
+  st_buffer(dist = -dk_region_gap) %>%
+  as_tibble() %>%
+  st_as_sf()
+
+# Create further shrunk atlas for borders (inside the fill)
+dk_border <- dk_clean
+dk_border$data <- dk_clean$data %>%
+  st_as_sf() %>%
+  st_buffer(dist = -(dk_region_gap + dk_border_inset)) %>%
+  as_tibble() %>%
+  st_as_sf()
+
+### aseg for subcortical ###
+#shrink for outlines
+aseg_region_gap <- 0        # Space between regions
+aseg_border_inset <- 1e-5     # Additional inset for border
+
+# Create shrunk atlas for fills (creates gaps between regions)
+aseg_fill <- aseg
+aseg_fill$data <- aseg$data %>%
+  st_as_sf() %>%
+  st_buffer(dist = 0, 
+            joinStyle = "MITRE",
+            nQuadSegs=500) %>%
+  st_buffer(0) %>%
+  as_tibble() %>%
+  st_as_sf()
+
+# Create further shrunk atlas for borders (inside the fill)
+aseg_border <- aseg
+aseg_border$data <- aseg$data %>%
+  st_as_sf() %>%
+  st_buffer(dist = -(aseg_region_gap + aseg_border_inset), nQuadSegs=500) %>%
+  as_tibble() %>%
+  st_as_sf()
+
+### aseg for global ###
 aseg_all_clean <- aseg_all
 aseg_all_clean$data <- aseg_all_clean$data %>%
   dplyr::filter(label != "Brain-Stem")
 
-#aseg for ventricles
-#aseg for global
-aseg_vent <- aseg
-aseg_vent$data <- aseg_vent$data %>%
-  dplyr::filter(!is.na(label)) %>%
-  filter(str_detect(region, "ventricle"))
+#shrink for outlines
+glob_region_gap <- 1e-10        # Space between regions
+glob_border_inset <- 1e-10      # Additional inset for border
+
+# Create shrunk atlas for fills (creates gaps between regions)
+glob_fill <- aseg_all_clean
+glob_fill$data <- aseg_all_clean$data %>%
+  st_as_sf() %>%
+  st_buffer(dist = -glob_region_gap) %>%
+  as_tibble() %>%
+  st_as_sf()
+
+# Create further shrunk atlas for borders (inside the fill)
+glob_border <- aseg_all_clean
+glob_border$data <- aseg_all_clean$data %>%
+  st_as_sf() %>%
+  st_buffer(dist = -(glob_region_gap + glob_border_inset)) %>%
+  as_tibble() %>%
+  st_as_sf()
+```
+
+trying to write funs for easier plotting
+```{r}
+plot_cv_brain <- function(df, fill_var, fill_name, fill_color, fill_limits, height_list){
+
+#cortex
+cortex_plt <- df %>%
+  filter(pheno_cat == "Regional Vol" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
+  group_by(cv_sample, pheno_cat) %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  #fill
+  ggseg::geom_brain(atlas = dk_fill,
+             position = position_brain(hemi ~ side),
+            aes(fill=resi),#
+            color=NA,
+            size=0) +
+  #lines
+  ggseg::geom_brain(atlas = dk_border,
+                    position = position_brain(hemi ~ side),
+                    aes(color = sig_fdr, size = sig_fdr),
+                    fill = NA) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="gray90") +
+  scale_color_manual(values = c("FALSE" = "white",
+                                "TRUE" = "black"),
+                     na.value = NA) +
+  scale_size_manual(values = c("FALSE" = .5,
+                               "TRUE" = .2),
+                    na.value = 0) +
+  guide(size="none") +
+  facet_grid(pheno_cat ~ cv_sample)
+
+subcort_plt <- df %>%
+  filter(pheno_cat == "Subcortical Vol") %>%
+  group_by(cv_sample, pheno_cat) %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  #fill
+  ggseg::geom_brain(atlas = aseg_fill,
+            aes(fill=resi),
+            color=NA,
+            size=0) +
+  #lines
+  ggseg::geom_brain(atlas = aseg_border,
+                    aes(color = sig_fdr, size = sig_fdr),
+                    fill = NA) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="gray90") +
+  scale_color_manual(values = c("FALSE" = "white",
+                                "TRUE" = "black"),
+                     na.value = NA) +
+  scale_size_manual(values = c("FALSE" = .5,
+                               "TRUE" = .2),
+                    na.value = 0) +
+  guide(size="none") +
+  facet_grid(pheno_cat ~ cv_sample)
+
+
+#no buffer for now, need to update with merged aseg_all atlas!
+df_tissue <- inner_join(df, aseg_all$data, by="tissue_class") %>%
+  select(!geometry)
+glob_plt <- df_tissue %>%
+  group_by(cv_sample, pheno_cat) %>%
+  filter(pheno_cat == "Global Vol") %>%
+  ggplot() +
+  theme_linedraw(base_size=12) +
+  #fill
+  ggseg::geom_brain(atlas = aseg_all_clean,
+            aes(fill=resi),
+            color=NA,
+            size=0) +
+  #lines
+  ggseg::geom_brain(atlas = aseg_all_clean,
+                    aes(color = sig_fdr, size = sig_fdr),
+                    fill = NA) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="gray90") +
+  scale_color_manual(values = c("FALSE" = "white",
+                                "TRUE" = "black"),
+                     na.value = NA) +
+  scale_size_manual(values = c("FALSE" = .5,
+                               "TRUE" = .2),
+                    na.value = 0) +
+  guide(size="none") +
+  facet_grid(pheno_cat ~ cv_sample)
+
+full_plt_obj <- glob_plt /plot_spacer()/ cortex_plt / plot_spacer()/ subcort_plt +
+  plot_layout(guides = 'collect', heights = unit(height_list, c('in', 'in', 'in')))
+
+return(full_plt_obj)
+}
 ```
 
 #Read & Prep CSVs
@@ -206,90 +349,14 @@ range(LR.df_uncor$sig_fsq, na.rm=T)
 range(LR.df_uncor$sig_resi, na.rm=T)
 ```
 
-trying to write funs for easier plotting
 ```{r}
-plot_cv_brain <- function(df, fill_var, fill_name, fill_color, fill_limits, height_list){
+#removing ventricles for visualization:
+LR.df_uncor_novent <- LR.df_uncor %>%
+  filter(!(pheno %in% vent_list))
+range(LR.df_uncor_novent$resi)
+full_plt_uncor <- plot_cv_brain(LR.df_uncor_novent, sig_resi, "RESI", "grDevices::Greens 3", c(0,0.1), c(3, -1.2, 6, -1.2, 3))
 
-#cortex
-cortex_plt <- df %>%
-  filter(pheno_cat == "Regional Vol" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
-  group_by(cv_sample, pheno_cat) %>%
-  ggplot() +
-  theme_linedraw(base_size=12) +
-  ggseg::geom_brain(atlas = dk_clean,
-             position = position_brain(hemi ~ side),
-            aes(fill={{fill_var}})) +
-  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
-  paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="lightgray") +
-  facet_grid(pheno_cat ~ cv_sample)
-
-df_subcort <- left_join(aseg$data, df) %>% 
-  mutate(is_modeled = case_when(
-    is.na(region) | str_detect(region, "ventricle") ~ "No",
-    TRUE ~ "Yes" )) %>% 
-  mutate(is_modeled = factor(is_modeled, levels = c("Yes", "No")))
-
-subcort_plt <- df_subcort %>%
-  group_by(cv_sample, pheno_cat) %>%
-  ggplot() +
-  theme_linedraw(base_size = 12) +
-  # ggseg::geom_brain(
-  #   atlas = aseg,
-  #   aes(fill = is_modeled)
-  # ) +
-  # scale_fill_manual(
-  #   values = c(Yes = "lightgray", No = "gray93"),
-  #   drop = FALSE
-  # ) +
-  # ggnewscale::new_scale_fill() +
-  ggseg::geom_brain(atlas = aseg,
-    aes(fill = {{ fill_var }})
-  ) +
-  paletteer::scale_fill_paletteer_c(
-    fill_color,
-    name = fill_name,
-    limits = fill_limits,
-    direction = -1,
-    na.value = "lightgray"
-  ) +
-  theme(
-    axis.title = element_blank(),
-    axis.text = element_blank(),
-    axis.ticks = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    strip.text.x = element_blank(),
-    plot.margin = margin(0, 0, 0, 0)
-  ) +
-  gghighlight(is_modeled==TRUE, calculate_per_facet=TRUE) +
-  facet_grid(pheno_cat ~ cv_sample)
-  
-
-df_tissue <- inner_join(df, aseg_all_clean$data, by="tissue_class")
-glob_plt <- df_tissue %>%
-  group_by(cv_sample, pheno_cat) %>%
-  filter(pheno_cat == "Global Vol") %>%
-  ggplot() +
-  theme_linedraw(base_size=12) +
-  ggseg::geom_brain(atlas = aseg_all_clean, 
-            aes(fill={{fill_var}})) +
-  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
-  paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="lightgray") +
-  facet_grid(pheno_cat ~ cv_sample)
-
-full_plt_obj <- glob_plt /plot_spacer()/ cortex_plt / plot_spacer()/ subcort_plt +
-  plot_layout(guides = 'collect', heights = unit(height_list, c('in', 'in', 'in')))
-
-return(full_plt_obj)
-}
-
-```
-
-
-```{r}
-full_plt_uncor <- plot_cv_brain(LR.df_uncor, sig_resi, "RESI", "grDevices::Greens 3", c(0,0.18), c(3, -1.2, 6, -1.2, 3))
-
-ggsave("figs/resi_uncorrected.png", full_plt_uncor, width=7, height=10)
+ggsave("figs/resi_uncorrected.png", full_plt_uncor, width=7, height=10, dpi=600)
 ```
 
 #TBV-Corrected Models
