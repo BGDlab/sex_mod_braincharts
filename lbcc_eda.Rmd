@@ -12,6 +12,8 @@ if(!require('pacman')) {
   install.packages('pacman')
 }
 pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr)
+#devtools::install_github("BGDlab/gamlssTools", force = TRUE) 
+library(gamlssTools)
 ```
 
 load data - prelim version of LBCC 3.0, waiting on Lena to look into missing sex info
