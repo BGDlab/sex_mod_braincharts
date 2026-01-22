@@ -7,7 +7,7 @@ output: html_document
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(dplyr)
+pacman::p_load(dplyr, stringr)
 setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 ```
 
@@ -38,6 +38,7 @@ merged_df <- merged_df %>%
     source_dir = dirname(csv_files[as.integer(source_file)]),
     best_mod = stringr::str_detect(file, "BestMod"),
     weighted = stringr::str_detect(file, "weight"),
+    total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
     correct_pheno = ifelse(pheno==y, TRUE, FALSE)
   ) %>%
   select(where(~!all(is.na(.))))
@@ -57,6 +58,36 @@ merged_df %>%
 
 dnc <- merged_df %>%
   filter(converged==FALSE)
+
+to_delete <- dnc$file
+unique(dnc$weighted)
+
+#what phenos are affected?
+dnc <- dnc %>% 
+  mutate(source_dir = dirname(file)) %>%
+  mutate(BestMod_rename = paste0(source_dir,"/", pheno, "*BestMod.rds"),
+         rm_train_cent_csvs = paste0(gsub("model_objs", "cent_csvs", source_dir),"/", pheno, "*"),
+         rm_train_cent_plots = paste0(gsub("model_objs", "centile_plots", source_dir),"/", pheno, "*"),
+         rm_train_mod_sums = paste0(gsub("model_objs", "model_sums", source_dir),"/", pheno, "*"),
+         rm_train_wp = paste0(gsub("model_objs", "worm_plots", source_dir),"/", pheno, "*"),
+         test_file = case_when(
+           str_detect(file, "A_train") ~ str_replace(file, "A_train", "B_test"),
+           str_detect(file, "B_train") ~ str_replace(file, "B_train", "A_test"),
+           TRUE ~ NA_character_)) %>%
+  mutate(rm_test_file = paste0(gsub("model_objs", "*", dirname(test_file)),"/", pheno, "*"))#rename BestMod
+  #rm other downstream outputs of that pheno
+
+all_to_rm <- c(to_delete, #rm non-converged files
+               unique(dnc$rm_train_cent_csvs), #downstream training outputs
+               unique(dnc$rm_train_cent_cent_plots), 
+               unique(dnc$rm_train_mod_sums), 
+               unique(dnc$rm_train_wp), 
+               unique(dnc$rm_test_file)) #downstream testing outputs
+
+readr::write_lines(all_to_rm, "./convergence_rm.txt")
+
+all_to_rename <- unique(dnc$BestMod_rename)
+readr::write_lines(all_to_rename, "./convergence_rename.txt")
 ```
 
 check by pheno
