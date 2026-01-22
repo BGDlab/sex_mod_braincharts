@@ -32,7 +32,7 @@ test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_samp
 vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle", "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
 
 # install.packages("remotes")
-#remotes::install_github("BGDlab/ggsegTissue")
+remotes::install_github("BGDlab/ggsegTissue", force=TRUE)
 library(ggsegTissue)
 ```
 
@@ -128,7 +128,7 @@ cortex_plt <- df %>%
   #fill
   ggseg::geom_brain(atlas = dk_fill,
              position = position_brain(hemi ~ side),
-            aes(fill=resi),#
+            aes(fill={{fill_var}}),#
             color=NA,
             size=0) +
   #lines
@@ -140,11 +140,12 @@ cortex_plt <- df %>%
   paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="gray90") +
   scale_color_manual(values = c("FALSE" = "white",
                                 "TRUE" = "black"),
-                     na.value = NA) +
+                     na.value = NA,
+                     guide = 'none') +
   scale_size_manual(values = c("FALSE" = .5,
                                "TRUE" = .2),
-                    na.value = 0) +
-  guide(size="none") +
+                    na.value = 0,
+                    guide = 'none') +
   facet_grid(pheno_cat ~ cv_sample)
 
 subcort_plt <- df %>%
@@ -154,7 +155,7 @@ subcort_plt <- df %>%
   theme_linedraw(base_size=12) +
   #fill
   ggseg::geom_brain(atlas = aseg_fill,
-            aes(fill=resi),
+            aes(fill={{fill_var}}),
             color=NA,
             size=0) +
   #lines
@@ -165,25 +166,25 @@ subcort_plt <- df %>%
   paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="gray90") +
   scale_color_manual(values = c("FALSE" = "white",
                                 "TRUE" = "black"),
-                     na.value = NA) +
+                     na.value = NA,
+                     guide = 'none') +
   scale_size_manual(values = c("FALSE" = .5,
                                "TRUE" = .2),
-                    na.value = 0) +
-  guide(size="none") +
+                    na.value = 0,
+                    guide = 'none') +
   facet_grid(pheno_cat ~ cv_sample)
 
 
-#no buffer for now, need to update with merged aseg_all atlas!
-df_tissue <- inner_join(df, aseg_all$data, by="tissue_class") %>%
-  select(!geometry)
-glob_plt <- df_tissue %>%
+#no buffer for now
+glob_plt <- df %>%
+  select(-any_of(c("geometry", "tissue_class"))) %>%
   group_by(cv_sample, pheno_cat) %>%
   filter(pheno_cat == "Global Vol") %>%
   ggplot() +
   theme_linedraw(base_size=12) +
   #fill
   ggseg::geom_brain(atlas = aseg_all_clean,
-            aes(fill=resi),
+            aes(fill={{fill_var}}), #
             color=NA,
             size=0) +
   #lines
@@ -194,15 +195,26 @@ glob_plt <- df_tissue %>%
   paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="gray90") +
   scale_color_manual(values = c("FALSE" = "white",
                                 "TRUE" = "black"),
-                     na.value = NA) +
+                     na.value = NA,
+                     guide = 'none') +
   scale_size_manual(values = c("FALSE" = .5,
                                "TRUE" = .2),
-                    na.value = 0) +
-  guide(size="none") +
+                    na.value = 0,
+                    guide = 'none') +
   facet_grid(pheno_cat ~ cv_sample)
 
-full_plt_obj <- glob_plt /plot_spacer()/ cortex_plt / plot_spacer()/ subcort_plt +
-  plot_layout(guides = 'collect', heights = unit(height_list, c('in', 'in', 'in')))
+#testing new spacing
+# glob_plt <- glob_plt +
+#   theme(plot.margin = margin(0, 0, 5, 0))
+
+cortex_plt <- cortex_plt +
+  theme(plot.margin = margin(5, 0, 5, 0))
+
+full_plt_obj <- glob_plt / cortex_plt / subcort_plt +
+  plot_layout(guides = "collect", heights = height_list)
+
+# full_plt_obj <- glob_plt /plot_spacer()/ cortex_plt / plot_spacer()/ subcort_plt +
+#   plot_layout(guides = 'collect', heights = unit(height_list, c('in', 'in', 'in')))
 
 return(full_plt_obj)
 }
@@ -286,14 +298,13 @@ LR.df_plot <- LR.df2 %>%
   mutate(label = gsub("\\.", "-", label)) %>%
   mutate(label = ifelse(label == "3rd-Ventricle", "x3rd-ventricle", label)) %>%
   mutate(label = ifelse(label == "4th-Ventricle", "x4th-ventricle", label)) %>%
-  mutate(tissue_class = case_when(
+  mutate(label = case_when(
     pheno == "sGMV" ~ "sGM",
     pheno == "GMV" ~ "cGM",
     pheno == "WMV" ~ "WM",
     pheno == "CSF" ~ "CSF",
     pheno == "CBV" ~ "Cerebellum",
-    pheno == "SUBC.Brain.Stem" ~ "Brainstem",
-    TRUE ~ NA_character_
+    TRUE ~ label
   )) %>%
   group_by(total, weighted, cv_sample) %>% #apply FDR correction within each combo
   mutate(
@@ -354,9 +365,9 @@ range(LR.df_uncor$sig_resi, na.rm=T)
 LR.df_uncor_novent <- LR.df_uncor %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_uncor_novent$resi)
-full_plt_uncor <- plot_cv_brain(LR.df_uncor_novent, sig_resi, "RESI", "grDevices::Greens 3", c(0,0.1), c(3, -1.2, 6, -1.2, 3))
+full_plt_uncor <- plot_cv_brain(LR.df_uncor_novent, resi, "RESI", "grDevices::Greens 3", c(0,0.1), c(1, 5, 1.1))
 
-ggsave("figs/resi_uncorrected.png", full_plt_uncor, width=7, height=10, dpi=600)
+ggsave("figs/resi_uncorrected.png", full_plt_uncor, width=7, height=8.5, dpi=600)
 ```
 
 #TBV-Corrected Models
@@ -378,9 +389,13 @@ range(LR.df_tot$sig_resi, na.rm=T)
 ```
 
 ```{r}
-full_plt_tot <- plot_cv_brain(LR.df_tot, resi, "RESI", "grDevices::Greens 3", c(0,0.18), c(3, -1.2, 6, -1.2, 3))
+#removing ventricles for visualization:
+LR.df_tot_novent <- LR.df_tot %>%
+  filter(!(pheno %in% vent_list))
+range(LR.df_tot_novent$resi)
+full_plt_tot <- plot_cv_brain(LR.df_tot_novent, resi, "RESI", "grDevices::Greens 3", c(0,0.1), c(1, 5, 1.1))
 
-ggsave("figs/resi_tbv.png", full_plt_tot, width=7, height=10)
+ggsave("figs/resi_tbv.png", full_plt_tot, width=7, height=8.5, dpi=600)
 ```
 
 ##Sex Effect
@@ -407,45 +422,15 @@ LR.df_tot_sex %>%
 ```
 
 ```{r}
-cort_plt_tot_sex <- LR.df_tot_sex %>%
-  filter(pheno_cat == "Regional Vol" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
-  ggplot() +
-  theme_linedraw(base_size=12) +
-  ggseg::geom_brain(atlas = dk_clean, 
-             position = position_brain(hemi ~ side),
-            aes(fill=sig_resi)) +
-  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
-  paletteer::scale_fill_paletteer_c("grDevices::Purple-Blue", name = "RESI", limits = c(0, 0.3), direction = -1) +
-  facet_grid(pheno_cat ~ cv_sample) 
+#removing ventricles for visualization:
+LR.df_tot_sex_novent <- LR.df_tot_sex %>%
+  filter(!(pheno %in% vent_list))
+range(LR.df_tot_sex_novent$resi)
+full_plt_tot_sex <- plot_cv_brain(LR.df_tot_sex_novent, resi, "RESI", "grDevices::Greens 3", c(0,0.2), c(1, 5, 1.1))
 
-sub_plt_tot_sex <- LR.df_tot_sex %>%
-  filter(pheno_cat == "Subcortical Vol") %>%
-  ggplot() +
-  theme_linedraw(base_size=12) +
-  ggseg::geom_brain(atlas = aseg_clean, 
-            aes(fill=sig_resi)) +
-  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
-  paletteer::scale_fill_paletteer_c("grDevices::Purple-Blue", name = "RESI", limits = c(0, 0.3), direction = -1) +
-  facet_grid(pheno_cat ~ cv_sample)
-
-LR.df_plot_glob_tot_sex <- inner_join(LR.df_tot_sex, aseg_all_clean$data, by="tissue_class")
-glob_plt_tot_sex <- LR.df_plot_glob_tot_sex %>%
-  filter(pheno_cat == "Global Vol") %>%
-  ggplot() +
-  theme_linedraw(base_size=12) +
-  ggseg::geom_brain(atlas = aseg_all_clean, 
-            aes(fill=sig_resi)) +
-  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
-  paletteer::scale_fill_paletteer_c("grDevices::Purple-Blue", name = "RESI", limits = c(0, 0.3), direction = -1) +
-  facet_grid(pheno_cat ~ cv_sample)
+ggsave("figs/resi_tbv_allsex.png", full_plt_tot_sex, width=7, height=8.5, dpi=600)
 ```
 
-```{r}
-full_plt_tot_sex <- glob_plt_tot_sex /plot_spacer()/ cort_plt_tot_sex / plot_spacer()/ sub_plt_tot_sex +
-  plot_layout(guides = 'collect', heights = unit(c(3, -1.2, 6, -1.2, 3), c('in', 'in', 'in')))
-full_plt_tot_sex
-ggsave("figs/resi_tbv_allsex.png", full_plt_tot_sex, width=7, height=10)
-```
 
 ##Trajectories
 Read in sexdiff csvs
@@ -462,7 +447,7 @@ sexdiffs.df_all <- bind_rows(output_fread_sd, .id="file") %>%
   mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
          weighted = stringr::str_detect(file, "weight"),
-         pheno = stringr::str_remove(basename(file), "_sexdiffs\\.csv")) %>%
+         pheno = stringr::str_remove(basename(file), "_(uniform_)?sexdiffs\\.csv")) %>%
   mutate(pheno_cat = factor(case_when(
     pheno %in% vent_list ~ "Ventricular Vol",
     pheno %in% global_list ~ "Global Vol",
@@ -650,7 +635,7 @@ Label phenos by whether sex effects are significant per LR test
 ```{r}
 #regions w sig sex effects in both samples
 LR.tot_sex_wide <- LR.df_tot_sex %>%
-  pivot_wider(id_cols=c(pheno, total, weighted, pheno_cat, label, tissue_class), names_from="cv_sample", values_from = c(chi, df, p_val, fsq, effect, resi, p.val_fdr, sig_fdr, sig_fsq, sig_resi)) %>%
+  pivot_wider(id_cols=c(pheno, total, weighted, pheno_cat, label), names_from="cv_sample", values_from = c(chi, df, p_val, fsq, effect, resi, p.val_fdr, sig_fdr, sig_fsq, sig_resi)) %>%
   mutate(rep = case_when(
     sig_fdr_A == TRUE & sig_fdr_B == TRUE ~ "consistent_sig",
     sig_fdr_A == FALSE & sig_fdr_B == FALSE ~ "consistent_ns",
@@ -671,7 +656,7 @@ consistent_or_missing.sex <- LR.tot_sex_wide %>%
 
 #consistent age*sex effects
 LR.tot_wide <- LR.df_tot %>%
-  pivot_wider(id_cols=c(pheno, total, weighted, pheno_cat, label, tissue_class), names_from="cv_sample", values_from = c(chi, df, p_val, fsq, effect, resi, p.val_fdr, sig_fdr, sig_fsq, sig_resi)) %>%
+  pivot_wider(id_cols=c(pheno, total, weighted, pheno_cat, label), names_from="cv_sample", values_from = c(chi, df, p_val, fsq, effect, resi, p.val_fdr, sig_fdr, sig_fsq, sig_resi)) %>%
   mutate(rep = case_when(
     sig_fdr_A == TRUE & sig_fdr_B == TRUE ~ "consistent_sig",
     sig_fdr_A == FALSE & sig_fdr_B == FALSE ~ "consistent_ns",
@@ -771,6 +756,7 @@ sq_der_tol<-0.004
 try finding points at which pt derivative crosses 0 increasing vs decreasing
 
 ```{r}
+tol <- 1e-10
 cent_df <- sexdiffs_tbv_sq %>%
   group_by(pheno, cv_sample)%>%
   arrange(logAge_days, .by_group = TRUE) %>%
@@ -1084,73 +1070,14 @@ dominance_plt_df %>%
 plot dominance on brain
 
 ```{r}
-range(dominance_plt_df$centile_int_norm.unlog, na.rm=T)
+#removing ventricles for visualization:
+dominance_plt_df_novent <- dominance_plt_df %>%
+  filter(!(pheno %in% vent_list))
+range(dominance_plt_df_novent$centile_int_norm.unlog)
 
-reg_dom_plt <- dominance_plt_df %>%
-  filter(pheno_cat %in% c("Regional Vol", "Regional SA", "Regional CT")) %>% 
-  ggplot() +
-  theme_linedraw(base_size=12) +
-  geom_brain(
-    fill="gray",
-    atlas = dk_clean,
-    position = position_brain(hemi ~ side)
-  ) +
-  geom_brain(
-    data = dominance_plt_df %>% 
-      filter(pheno %in% consistent_or_missing.sex),
-    aes(fill = centile_int_norm.unlog),
-    atlas = dk_clean,
-    position = position_brain(hemi ~ side)
-  ) +
-  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
-  scale_fill_gradient2(low = "darkorange", mid = "white", high = "darkblue", midpoint = 0, limits=c(-.5,.5)) + 
-  facet_grid(rows = vars(pheno_cat), cols = vars(cv_sample), drop = TRUE) 
+full_dom_plt <- plot_cv_brain(dominance_plt_df_novent, centile_int_norm.unlog, "Normalized Sex\nDifference", "ggthemes::Orange-Blue Diverging", c(-.3, .3), c(2, 5, 2))
 
-
-sub_dom_plt <- dominance_plt_df %>%
-  filter(pheno_cat == "Subcortical Vol") %>%
-  ggplot() +
-  theme_linedraw(base_size=12) +
-  geom_brain(
-    fill="gray",
-    atlas = aseg_clean,
-  ) +
-  geom_brain(
-    data = dominance_plt_df %>% 
-      filter(pheno %in% consistent_or_missing.sex & pheno_cat == "Subcortical Vol"),
-    aes(fill = centile_int_norm.unlog),
-    atlas = aseg_clean
-  ) +
-  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
-  scale_fill_gradient2(low = "darkorange", mid = "white", high = "darkblue", midpoint = 0, limits=c(-.5,.5)) + 
-  facet_grid(pheno_cat ~ cv_sample)
-
-dominance_plt_df_glob <- inner_join(dominance_plt_df, aseg_all_clean$data, 
-                                       by="tissue_class", relationship = "many-to-many")
-glob_dom_plt <- dominance_plt_df_glob %>%
-  filter(pheno_cat == "Global Vol") %>%
-  ggplot() +
-  theme_linedraw(base_size=12) +
-  geom_brain(
-    fill="gray",
-    atlas = aseg_all_clean,
-  ) +
-  geom_brain(
-    data = dominance_plt_df_glob %>% 
-      filter(pheno %in% consistent_or_missing.sex),
-    aes(fill = centile_int_norm.unlog),
-    atlas = aseg_all_clean
-  ) +
-  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
-  scale_fill_gradient2(low = "darkorange", mid = "white", high = "darkblue", midpoint = 0, limits=c(-.5,.5)) + 
-  facet_grid(pheno_cat ~ cv_sample)
-```
-
-```{r}
-full_dom_plt <- glob_dom_plt /plot_spacer()/ reg_dom_plt / plot_spacer()/ sub_dom_plt +
-  plot_layout(guides = 'collect', heights = unit(c(3.5, -1.6, 6, -1.6, 3.5), c('in', 'in', 'in', 'in', 'in')))
-full_dom_plt
-ggsave("figs/dominance_tbvTRUE.png", full_dom_plt, width=7, height=8.5)
+ggsave("figs/dominance_tbvTRUE.png", full_dom_plt, width=, height=8.5, dpi=600)
 ```
 
 How much of the lifespan are phenos male vs female dominant?
@@ -1219,6 +1146,16 @@ prop_above_df %>%
   mutate(pct_female = (n_female/n)*100,
          pct_male = (n_male/n)*100,
          pct_mix = (n_mixed/n)*100)
+```
+
+```{r}
+#add back sex-effect significance, remove ventricles for visualization
+prop_above_df_novent <- full_join(LR.df_tot_sex, prop_above_df %>% select(!pheno_cat)) %>%
+  filter(!(pheno %in% vent_list))
+
+full_above_plt <- plot_cv_brain(prop_above_df_novent, prop_male, "Proportion Male-Dominant", "ggthemes::Orange-Blue Diverging", c(0, 1), c(3.5, -2, 6, -2, 3.5))
+
+ggsave("figs/prop_male_tbvTRUE.png", full_above_plt, width=7, height=8, dpi=600)
 ```
 
 ```{r}
@@ -1463,3 +1400,13 @@ second_deriv_df %>%
 ```
 
 ###Correlation
+
+```{r}
+df_cor_cent <- sexdiffs.df_uniform %>%
+  filter(total=="TRUE" & weighted==FALSE) %>%
+  select(logAge_days, centile_M_minus_F_z, pheno) %>%
+  pivot_wider(id_cols=logAge_days, names_from=pheno, values_from=centile_M_minus_F_z)
+
+c <- cor(df_cor)
+
+```
