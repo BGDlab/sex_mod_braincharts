@@ -253,12 +253,17 @@ for (factor_level in names(sim_df)) {
   
 }
 
-# zscore relative to initial y values
-mean_pheno <- mean(df[[pheno]])
-std_dev_pheno <- sd(df[[pheno]])
+# zscore relative to male's initial y values - per taki
+male_pheno <- df %>% 
+  filter(sexMale==1) %>%
+  pull(pheno)
+mean_pheno <- mean(male_pheno)
+std_dev_pheno <- sd(male_pheno)
 z_score <- function(x){
   (x - mean_pheno) / std_dev_pheno
 }
+
+###for sigma, just use coefficient of variation (sigma over mean at each age)
 
 #fun for derviative
 get_deriv <- function(x, age) {
@@ -272,23 +277,26 @@ result_df <- bind_rows(centile_result_list, .id = "sexMale") %>%
   #z-score
   mutate(
     across(
-      .cols = matches("centile|sigma"),
+      .cols = matches("centile"),
       .fns = z_score,
       .names = "{.col}_z"
     )) %>%
+  #get coefficient of variation
+  mutate(cv_Male = sigma_Male/median_centile_Male,
+         cv_Female = sigma_Female/median_centile_Female) %>%
   #get_derivatives
   mutate(across(
-    .cols = matches("centile"),
+    .cols = matches("centile|cv"),
     .fns = ~ get_deriv(.x, logAge_days),
     .names = "deriv_{.col}"
   )) %>%
   #get M-F differences
   mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
          centile_M_minus_F_z = median_centile_Male_z - median_centile_Female_z,
-         sigma_M_minus_F = sigma_Male - sigma_Female,
-         sigma_M_minus_F_z = sigma_Male - sigma_Female_z,
+         cv_M_minus_F = cv_Male - cv_Female,
          deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
-         deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z)
+         deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z,
+         deriv_CV_M_minus_F = deriv_cv_Male - deriv_cv_Female)
 
 print("saving sex diffs")
 fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_sexdiffs.csv"))
