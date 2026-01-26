@@ -239,15 +239,7 @@ get_deriv <- function(x, age) {
 
 # Function to process simulated datasets and calculate sex differences
 process_sex_diffs <- function(sim_data_list, 
-                              model, 
-                              df, 
-                              pred_list,
-                              age_var = "logAge_days",
-                              filter_by_age = FALSE,
-                              zscore_pattern = "centile",
-                              calc_cv = FALSE,
-                              deriv_pattern = NULL,
-                              output_suffix = "") {
+                              filter_by_age = FALSE) {
   
   fname <- model$family[[1]]
   qfun <- paste0("q", fname)
@@ -257,7 +249,7 @@ process_sex_diffs <- function(sim_data_list,
   centile_result_list <- list()
   
   # Get age range if filtering needed
-  if (filter_by_age) {
+  if (isTRUE(filter_by_age)) {
     min_age <- min(df[[age_var]])
     max_age <- max(df[[age_var]])
   }
@@ -267,7 +259,7 @@ process_sex_diffs <- function(sim_data_list,
     sub_df <- sim_data_list[[factor_level]]
     
     # Apply filtering if needed
-    if (filter_by_age) {
+    if (isTRUE(filter_by_age)) {
       sub_df <- sub_df %>%
         select(all_of(pred_list)) %>%
         filter(.data[[age_var]] >= min_age & .data[[age_var]] <= max_age)
@@ -298,94 +290,50 @@ process_sex_diffs <- function(sim_data_list,
     select(!sexMale) %>%
     tidyr:::pivot_wider(names_from=sex, values_from = c(median_centile, sigma))
   
-  # z-score
   result_df <- result_df %>%
+    #z score
     mutate(
       across(
-        .cols = matches(zscore_pattern),
+        .cols = matches("centile"),
         .fns = z_score,
         .names = "{.col}_z"
-      ))
-  
-  # Calculate coefficient of variation if requested
-  if (calc_cv) {
-    result_df <- result_df %>%
-      mutate(cv_Male = sigma_Male/median_centile_Male,
-             cv_Female = sigma_Female/median_centile_Female)
-  }
-  
-  # Get derivatives
-  if (is.null(deriv_pattern)) {
-    deriv_pattern <- if (calc_cv) "centile|cv" else "centile"
-  }
-  
-  result_df <- result_df %>%
+      )) %>%
+    # get CV
+    mutate(cv_Male = sigma_Male/median_centile_Male,
+           cv_Female = sigma_Female/median_centile_Female) %>%
+    #get derivs
     mutate(across(
-      .cols = matches(deriv_pattern),
+      .cols = matches("centile|cv"),
       .fns = ~ get_deriv(.x, .data[[age_var]]),
       .names = "deriv_{.col}"
-    ))
-  
-  # Get M-F differences
-  result_df <- result_df %>%
+    )) %>%
+  #get M-F differences
     mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
-           centile_M_minus_F_z = median_centile_Male_z - median_centile_Female_z)
-  
-  if (calc_cv) {
-    # Always include CV differences and derivatives when CV is calculated
-    result_df <- result_df %>%
-      mutate(cv_M_minus_F = cv_Male - cv_Female,
-             deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
-             deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z,
-             deriv_CV_M_minus_F = deriv_cv_Male - deriv_cv_Female)
-    
-    # Also include sigma differences if sigma was z-scored
-    if (grepl("sigma", zscore_pattern)) {
-      result_df <- result_df %>%
-        mutate(sigma_M_minus_F = sigma_Male - sigma_Female,
-               sigma_M_minus_F_z = sigma_Male_z - sigma_Female_z)
-    }
-  } else {
-    result_df <- result_df %>%
-      mutate(sigma_M_minus_F = sigma_Male - sigma_Female,
-             sigma_M_minus_F_z = sigma_Male_z - sigma_Female_z,
-             deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
-             deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z)
-  }
-  
-  # Save results
-  print("saving sex diffs")
-  fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, output_suffix, "_sexdiffs.csv"))
+           centile_M_minus_F_z = median_centile_Male_z - median_centile_Female_z,
+           cv_M_minus_F = cv_Male - cv_Female,
+           deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
+           deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z,
+           deriv_cv_M_minus_F = deriv_cv_Male - deriv_cv_Female)
   
   return(result_df)
 }
 
-# Process sim_df (with CV calculations)
+# Process sim_df 
 result_df <- process_sex_diffs(
   sim_data_list = sim_df,
-  model = model,
-  df = df,
-  pred_list = pred_list,
-  age_var = age_var,
-  filter_by_age = FALSE,
-  zscore_pattern = "centile",
-  calc_cv = TRUE,
-  deriv_pattern = "centile|cv",
-  output_suffix = ""
+  filter_by_age = FALSE
 )
+# Save results
+print("saving sex diffs")
+fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_sexdiffs.csv"))
 
-# Process sim_df_uniform (with sigma z-scores, same CV and derivative pattern)
+# Process sim_df_uniform for cross-pheno comparison
 result_df2 <- process_sex_diffs(
   sim_data_list = sim_df_uniform,
-  model = model,
-  df = df,
-  pred_list = pred_list,
-  age_var = age_var,
-  filter_by_age = TRUE,
-  zscore_pattern = "centile|sigma",
-  calc_cv = TRUE,
-  deriv_pattern = "centile|cv",
-  output_suffix = "_uniform"
+  filter_by_age = TRUE
 )
+# Save results
+print("saving uniform sex diffs")
+fwrite(result_df2, file=paste0(save_path, "/cent_csvs/", pheno, "_uniform_sexdiffs.csv"))
 
 print("SUCCESS")

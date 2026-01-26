@@ -119,7 +119,7 @@ save_csv_list <- function(df_list, path = ".", name_prefix) {
 ###### PROCESS DATA ######
 
 #split out data
-df_list <- lapply(idp_list, get_complete_df, df_filt, batch = batch_arg, trunc = trunc_arg)
+df_list <- lapply(idp_list, get_complete_df, df_orig, batch = batch_arg, trunc = trunc_arg)
 #name
 names(df_list) <- idp_list
 

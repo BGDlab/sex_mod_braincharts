@@ -7,9 +7,10 @@
 #SBATCH --mem-per-cpu=10G
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combat/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combat/R-%A_%a.err
-#SBATCH --array=1-5
 
 CONFIGFN=$1
+
+echo "All arguments: $@"
 
 echo "Config file: $CONFIGFN"
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"

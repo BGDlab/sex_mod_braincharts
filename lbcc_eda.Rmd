@@ -1098,20 +1098,13 @@ ggplot(df_clean_inf) +
   facet_wrap(~pheno_cat)
 
 ggplot(df_clean_inf) +
-  geom_histogram(aes(x=age_days, fill=study), position = "identity", alpha=0.4) +
-  #theme(legend.position="none") +
-  geom_vline(xintercept=280) + 
-  # geom_vline(xintercept=(28*7)) + #3rd trimester starts
-  # geom_vline(xintercept=(13*7)) + #2rd trimester starts
-  facet_wrap(~pheno_cat)
-
-df_clean_inf %>%
-  dplyr::filter(pheno_cat == "global") %>%
-  ggplot() +
-  geom_histogram(aes(x=age_days, fill=pheno, color=pheno))
+  geom_histogram(aes(x=logAge_days, fill=pheno_cat, color=pheno_cat), position = "identity", alpha=0.4) +
+  geom_vline(xintercept=log(280, base=10))
 ```
 
 for whatever reason there's very little data ~ 2 months post-birth
+
+
 
 ### Euler QC
 looking at associations between Euler and demographics (in control sample and held-out psychosis sample)
