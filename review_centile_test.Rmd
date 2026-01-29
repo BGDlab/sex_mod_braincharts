@@ -152,7 +152,17 @@ cent_test.df_uncor %>%
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   facet_grid(model~dx) 
+
+cent_test.df_uncor %>%
+  filter(dx_sig_fdr == TRUE) %>%
+  ggplot() +
+  geom_col(aes(x=dx, y= case.control_d, fill=cv_sample), position="dodge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  facet_grid(model~pheno) 
 ```
+
+**need to add significance markers to boxplots!
 
 ```{r}
 cent_df_uncor <- cent_df %>%
@@ -169,6 +179,21 @@ cent_df_full_long <- cent_df_uncor %>%
 ggplot(cent_df_full_long) +
   geom_boxplot(aes(x=pheno, y=std_score_full, fill=control)) +
   facet_wrap(~dx_tested)
+
+#quick and dirty filtering for significance
+cent_test.df_uncor2 <- cent_test.df_uncor %>%
+  mutate(dx_pheno = paste(dx,pheno, sep="_"))
+
+sig_dx_pheno <- cent_test.df_uncor2 %>%
+  filter(dx_sig_fdr==TRUE) %>%
+  pull(dx_pheno)
+
+cent_df_full_long %>%
+   mutate(dx_pheno = paste(dx_tested,pheno, sep="_")) %>%
+  filter(dx_pheno %in% sig_dx_pheno) %>%
+ggplot() +
+  geom_boxplot(aes(x=dx_tested, y=std_score_full, fill=control)) +
+  facet_wrap(~pheno)
 ```
 
 patient sex differences
@@ -205,6 +230,15 @@ cent_df_full_long %>%
   filter(control== "PT") %>%
   ggplot() +
   geom_boxplot(aes(x=pheno, y=std_score_full, fill=sex)) +
+  facet_wrap(~dx_tested)
+
+sample_sum <- cent_df_full_long %>%
+  filter(control== "PT") %>%
+  group_by(dx_tested, pheno, sex) %>%
+  summarise(n=n())
+
+ggplot(sample_sum) +
+  geom_col(aes(x=pheno, y=n, fill=sex), position="dodge") +
   facet_wrap(~dx_tested)
 ```
 
@@ -291,11 +325,14 @@ cent_df_tbv_full_long %>%
 ```
 
 ```{r}
-cent_lm.df %>%
-  filter(str_detect(term, ":")) %>%
-  filter(total==TRUE & sig_fdr==TRUE) %>%
-  ggplot() +
-  geom_col(aes(x=pheno, y=estimate, fill=cv_sample), position="dodge") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  facet_grid(model~dx)
+sample_sum_tbv <- cent_df_tbv_full_long %>%
+  filter(control== "PT") %>%
+  group_by(dx_tested, pheno, sex) %>%
+  summarise(n=n())
+
+ggplot(sample_sum_tbv) +
+  geom_col(aes(x=pheno, y=n, fill=sex), position="dodge") +
+  facet_wrap(~dx_tested)
 ```
+
+*power analyses

@@ -298,9 +298,6 @@ process_sex_diffs <- function(sim_data_list,
         .fns = z_score,
         .names = "{.col}_z"
       )) %>%
-    # get CV
-    mutate(cv_Male = sigma_Male/median_centile_Male,
-           cv_Female = sigma_Female/median_centile_Female) %>%
     #get derivs
     mutate(across(
       .cols = matches("centile|cv"),
@@ -310,7 +307,7 @@ process_sex_diffs <- function(sim_data_list,
   #get M-F differences
     mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
            centile_M_minus_F_z = median_centile_Male_z - median_centile_Female_z,
-           cv_M_minus_F = cv_Male - cv_Female,
+           cv_M_div_F = sigma_Male/sigma_Female,
            deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
            deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z,
            deriv_cv_M_minus_F = deriv_cv_Male - deriv_cv_Female)
