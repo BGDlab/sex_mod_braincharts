@@ -385,7 +385,11 @@ LR.df_plot %>%
 LR.df_uncor <- LR.df_plot %>%
   dplyr::filter(total==FALSE & weighted == FALSE)
 
-table(LR.df_uncor$sig_fdr)
+LR.df_uncor %>%
+  group_by(cv_sample) %>%
+  summarise(n_sig = sum(sig_fdr==TRUE),
+            n=n()) %>%
+  mutate(pct_sig = (n_sig/n)*100)
 
 ggplot(LR.df_uncor) +
   geom_histogram(aes(x=sig_resi, fill=pheno_cat), position='identity', alpha=0.6) +
@@ -414,6 +418,12 @@ LR.df_tot <- LR.df_plot %>%
   dplyr::filter(total==TRUE & effect=="sex_age" & weighted == FALSE)
 
 table(LR.df_tot$sig_fdr)
+
+LR.df_tot %>%
+group_by(cv_sample) %>%
+  summarise(n_sig = sum(sig_fdr==TRUE),
+            n=n()) %>%
+  mutate(pct_sig = (n_sig/n)*100)
 
 ggplot(LR.df_tot) +
   geom_histogram(aes(x=sig_resi, fill=pheno_cat), position='identity', alpha=0.6) +
@@ -834,7 +844,7 @@ sigma_df %>%
 ###Cross-sample Consistency
 Get across-sample euclidean distance
 ```{r}
-cor_df <- data.frame()
+dist_df <- data.frame()
 for (pheno_val in pheno_list){
   df <- sexdiffs_tbv %>%
     filter(pheno==pheno_val) %>%
@@ -848,92 +858,143 @@ for (pheno_val in pheno_list){
   
   if (nrow(dfA) == 0 | nrow(dfB) == 0) next
   
-  cent_cor <- cor(dfA$centile_M_minus_F_z, dfB$centile_M_minus_F_z, use="complete.obs")
-  sigma_cor <- cor(dfA$logcv_M_div_F, dfB$logcv_M_div_F, use="complete.obs")
-  deriv_cor <- cor(dfA$deriv_M_minus_F_z, dfB$deriv_M_minus_F_z, use="complete.obs")
+  cent_dist <- euclidean_dist(dfA$centile_M_minus_F_z, dfB$centile_M_minus_F_z)
+  sigma_dist <- euclidean_dist(dfA$logcv_M_div_F, dfB$logcv_M_div_F)
+  deriv_dist <- euclidean_dist(na.omit(dfA$deriv_M_minus_F_z), na.omit(dfB$deriv_M_minus_F_z))
+  
+  #rm nas for integral
+  dfA <- dfA %>%
+    select(logAge_days, deriv_M_minus_F_z) %>%
+    na.omit()
+  
+  dfB <- dfB %>%
+    select(logAge_days, deriv_M_minus_F_z) %>%
+    na.omit()
+  
+  deriv_j <- trapz(dfA$logAge_days, abs(dfA$deriv_M_minus_F_z - dfB$deriv_M_minus_F_z))
   
   result <- data.frame(
     "pheno" = pheno_val,
-    "centile_cor" = cent_cor,
-    "sigma_cor" = sigma_cor,
-    "deriv_cor" = deriv_cor
+    "centile_dist" = cent_dist,
+    "sigma_dist" = sigma_dist,
+    "deriv_dist" = deriv_dist,
+    "deriv_trapz" = deriv_j
   )
-  cor_df <- bind_rows(cor_df, result)
+  dist_df <- bind_rows(dist_df, result)
 }
 
-ggplot(cor_df) +
-  geom_histogram(aes(x=centile_cor)) +
-  geom_vline(xintercept = .9, color="red")
+dist_df <- dist_df %>%
+  mutate(centile_sim = 1/(1+centile_dist),
+         sigma_sim = 1/(1+sigma_dist),
+         deriv_sim = 1/(1+deriv_dist)
+         )
 
-ggplot(cor_df) +
-  geom_histogram(aes(x=sigma_cor)) +
-  geom_vline(xintercept = .9, color="red")
+thresholds <- dist_df %>%
+  summarize(centile_dist_mad = mad(centile_dist),
+            centile_dist_median = median(centile_dist),
+            sigma_dist_mad = mad(sigma_dist),
+            sigma_dist_median = median(sigma_dist),
+            deriv_dist_mad = mad(deriv_dist),
+            deriv_dist_median = median(deriv_dist)) %>%
+  mutate(centile_dist_threshold = centile_dist_median+(1*centile_dist_mad),
+         sigma_dist_threshold = sigma_dist_median+(1*sigma_dist_mad),
+         deriv_dist_threshold = deriv_dist_median+(1*deriv_dist_mad))
 
-ggplot(cor_df) +
-  geom_histogram(aes(x=deriv_cor)) +
-  geom_vline(xintercept = .9, color="red")
+ggplot(dist_df) +
+  geom_histogram(aes(x=centile_sim), alpha=.5, fill="purple") +
+  geom_histogram(aes(x=sigma_sim), alpha=.5, fill="green") +
+  geom_histogram(aes(x=deriv_sim), alpha=.5, fill="orange")
 
-cor_df %>%
-  mutate(pheno_cat = factor(case_when(
-    pheno %in% vent_list ~ "Ventricular Vol",
-    pheno %in% global_list ~ "Global Vol",
-    pheno %in% vol_list ~ "Regional Vol",
-    pheno %in% sub_list ~ "Subcortical Vol",
-    pheno %in% sa_list ~ "Regional SA",
-    pheno %in% ct_list ~ "Regional CT",
-    TRUE ~ NA_character_))) %>%
-  pivot_longer(cols=c(ends_with("cor")), names_to="type", values_to="cor") %>%
-  group_by(type) %>%
-  summarise(mean_cor = mean(cor),
-            n_pass = sum(cor>.9),
-            pct_pass = (sum(cor>.9)/n())*100,
-            n_neg = sum(cor<0),
-            pct_neg = (sum(cor<0)/n())*100
-            )
-```
-
-filtering to 1+ or 2+ yrs old doesn't change much
-
-```{r, eval=FALSE, message=FALSE}
-for (type in c("centile", "sigma", "deriv")){
-  cor_col <- paste0(type, "_cor")
-  val_col <- paste0(type, "_M_minus_F_z")
-
-  for (pheno_val in pheno_list){
-    #pull correlations
-    cor_val <- cor_df %>% 
-      filter(pheno==pheno_val) %>%
-      pull(!!sym(cor_col))
-    
-    plt <- sexdiffs_tbv %>%
-      filter(pheno==pheno_val) %>%
-      select(!!sym(val_col), pheno, logAge_days, cv_sample) %>%
-      na.omit() %>%
-      arrange(pheno, logAge_days) %>%
-      ggplot() +
-      geom_line(aes(x=logAge_days, y=!!sym(val_col), group=cv_sample, color=cv_sample)) +
-      theme(legend.position="none") +
-      ggtitle(paste(pheno_val, "r =", cor_val))
-    
-    #print(plt)
-    
-    ggsave(paste0("./figs/", pheno_val, "_", type, "_sexdiff_cor_plt.png"), plt)
-  }
-}
+dist_df %>%
+  summarise(n_pass_cent = sum(centile_dist <= thresholds$centile_dist_threshold),
+            n_pass_sigma = sum(sigma_dist <= thresholds$sigma_dist_threshold),
+            n_pass_deriv = sum(deriv_dist <= thresholds$deriv_dist_threshold),
+            n = n()) %>%
+  mutate(pct_pass_cent = (n_pass_cent/n)*100,
+         pct_pass_sigma = (n_pass_sigma/n)*100,
+         pct_pass_deriv = (n_pass_deriv/n)*100)
+  
 ```
 
 
 ```{r}
-cor_df %>%
-  filter(pheno %in% consistent_sex) %>%
-  pivot_longer(cols=c(ends_with("cor")), names_to="type", values_to="cor") %>%
-  group_by(type) %>%
-  summarise(mean_cor = mean(cor),
-            n_pass = sum(cor>.9),
-            pct_pass = (sum(cor>.9)/n())*100,
-            n_neg = sum(cor<0),
-            pct_neg = (sum(cor<0)/n())*100
-            )
+sexdiffs_tbv2 <- full_join(sexdiffs_tbv, dist_df)
+
+cent_dist_plt <- sexdiffs_tbv2 %>%
+    select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F_z, centile_dist) %>%
+    na.omit() %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+    theme_linedraw() +
+    gghighlight(centile_dist <= thresholds$centile_dist_threshold, calculate_per_facet = TRUE) +
+    theme(legend.position = "none") +
+    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
+    labs(y="50th Centile Sex-Difference")
+
+cent_dist_plt
+
+cent_dist_plt_sig <- sexdiffs_tbv2 %>%
+    select(logcv_M_div_F, pheno, logAge_days, pheno_cat, cv_sample, sigma_dist) %>%
+    na.omit() %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=logcv_M_div_F, group=pheno, color=pheno)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  gghighlight(sigma_dist <= thresholds$sigma_dist_threshold, calculate_per_facet = TRUE) +
+    theme(legend.position = "none") +
+    theme_linedraw() +
+    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
+    labs(y="Sex-Difference in Variability (lnCVR)")
+
+cent_dist_plt_sig
+
+cent_dist_plt_d <- sexdiffs_tbv2 %>%
+    select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F_z, deriv_dist) %>%
+  #filter(deriv_dist <= thresholds$deriv_dist_threshold) %>%
+    na.omit() %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=deriv_M_minus_F_z, group=pheno, color=pheno)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  gghighlight(deriv_dist <= thresholds$deriv_dist_threshold, calculate_per_facet = TRUE) +
+    theme(legend.position = "none") +
+    theme_linedraw() +
+    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
+    labs(y="Sex-Difference in Growth")
+
+cent_dist_plt_d
+
+cent_dist_plt_d2 <- sexdiffs_tbv2 %>%
+    select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F_z, deriv_dist) %>%
+    na.omit() %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=deriv_M_minus_F_z, group=pheno, color=deriv_dist)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+    theme_linedraw() +
+    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
+    labs(y="50th Centile Sex-Difference")
+
+#ggplotly(cent_dist_plt_d2)
+```
+
+compare consistent trajectories to regions with consistent sex/ consistent age*sex effects
+
+```{r}
+dist_df2 <- dist_df %>%
+  mutate(consistent_sex = ifelse(pheno %in% consistent_sex, TRUE, FALSE),
+         consistent_agesex = ifelse(pheno %in% consistent_agesex, TRUE, FALSE))
+  
+ggplot(dist_df2) +
+  geom_jitter(aes(x=1, y=deriv_dist, color=consistent_agesex), alpha=.4) +
+  theme_bw()
+
+ggplot(dist_df) +
+  geom_jitter(aes(x=1, y=cent_dist), alpha=.4, color="red") +
+  #gghighlight(pheno %in% consistent_sex) +
+  theme_bw()
 ```
 
 ###Sex-Dominance
