@@ -780,7 +780,7 @@ peak_diffs_sum %>%
   facet_grid(pheno_cat~cv_sample, scales="free_y")
 
 cent_df %>%
-    #filter(pheno %in% consistent_agesex) %>%
+    filter(pheno %in% consistent_agesex) %>%
     ggplot() +
     geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
     facet_grid(pheno_cat~cv_sample, scales="free_y") +
@@ -964,7 +964,7 @@ cent_dist_plt_d <- sexdiffs_tbv2 %>%
     format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
     labs(y="Sex-Difference in Growth")
 
-cent_dist_plt_d
+ggplotly(cent_dist_plt_d)
 
 cent_dist_plt_d2 <- sexdiffs_tbv2 %>%
     select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F_z, deriv_dist) %>%
@@ -995,6 +995,42 @@ ggplot(dist_df) +
   geom_jitter(aes(x=1, y=cent_dist), alpha=.4, color="red") +
   #gghighlight(pheno %in% consistent_sex) +
   theme_bw()
+```
+
+re-assessing peak male-female differences only in phenos with consistent derivatives
+
+```{r}
+consistent_deriv <- dist_df %>% 
+  filter(deriv_dist <= thresholds$deriv_dist_threshold) %>%
+  pull(pheno)
+
+keep_list <- intersect(consistent_deriv, consistent_agesex)
+
+peak_diffs_sum %>%
+  filter(pheno %in% keep_list) %>%
+  mutate(peak_age_yrs = (un_log(peak_age)-280)/365.25) %>%
+  ggplot() +
+  geom_histogram(aes(x=peak_age_yrs, fill=sex), position="identity", alpha=.4) +
+  facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  geom_vline(xintercept = 50, color='gray') +
+  geom_vline(xintercept = 9, color='gray') +
+  geom_vline(xintercept = 18, color='gray') +
+  geom_vline(xintercept = 0, color='gray')
+
+peak_plt <- sexdiffs_tbv %>%
+    filter(pheno %in% keep_list) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+    geom_point(data = dplyr::filter(peak_diffs_sum, pheno %in% keep_list), 
+             aes(x = peak_age, y = peak, color=pheno, shape=sex),
+             size = 2) +
+    theme_linedraw() +
+    theme(legend.position = "none") +
+    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
+    labs(y="50th Centile Sex-Difference")
+
+ggplotly(peak_plt)
 ```
 
 ###Sex-Dominance
@@ -1257,8 +1293,68 @@ deriv_df %>%
         strip.text.y.left = element_text(angle = 0))
 ```
 
+do times with greatest differences in growth rate line up with puberty, menopause, etc? 
 
-###Correlation
+```{r}
+peak_deriv_diffs <- sexdiffs_tbv %>%
+  group_by(cv_sample, pheno, pheno_cat) %>%
+  summarise(male_peak = max_gc(deriv_M_minus_F_z, na.rm = TRUE),
+            male_peak_age = extr_val(logAge_days, which_max_gc(deriv_M_minus_F_z)),
+            female_peak = min_gc(deriv_M_minus_F_z, na.rm = TRUE),
+            female_peak_age = extr_val(logAge_days, which_min_gc(deriv_M_minus_F_z))
+            ) %>%
+  #remove peaks that don't correspond to actual bias
+  mutate(male_peak = ifelse(male_peak>0, male_peak, NA),
+         female_peak = ifelse(female_peak<0, female_peak, NA)) %>%
+  pivot_longer(cols = matches("^(male|female)_"),
+    names_to = c("sex", ".value"),
+    names_pattern = "(male|female)_(.*)")
+
+peak_deriv_hist <- peak_deriv_diffs %>%
+  filter(pheno %in% keep_list) %>%
+  mutate(peak_age_yrs = (un_log(peak_age)-280)/365.25) %>%
+  ggplot() +
+  geom_histogram(aes(x=peak_age_yrs, fill=sex), position="identity", alpha=.4) +
+  facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  geom_vline(xintercept = 50, color='gray') +
+  geom_vline(xintercept = 9, color='gray') +
+  geom_vline(xintercept = 18, color='gray') +
+  geom_vline(xintercept = 0, color='gray')
+
+peak_deriv_hist
+
+ggplotly(peak_deriv_hist)
+
+yr_to_logAge_days <- function(x){
+  log((x*365.25 + 280), base=10)
+}
+
+peak_plt_deriv <- sexdiffs_tbv %>%
+    filter(pheno %in% keep_list) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=deriv_M_minus_F_z, group=pheno, color=pheno)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+    geom_point(data = dplyr::filter(peak_deriv_diffs, pheno %in% keep_list), 
+             aes(x = peak_age, y = peak, color=pheno, shape=sex),
+             size = 2) +
+    theme_linedraw() +
+    theme(legend.position = "none") +
+    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
+    labs(y="50th Centile Sex-Difference") +
+    geom_vline(xintercept = yr_to_logAge_days(50), color='gray') +
+    geom_vline(xintercept = yr_to_logAge_days(9), color='gray') +
+    geom_vline(xintercept = yr_to_logAge_days(18), color='gray') +
+    geom_vline(xintercept = yr_to_logAge_days(0), color='gray')
+
+peak_plt_deriv
+```
+
+###fPCA
+
+getting and plotting principle component of centile differences, sigma differences, and derivative differences
+just using phenos with consistent results across cv splits
+
+prep split A for now
 
 ```{r}
 sexdiffs.df_uniform.sc <- sexdiffs.df_uniform %>%
@@ -1272,471 +1368,515 @@ sexdiffs.df_uniform.sc <- sexdiffs.df_uniform %>%
     deriv_age = get_deriv(logAge_days, age_days)) %>%
   ungroup() %>%
   mutate(deriv_M_minus_F_z.unlog = deriv_M_minus_F_z*deriv_age)
-
-df_cor_cent <- sexdiffs.df_uniform.sc %>%
-  dplyr::select(logAge_days, age_days, centile_M_minus_F_z, deriv_M_minus_F_z.unlog, pheno, cv_sample)
-
-cor_A <- df_cor_cent %>%
-  filter(cv_sample == "A") %>%
-  pivot_wider(id_cols=logAge_days, names_from=pheno, values_from=centile_M_minus_F_z) %>%
-  arrange(logAge_days) %>%
-  dplyr::select(any_of(pheno_list)) %>%
-  cor(use="pairwise.complete.obs")
-
-cor_B <- df_cor_cent %>%
-  filter(cv_sample == "B") %>%
-  pivot_wider(id_cols=logAge_days, names_from=pheno, values_from=centile_M_minus_F_z) %>%
-  arrange(logAge_days) %>%
-  dplyr::select(any_of(pheno_list)) %>%
-  cor(use="pairwise.complete.obs")
 ```
 
-plot
+define function (written with help from claude)
 
 ```{r}
-ggcorrplot(cor_A, outline.col = "white", type = "upper")
-ggcorrplot(cor_B, outline.col = "white", type = "lower")
+library(fda)
 
-ggcorrplot(cor_A, outline.col = "white", type = "upper")
-ggcorrplot(cor_B, outline.col = "white", type = "lower")
-```
-
-attempt clustering
-
-```{r}
-wide_A <- sexdiffs.df_uniform.sc %>%
-  filter(cv_sample == "A") %>%
-  pivot_wider(id_cols=age_days, names_from=pheno, values_from=deriv_M_minus_F_z.unlog)
-
-skim(wide_A)
-
-wide_A_filt <- wide_A %>%
-  dplyr::select(!starts_with("SUBC.CC")) %>%
-  na.omit()
-
-matrix_A <- wide_A_filt  %>%
-  arrange(age_days) %>%
-  dplyr::select(any_of(pheno_list)) %>%
-  t()
-
-list_A <- tslist(matrix_A)
-
-A_clust <- tsclust(list_A, distance="dtw_basic", k=2L)
-plot(A_clust)
-A_clust <- tsclust(list_A, distance="dtw_basic", k=3L)
-plot(A_clust)
-A_clust <- tsclust(list_A, distance="dtw_basic", k=4L)
-plot(A_clust)
-A_clust <- tsclust(list_A, distance="dtw_basic", k=5L)
-plot(A_clust)
-```
-
-```{r}
-basis <- create.bspline.basis(rangeval = range(wide_A_filt$age_days, na.rm = TRUE), 
-                               nbasis = 20)
-time_points <- wide_A_filt$age_days
-brain_fd <- Data2fd(argvals = time_points, 
-                    y = t(matrix_A), 
-                    basisobj = basis)
-
-# Perform functional PCA
-# nharm = number of principal components to compute
-n_components <- 10  # Adjust as needed
-fpca_result <- pca.fd(fdobj = brain_fd, 
-                      nharm = n_components)
-
-variance_explained <- fpca_result$varprop
-cumulative_variance <- cumsum(variance_explained)
-
-# Create scree plot data
-scree_data <- data.frame(
-  PC = 1:length(variance_explained),
-  Variance = variance_explained * 100,
-  Cumulative = cumulative_variance * 100
-)
-
-ggplot(scree_data, aes(x = PC)) +
-  geom_line(aes(y = Variance), color = "blue", linewidth = 1) +
-  geom_point(aes(y = Variance), color = "blue", size = 3) +
-  geom_line(aes(y = Cumulative), color = "red", linewidth = 1, linetype = "dashed") +
-  geom_point(aes(y = Cumulative), color = "red", size = 3) +
-  labs(title = "Functional PCA Scree Plot",
-       x = "Principal Component",
-       y = "Variance Explained (%)") +
-  theme_minimal()
-
-fpca_scores <- fpca_result$scores
-region_names <- intersect(names(wide_A_filt), pheno_list)
-rownames(fpca_scores) <- region_names
-scores_subset <- fpca_scores[, 1:3, drop = FALSE]
-
-max_k <- min(10, nrow(scores_subset) - 1)
-wss <- sapply(1:max_k, function(k) {
-  kmeans(scores_subset, centers = k, nstart = 25)$tot.withinss
-})
-
-p_elbow <- ggplot(data.frame(k = 1:max_k, wss = wss), aes(x = k, y = wss)) +
-  geom_line(color = "blue", linewidth = 1) +
-  geom_point(color = "blue", size = 3) +
-  labs(title = "Elbow Method for Optimal k",
-       x = "Number of Clusters",
-       y = "Total Within-Cluster Sum of Squares") +
-  theme_minimal() +
-  scale_x_continuous(breaks = 1:max_k)
-
-print(p_elbow)
-
-# Perform k-means clustering (adjust k as needed)
-k <- 3  # Number of clusters - adjust based on elbow plot
-set.seed(123)
-kmeans_result <- kmeans(scores_subset, centers = k, nstart = 25)
-clusters <- kmeans_result$cluster
-```
-
-```{r}
-# Get fitted values from the functional data object
-fitted_values <- eval.fd(time_points, brain_fd)  # Returns matrix: cols = regions, rows = time points
-
-# Transpose to match brain_matrix_clean format (rows = regions, cols = time points)
-fitted_matrix <- t(fitted_values)
-
-# Calculate residuals
-residuals_matrix <- matrix_A - fitted_matrix
-
-# 2. CALCULATE FIT STATISTICS FOR EACH REGION
-# --------------------------------------------------
-
-fit_stats <- data.frame(
-  Region = region_names,
-  R_squared = numeric(length(region_names)),
-  RMSE = numeric(length(region_names)),
-  MAE = numeric(length(region_names)),
-  Max_Abs_Error = numeric(length(region_names))
-)
-
-for (i in 1:nrow(matrix_A)) {
-  observed <- matrix_A[i, ]
-  fitted <- fitted_matrix[i, ]
-  residuals <- residuals_matrix[i, ]
+plot_fpc1 <- function(data,
+                      time_var = "logAge_days",
+                      value_var = "centile_M_minus_F_z",
+                      cv_sample_value = "A",
+                      keep_phenos = NULL,
+                      nbasis = 20,
+                      nharm = 10,
+                      x_axis_formatter = "log_lifespan_fetal",
+                      plot_title = NULL,
+                      x_label = NULL,
+                      y_label = "Value") {
   
-  # R-squared
-  ss_total <- sum((observed - mean(observed))^2)
-  ss_residual <- sum(residuals^2)
-  fit_stats$R_squared[i] <- 1 - (ss_residual / ss_total)
+  # Filter data if keep_phenos is provided
+  if (!is.null(keep_phenos)) {
+    data <- data %>% filter(pheno %in% keep_phenos)
+  }
   
-  # Root Mean Square Error
-  fit_stats$RMSE[i] <- sqrt(mean(residuals^2))
+  # Filter by cv_sample if provided
+  if (!is.null(cv_sample_value)) {
+    data <- data %>% filter(cv_sample == cv_sample_value)
+  }
   
-  # Mean Absolute Error
-  fit_stats$MAE[i] <- mean(abs(residuals))
+  # Create wide format
+  wide_data <- data %>%
+    pivot_wider(id_cols = time_var, 
+                names_from = pheno, 
+                values_from = value_var) %>%
+    na.omit()
   
-  # Maximum absolute error
-  fit_stats$Max_Abs_Error[i] <- max(abs(residuals))
-}
-
-# Print summary statistics
-cat("\n=== OVERALL FIT STATISTICS ===\n")
-cat(sprintf("Mean R-squared: %.4f (SD: %.4f)\n", 
-            mean(fit_stats$R_squared), sd(fit_stats$R_squared)))
-cat(sprintf("Median R-squared: %.4f\n", median(fit_stats$R_squared)))
-cat(sprintf("Min R-squared: %.4f (Region: %s)\n", 
-            min(fit_stats$R_squared), 
-            fit_stats$Region[which.min(fit_stats$R_squared)]))
-cat(sprintf("Max R-squared: %.4f (Region: %s)\n", 
-            max(fit_stats$R_squared), 
-            fit_stats$Region[which.max(fit_stats$R_squared)]))
-cat(sprintf("\nMean RMSE: %.6f\n", mean(fit_stats$RMSE)))
-cat(sprintf("Mean MAE: %.6f\n", mean(fit_stats$MAE)))
-
-# Show worst-fitting regions
-cat("\n=== WORST-FITTING REGIONS (Lowest R-squared) ===\n")
-print(fit_stats %>% arrange(R_squared) %>% head(10))
-
-# Show best-fitting regions
-cat("\n=== BEST-FITTING REGIONS (Highest R-squared) ===\n")
-print(fit_stats %>% arrange(desc(R_squared)) %>% head(10))
-
-# 3. VISUALIZE FIT: HISTOGRAM OF R-SQUARED VALUES
-# --------------------------------------------------
-
-p_rsq_hist <- ggplot(fit_stats, aes(x = R_squared)) +
-  geom_histogram(bins = 30, fill = "steelblue", color = "white", alpha = 0.8) +
-  geom_vline(xintercept = mean(fit_stats$R_squared), 
-             color = "red", linetype = "dashed", linewidth = 1) +
-  annotate("text", x = mean(fit_stats$R_squared), y = Inf, 
-           label = sprintf("Mean = %.3f", mean(fit_stats$R_squared)),
-           vjust = 2, color = "red", size = 4) +
-  labs(title = "Distribution of R-squared Values Across Regions",
-       x = "R-squared",
-       y = "Count") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
-
-print(p_rsq_hist)
-
-# 4. VISUALIZE FIT: OBSERVED VS FITTED FOR SELECTED REGIONS
-# --------------------------------------------------
-
-# Select a few regions to visualize (worst, median, best fitting)
-worst_region <- fit_stats$Region[which.min(fit_stats$R_squared)]
-best_region <- fit_stats$Region[which.max(fit_stats$R_squared)]
-median_region <- fit_stats$Region[order(fit_stats$R_squared)[round(nrow(fit_stats)/2)]]
-
-selected_regions <- c(worst_region, median_region, best_region)
-
-# Create plot data
-plot_data_fit <- data.frame()
-
-for (region in selected_regions) {
-  idx <- which(region_names == region)
-  rsq <- fit_stats$R_squared[idx]
+  # Extract time points
+  time_points <- wide_data[[time_var]]
   
-  temp_df <- data.frame(
-    Region = paste0(region, sprintf(" (R² = %.3f)", rsq)),
-    age_days = time_points,
-    Observed = matrix_A[idx, ],
-    Fitted = fitted_matrix[idx, ]
-  ) %>%
-    pivot_longer(cols = c(Observed, Fitted), 
-                 names_to = "Type", 
-                 values_to = "Value")
+  # Create matrix (transpose so rows = phenos, cols = time points)
+  matrix_data <- wide_data %>%
+    arrange(!!sym(time_var)) %>%
+    dplyr::select(-(time_var)) %>%
+    t()
   
-  plot_data_fit <- rbind(plot_data_fit, temp_df)
-}
-
-p_fit_examples <- ggplot(plot_data_fit, aes(x = age_days, y = Value, color = Type)) +
-  geom_line(linewidth = 1, alpha = 0.8) +
-  geom_point(data = plot_data_fit %>% filter(Type == "Observed"), 
-             size = 1.5, alpha = 0.4) +
-  facet_wrap(~Region, scales = "free_y", ncol = 1) +
-  scale_color_manual(values = c("Observed" = "black", "Fitted" = "red")) +
-  labs(title = "Observed vs Fitted Values: Example Regions",
-       subtitle = "Worst, Median, and Best Fitting Regions",
-       x = "Age (days)",
-       y = "Value") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        plot.subtitle = element_text(hjust = 0.5, size = 11),
-        legend.position = "bottom")
-
-print(p_fit_examples)
-
-# 5. VISUALIZE RESIDUALS
-# --------------------------------------------------
-
-# Plot residuals over time
-plot_data_residuals <- data.frame()
-
-for (i in 1:nrow(residuals_matrix)) {
-  temp_df <- data.frame(
-    Region = region_names_clean[i],
-    age_days = time_points,
-    Residual = residuals_matrix[i, ]
+  # Create B-spline basis
+  basis <- create.bspline.basis(rangeval = range(time_points, na.rm = TRUE), 
+                                 nbasis = nbasis)
+  
+  # Convert to functional data object
+  brain_fd <- Data2fd(argvals = time_points, 
+                      y = t(matrix_data), 
+                      basisobj = basis)
+  
+  # Perform functional PCA
+  fpca_result <- pca.fd(fdobj = brain_fd, 
+                        nharm = nharm)
+  
+  # Extract PC1 variance explained
+  pc1_var <- fpca_result$varprop[1] * 100
+  
+  # Create fine grid for smooth plotting
+  time_grid <- seq(min(time_points), max(time_points), length.out = 200)
+  
+  # Evaluate PC1 at grid points
+  pc1_values <- as.numeric(eval.fd(time_grid, fpca_result$harmonics[1]))
+  
+  # Create plot data
+  plot_data <- data.frame(
+    time = time_grid,
+    pc1 = pc1_values
   )
-  plot_data_residuals <- rbind(plot_data_residuals, temp_df)
+  
+  # Create base plot
+  p <- ggplot(plot_data, aes(x = time, y = pc1)) +
+    geom_line(linewidth = 1.2, color = "darkblue") +
+    labs(title = paste(plot_title, "PC 1"),
+        subtitle = sprintf("%.1f%% variance", pc1_var),
+         x = if(!is.null(x_label)) x_label else time_var,
+         y = y_label) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) +
+    format_x_axis(x_axis_formatter, plot_data$time) 
+  
+  # Same for PC2
+  pc2_var <- fpca_result$varprop[2] * 100
+  pc2_values <- as.numeric(eval.fd(time_grid, fpca_result$harmonics[2]))
+  
+  plot_data2 <- data.frame(
+    time = time_grid,
+    pc2 = pc2_values
+  )
+  
+  # Create base plot
+  p2 <- ggplot(plot_data2, aes(x = time, y = pc2)) +
+    geom_line(linewidth = 1.2, color = "darkblue") +
+    labs(title = paste(plot_title, "PC 2"),
+        subtitle = sprintf("%.1f%% variance", pc2_var),
+         x = if(!is.null(x_label)) x_label else time_var,
+         y = y_label) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) +
+    format_x_axis(x_axis_formatter, plot_data2$time) 
+  
+  # Return list with plot and fpca results
+  return(list(
+    plot = p,
+    plot2 = p2,
+    fpca_result = fpca_result,
+    pc1_variance = pc1_var,
+    time_grid = time_grid,
+    pc1_values = pc1_values,
+    cv_sample = cv_sample_value,
+    phenos = keep_phenos,
+    var = value_var,
+    time_var = time_var
+  ))
 }
 
-p_residuals <- ggplot(plot_data_residuals, 
-                      aes(x = age_days, y = Residual, group = Region)) +
-  geom_line(alpha = 0.2, color = "steelblue") +
-  geom_hline(yintercept = 0, color = "red", linetype = "dashed", linewidth = 1) +
-  labs(title = "Residuals for All Regions",
-       subtitle = "Difference between observed and fitted values",
-       x = "Age (days)",
-       y = "Residual") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        plot.subtitle = element_text(hjust = 0.5, size = 11))
+```
 
-print(p_residuals)
+centiles
 
-# Residual vs Fitted plot (to check for patterns)
-plot_data_resid_vs_fitted <- data.frame(
-  Fitted = as.vector(fitted_matrix),
-  Residual = as.vector(residuals_matrix)
-)
+```{r}
+consistent_cent <- dist_df %>% 
+  filter(centile_dist <= thresholds$centile_dist_threshold) %>%
+  pull(pheno)
 
-p_resid_vs_fitted <- ggplot(plot_data_resid_vs_fitted, 
-                             aes(x = Fitted, y = Residual)) +
-  geom_point(alpha = 0.3, color = "steelblue") +
-  geom_hline(yintercept = 0, color = "red", linetype = "dashed", linewidth = 1) +
-  geom_smooth(method = "loess", color = "darkblue", se = TRUE) +
-  labs(title = "Residual vs Fitted Values",
-       subtitle = "Should show no systematic pattern",
-       x = "Fitted Value",
-       y = "Residual") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        plot.subtitle = element_text(hjust = 0.5, size = 11))
+#phenos that def have sex effects & have consistent centile diff trajectories
+keep_list_cent <- intersect(consistent_cent, consistent_sex)
+length(keep_list_cent)
 
-print(p_resid_vs_fitted)
+centile_A_fpc <- plot_fpc1(
+  data = sexdiffs.df_uniform.sc,
+  time_var = "logAge_days",
+  value_var = "centile_M_minus_F_z",
+  cv_sample_value = "A",
+  keep_phenos = keep_list_cent,
+  plot_title = "Centile Split A",
+  y_label = "Centile Difference PC1")
 
-# 6. VISUALIZE ALL REGIONS: GRID OF OBSERVED VS FITTED
-# --------------------------------------------------
+centile_B_fpc <- plot_fpc1(
+  data = sexdiffs.df_uniform.sc,
+  time_var = "logAge_days",
+  value_var = "centile_M_minus_F_z",
+  cv_sample_value = "B",
+  keep_phenos = keep_list_cent,
+  plot_title = "Centile Split B",
+  y_label = "Centile Difference PC1")
 
-# For a more comprehensive view, plot all regions (or a random sample if too many)
-n_regions_to_plot <- min(16, length(region_names_clean))  # Plot up to 16 regions
 
-if (length(region_names_clean) > n_regions_to_plot) {
+centile_A_fpc$plot
+centile_A_fpc$plot2
+centile_B_fpc$plot
+centile_B_fpc$plot2
+```
+
+sigma
+
+```{r}
+consistent_sigma <- dist_df %>% 
+  filter(sigma_dist <= thresholds$sigma_dist_threshold) %>%
+  pull(pheno)
+
+#phenos that def have sex effects & have consistent centile diff trajectories
+keep_list_sigma <- intersect(consistent_sigma, consistent_sex)
+length(keep_list_sigma)
+
+sigma_A_fpc <- plot_fpc1(
+  data = sexdiffs.df_uniform.sc,
+  time_var = "logAge_days",
+  value_var = "logcv_M_div_F",
+  cv_sample_value = "A",
+  keep_phenos = keep_list_sigma,
+  plot_title = "Variance Diff Split A",
+  y_label = "log CV Ratio")
+
+sigma_B_fpc <- plot_fpc1(
+  data = sexdiffs.df_uniform.sc,
+  time_var = "logAge_days",
+  value_var = "logcv_M_div_F",
+  cv_sample_value = "B",
+  keep_phenos = keep_list_sigma,
+  plot_title = "Variance Split B",
+  y_label = "log CV Ratio")
+
+
+sigma_A_fpc$plot
+sigma_A_fpc$plot2
+
+sigma_B_fpc$plot
+sigma_B_fpc$plot2
+```
+
+
+Derivatives
+```{r}
+consistent_deriv <- dist_df %>% 
+  filter(deriv_dist <= thresholds$deriv_dist_threshold) %>%
+  pull(pheno)
+
+#all consistent sex-differences
+keep_list_deriv1 <- intersect(consistent_deriv, consistent_sex)
+length(keep_list_deriv1)
+
+deriv_A_fpc <- plot_fpc1(
+  data = sexdiffs.df_uniform.sc,
+  time_var = "logAge_days",
+  value_var = "deriv_M_minus_F_z",
+  cv_sample_value = "A",
+  keep_phenos = keep_list_deriv1,
+  plot_title = "Sex-Difference Deriv Split A",
+  y_label = "Derivative")
+
+deriv_B_fpc <- plot_fpc1(
+  data = sexdiffs.df_uniform.sc,
+  time_var = "logAge_days",
+  value_var = "deriv_M_minus_F_z",
+  cv_sample_value = "B",
+  keep_phenos = keep_list_deriv1,
+  plot_title = "Sex-Difference Deriv Split B",
+  y_label = "Derivative")
+
+deriv_A_fpc$plot
+deriv_A_fpc$plot2
+deriv_B_fpc$plot
+deriv_B_fpc$plot2
+```
+
+
+derivatives just in phenos with significant age*sex effects
+
+```{r}
+#consistent age*sex effects
+keep_list_deriv2 <- intersect(consistent_deriv, consistent_agesex)
+length(keep_list_deriv2)
+
+deriv_A_fpc2 <- plot_fpc1(
+  data = sexdiffs.df_uniform.sc,
+  time_var = "logAge_days",
+  value_var = "deriv_M_minus_F_z",
+  cv_sample_value = "A",
+  keep_phenos = keep_list_deriv2,
+  plot_title = "Sex-Difference Deriv Split A",
+  y_label = "Derivative")
+
+deriv_B_fpc2 <- plot_fpc1(
+  data = sexdiffs.df_uniform.sc,
+  time_var = "logAge_days",
+  value_var = "deriv_M_minus_F_z",
+  cv_sample_value = "B",
+  keep_phenos = keep_list_deriv2,
+  plot_title = "Sex-Difference Deriv Split B",
+  y_label = "Derivative")
+
+deriv_A_fpc2$plot
+deriv_A_fpc2$plot2
+deriv_B_fpc2$plot
+deriv_B_fpc2$plot2
+```
+
+####Clustering
+
+Clustering same phenos as above on fPCA
+
+```{r}
+cluster_fpca_trajectories <- function(fpca_output,
+                                      data,
+                                      n_pcs = NULL,
+                                      variance_threshold = 0.80,
+                                      k = 5,
+                                      method = "kmeans",
+                                      nstart = 25,
+                                      plot_clusters = TRUE,
+                                      x_axis_formatter = "log_lifespan_fetal",
+                                      x_label = NULL) {
+  
+  # Extract components from fpca_output
+  fpca_result <- fpca_output$fpca_result
+  keep_phenos <- fpca_output$phenos
+  cv_sample_value <- fpca_output$cv_sample
+  value_var <- fpca_output$var
+  time_var <- fpca_output$time_var
+  
+  # Get fPCA scores
+  fpca_scores <- fpca_result$scores
+  rownames(fpca_scores) <- keep_phenos
+  
+  # Determine number of PCs to use
+  variance_explained <- fpca_result$varprop
+  cumulative_variance <- cumsum(variance_explained)
+  
+  if (is.null(n_pcs)) {
+    # Use variance threshold
+    n_pcs <- which(cumulative_variance >= variance_threshold)[1]
+    if (is.na(n_pcs)) n_pcs <- length(cumulative_variance)
+  }
+  
+  cat(sprintf("Using %d PCs (explaining %.1f%% of variance)\n", 
+              n_pcs, cumulative_variance[n_pcs] * 100))
+  
+  # Select PC scores to use
+  scores_subset <- fpca_scores[, 1:n_pcs, drop = FALSE]
+  
+  # Perform clustering
   set.seed(123)
-  sample_regions <- sample(region_names_clean, n_regions_to_plot)
-} else {
-  sample_regions <- region_names_clean
-}
-
-plot_data_grid <- data.frame()
-
-for (region in sample_regions) {
-  idx <- which(region_names_clean == region)
-  rsq <- fit_stats$R_squared[idx]
+  if (method == "kmeans") {
+    cluster_result <- kmeans(scores_subset, centers = k, nstart = nstart)
+    clusters <- cluster_result$cluster
+  } else if (method == "hierarchical") {
+    dist_matrix <- dist(scores_subset)
+    hc <- hclust(dist_matrix, method = "ward.D2")
+    clusters <- cutree(hc, k = k)
+  } else {
+    stop("Method must be 'kmeans' or 'hierarchical'")
+  }
   
-  temp_df <- data.frame(
-    Region = paste0(region, sprintf("\n(R² = %.3f)", rsq)),
-    age_days = time_points,
-    Observed = brain_matrix_clean[idx, ],
-    Fitted = fitted_matrix[idx, ]
-  ) %>%
-    pivot_longer(cols = c(Observed, Fitted), 
-                 names_to = "Type", 
-                 values_to = "Value")
+  # Print cluster sizes
+  cat("\nCluster Sizes:\n")
+  print(table(clusters))
   
-  plot_data_grid <- rbind(plot_data_grid, temp_df)
-}
-
-p_grid <- ggplot(plot_data_grid, aes(x = age_days, y = Value, color = Type)) +
-  geom_line(linewidth = 0.7, alpha = 0.6) +
-  geom_point(data = plot_data_grid %>% filter(Type == "Observed"), 
-             size = 0.8, alpha = 0.4) +
-  facet_wrap(~Region, scales = "free_y", ncol = 4) +
-  scale_color_manual(values = c("Observed" = "black", "Fitted" = "red")) +
-  labs(title = "Observed vs Fitted: Sample of Regions",
-       x = "Age (days)",
-       y = "Value") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        legend.position = "bottom",
-        strip.text = element_text(size = 7))
-
-print(p_grid)
-
-# 7. EXPORT FIT STATISTICS
-# --------------------------------------------------
-
-# Save fit statistics to CSV (optional)
-# write.csv(fit_stats, "functional_fit_statistics.csv", row.names = FALSE)
-
-# Return fit statistics
-cat("\n=== FIT CHECK COMPLETE ===\n")
-cat("Check the plots above to assess fit quality.\n")
-cat("Good fit indicators:\n")
-cat("  - R-squared > 0.95 for most regions\n")
-cat("  - No systematic patterns in residual plots\n")
-cat("  - Small RMSE relative to data scale\n")
-```
-
-plot
-
-```{r}
-plot_data_pcs <- data.frame(
-  PC1 = fpca_scores[, 1],
-  PC2 = fpca_scores[, 2],
-  Cluster = factor(clusters),
-  Region = region_names
-)
-
-p_clusters <- ggplot(plot_data_pcs, aes(x = PC1, y = PC2, color = Cluster, label = Region)) +
-  geom_point(size = 3, alpha = 0.7) +
-  geom_text(size = 2.5, hjust = -0.1, vjust = 0.5, check_overlap = TRUE) +
-  labs(title = "Brain Regions Clustered in fPCA Space",
+  # Create results dataframe
+  results_df <- data.frame(
+    pheno = keep_phenos,
+    cluster = clusters,
+    stringsAsFactors = FALSE
+  )
+  
+  # Add PC scores
+  for (i in 1:n_pcs) {
+    results_df[[paste0("PC", i)]] <- fpca_scores[, i]
+  }
+  
+  # Sort by cluster
+  results_df <- results_df %>% arrange(cluster, pheno)
+  
+  # Print phenotypes by cluster
+  cat("\nPhenotypes by Cluster:\n")
+  for (i in 1:k) {
+    cat(sprintf("\nCluster %d (%d phenotypes):\n", i, sum(clusters == i)))
+    print(keep_phenos[clusters == i])
+  }
+  
+  # Generate plots if requested
+  plots <- list()
+  
+  if (plot_clusters) {
+    # Filter and prepare data for plotting
+    plot_data <- data %>%
+      filter(pheno %in% keep_phenos) %>%
+      filter(cv_sample == cv_sample_value) %>%
+      left_join(results_df %>% dplyr::select(pheno, cluster), by = "pheno") %>%
+      mutate(cluster = factor(cluster))
+    
+    # Plot 1: Trajectories colored by cluster
+    p_trajectories <- ggplot(plot_data, 
+                             aes(x = !!sym(time_var), 
+                                 y = !!sym(value_var), 
+                                 group = pheno, 
+                                 color = cluster)) +
+      geom_line(alpha = 0.5, linewidth = 0.7) +
+      facet_wrap(~cluster, ncol = 2) +
+      labs(title = "Trajectories by Cluster",
+           x = if(!is.null(x_label)) x_label else time_var,
+           y = value_var) +
+      theme_minimal() +
+      theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+            legend.position = "none") +
+      format_x_axis(x_axis_formatter, plot_data[[time_var]])
+    
+    plots$trajectories_faceted <- p_trajectories
+    
+    # Plot 2: All trajectories colored by cluster (no facets)
+    p_trajectories_all <- ggplot(plot_data, 
+                                  aes(x = !!sym(time_var), 
+                                      y = !!sym(value_var), 
+                                      group = pheno, 
+                                      color = cluster)) +
+      geom_line(alpha = 0.5, linewidth = 0.7) +
+      labs(title = "All Trajectories Colored by Cluster",
+           x = if(!is.null(x_label)) x_label else time_var,
+           y = value_var,
+           color = "Cluster") +
+      theme_minimal() +
+      theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")) +
+      format_x_axis(x_axis_formatter, plot_data[[time_var]])
+    
+    plots$trajectories_all <- p_trajectories_all
+    
+    # Plot 3: PC1 vs PC2 scatter colored by cluster
+    pc_plot_data <- data.frame(
+      PC1 = fpca_scores[, 1],
+      PC2 = fpca_scores[, 2],
+      cluster = factor(clusters),
+      pheno = keep_phenos
+    )
+    
+    p_pc_scatter <- ggplot(pc_plot_data, aes(x = PC1, y = PC2, color = cluster, label = pheno)) +
+      geom_point(size = 3, alpha = 0.7) +
+      geom_text(size = 2.5, hjust = 0, vjust = 0, nudge_x = 0.01, nudge_y = 0.01, 
+                check_overlap = TRUE, show.legend = FALSE) +  # Added text labels
+      labs(title = "Clusters in PC Space",
        x = sprintf("PC1 (%.1f%% variance)", variance_explained[1] * 100),
-       y = sprintf("PC2 (%.1f%% variance)", variance_explained[2] * 100)) +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
-
-print(p_clusters)
-
-result_df <- data.frame(pheno = region_names, cluster = factor(clusters))
-plot_data_trajectories <- df_cor_cent %>%
-  filter(cv_sample == "A") %>%
-  inner_join(result_df) %>%
-  mutate(pheno_cat = factor(case_when(
-    pheno %in% vent_list ~ "Ventricular Vol",
-    pheno %in% global_list ~ "Global Vol",
-    pheno %in% vol_list ~ "Regional Vol",
-    pheno %in% sub_list ~ "Subcortical Vol",
-    pheno %in% sa_list ~ "Regional SA",
-    pheno %in% ct_list ~ "Regional CT",
-    TRUE ~ NA_character_)))
-
-ggplot(plot_data_trajectories, 
-                         aes(x = logAge_days, y = deriv_M_minus_F_z.unlog, group = pheno, color = cluster)) +
-  geom_line(alpha = 0.5, linewidth = 0.7) +
-  facet_wrap(~cluster, scales = "free_y") +
-  labs(title = "Brain Region Trajectories by Cluster",
-       x = "Age (days)",
-       y = "Value") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        legend.position = "none")
-
+       y = sprintf("PC2 (%.1f%% variance)", variance_explained[2] * 100),
+       color = "Cluster") +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
+    
+    plots$pc_scatter <- p_pc_scatter
+    
+    # Plot 4: Elbow plot (if kmeans)
+    if (method == "kmeans") {
+      max_k <- min(10, nrow(scores_subset) - 1)
+      wss <- sapply(1:max_k, function(k) {
+        kmeans(scores_subset, centers = k, nstart = 25)$tot.withinss
+      })
+      
+      elbow_data <- data.frame(k = 1:max_k, wss = wss)
+      
+      p_elbow <- ggplot(elbow_data, aes(x = k, y = wss)) +
+        geom_line(color = "blue", linewidth = 1) +
+        geom_point(color = "blue", size = 3) +
+        geom_vline(xintercept = k, color = "red", linetype = "dashed") +
+        labs(title = "Elbow Plot for Optimal k",
+             x = "Number of Clusters",
+             y = "Total Within-Cluster Sum of Squares") +
+        theme_minimal() +
+        scale_x_continuous(breaks = 1:max_k)
+      
+      plots$elbow <- p_elbow
+    }
+    
+    # Plot 5: Dendrogram (if hierarchical)
+    if (method == "hierarchical") {
+      dist_matrix <- dist(scores_subset)
+      hc <- hclust(dist_matrix, method = "ward.D2")
+      plots$dendrogram <- hc  # Store hclust object for plotting separately
+    }
+  }
+  
+  # Return comprehensive results
+  return(list(
+    clusters = clusters,
+    results_df = results_df,
+    cluster_result = if(method == "kmeans") cluster_result else NULL,
+    n_pcs_used = n_pcs,
+    variance_explained = cumulative_variance[n_pcs],
+    fpca_scores = fpca_scores,
+    plots = plots,
+    method = method,
+    k = k
+  ))
+}
 ```
 
+
+centiles
 
 ```{r}
-pc1_scores <- fpca_scores[, 1]
-range(pc1_scores)
-# Create a dataframe matching regions to their PC1 scores
-pc1_lookup <- data.frame(
-  pheno = region_names,
-  PC1_Score = pc1_scores
-)
+centile_clusters <- cluster_fpca_trajectories(fpca_output = centile_A_fpc,
+                                      data = sexdiffs.df_uniform.sc,
+                                      n_pcs = 2,
+                                      variance_threshold = 0.80,
+                                      k = 3,
+                                      method = "kmeans",
+                                      nstart = 25,
+                                      plot_clusters = TRUE,
+                                      x_axis_formatter = "log_lifespan_fetal",
+                                      x_label = NULL)
 
-# Reshape data for plotting and add PC1 scores
-plot_data_pc1 <- full_join(plot_data_trajectories, pc1_lookup)
-
-# Create the plot with continuous color scale based on PC1
-ggplot(plot_data_pc1, aes(x = age_days, y = deriv_M_minus_F_z.unlog, group = pheno, color = PC1_Score)) +
-  geom_line(alpha = 0.7, linewidth = 0.8) +
-  scale_color_gradient2(low = "blue", mid = "gray90", high = "red", 
-                        midpoint = 0,
-                        name = "PC1 Score") +
-  labs(title = "Brain Region Trajectories Colored by PC1 Loading",
-       subtitle = sprintf("PC1 explains %.1f%% of variance", variance_explained[1] * 100),
-       x = "Age (days)",
-       y = "Value") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-        plot.subtitle = element_text(hjust = 0.5, size = 11),
-        legend.position = "right")
-
+print(centile_clusters$plots$trajectories_faceted)
+print(centile_clusters$plots$trajectories_all)
+print(centile_clusters$plots$pc_scatter)
+print(centile_clusters$plots$elbow)
 ```
 
 ```{r}
-# --------------------------------------------------
-# VISUALIZE WHAT PC1 REPRESENTS
-# --------------------------------------------------
+sigma_clusters <- cluster_fpca_trajectories(fpca_output = sigma_A_fpc,
+                                      data = sexdiffs.df_uniform.sc,
+                                      n_pcs = 2,
+                                      variance_threshold = 0.80,
+                                      k = 3,
+                                      method = "kmeans",
+                                      nstart = 25,
+                                      plot_clusters = TRUE,
+                                      x_axis_formatter = "log_lifespan_fetal",
+                                      x_label = NULL)
 
-# Plot the first principal component function
-par(mfrow = c(1, 2))
-
-# PC1 function
-plot(fpca_result$harmonics[1], 
-     main = sprintf("PC1 Function\n(%.1f%% variance)", variance_explained[1] * 100),
-     xlab = "Age (days)",
-     ylab = "PC1",
-     lwd = 2,
-     col = "darkblue")
-abline(h = 0, lty = 2, col = "gray50")
-
-# PC2 function for comparison
-plot(fpca_result$harmonics[2], 
-     main = sprintf("PC2 Function\n(%.1f%% variance)", variance_explained[2] * 100),
-     xlab = "Age (days)",
-     ylab = "PC2",
-     lwd = 2,
-     col = "darkred")
-abline(h = 0, lty = 2, col = "gray50")
-
-par(mfrow = c(1, 1))
+print(sigma_clusters$plots$trajectories_faceted)
+print(sigma_clusters$plots$trajectories_all)
+print(sigma_clusters$plots$pc_scatter)
+#ggplotly(sigma_clusters$plots$pc_scatter)
+print(sigma_clusters$plots$elbow)
 ```
 
+```{r}
+deriv_clusters <- cluster_fpca_trajectories(fpca_output = deriv_A_fpc,
+                                      data = sexdiffs.df_uniform.sc,
+                                      n_pcs = 2,
+                                      variance_threshold = 0.80,
+                                      k = 3,
+                                      method = "kmeans",
+                                      nstart = 25,
+                                      plot_clusters = TRUE,
+                                      x_axis_formatter = "log_lifespan_fetal",
+                                      x_label = NULL)
+
+print(deriv_clusters$plots$trajectories_faceted)
+print(deriv_clusters$plots$trajectories_all)
+print(deriv_clusters$plots$pc_scatter)
+print(deriv_clusters$plots$elbow)
+```
