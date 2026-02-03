@@ -33,7 +33,7 @@ covar.list <- as.character(unlist(strsplit(args[4], ",")))
 
 #FILTER DF
 filt.df <- raw.df %>%
-  dplyr::select(any_of(c(covar.list, feature_list, batch.col))) %>%
+  dplyr::select(any_of(c(covar.list, feature_list, batch.col, "INDEX.ID"))) %>%
   na.omit() %>%
   group_by(!!sym(batch.col)) %>%
   filter(n() >=5) %>% #remove sites with < 5 ppl

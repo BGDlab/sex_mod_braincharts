@@ -13,6 +13,16 @@ idp_list <- readRDS(args[2]) #path to .rds obj of list
 save_path <- as.character(args[3])
 batch_arg <- as.character(args[4])
 
+
+pheno_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/pheno_lists/"
+sa_list <- readRDS(paste0(pheno_path, "cortical_surf.rds"))
+ct_list <- readRDS(paste0(pheno_path, "cortical_thickness.rds"))
+vol_list <- readRDS(paste0(pheno_path, "cortical_vols.rds"))
+global_list <- readRDS(paste0(pheno_path, "global_vols.rds"))
+sub_list <- readRDS(paste0(pheno_path, "subcortical_vols.rds"))
+all_phenos <- c(sa_list, ct_list, vol_list, global_list, sub_list)
+extra_phenos <- setdiff(all_phenos, idp_list)
+
 #optional truncating arg
 if (length(args) > 4) {
   trunc_arg <- as.character(args[5])
@@ -28,7 +38,10 @@ get_complete_df <- function(var, df, batch=NULL, trunc=NULL){
   #print(var)
   new_df <- df %>%
     dplyr::filter(!is.na(!!sym(var))) %>%
-    select(where(~ !any(is.na(.))))
+    select(where(~ !any(is.na(.)))) %>%
+    select(!any_of(extra_phenos))
+  
+    #remove any phenos from other categories that may be lingering, just in case
   if (!is.null(batch)){
     new_df <- new_df %>%
       group_by(!!sym(batch)) %>%
@@ -70,7 +83,7 @@ merge_identical_dfs <- function(df_list) {
       
       # If there are any identical dataframes, rename the first one
       if (length(identical_dfs) > 1) {
-        new_name <- paste(identical_dfs, collapse = "_") # Concatenate the names
+        new_name <- paste(identical_dfs, collapse = ":") # Concatenate the names
         new_list[[new_name]] <- df_list[[i]] # Add the merged dataframe with the new name
       } else {
         # If no identicals were found, keep the original dataframe
@@ -86,8 +99,8 @@ merge_identical_dfs <- function(df_list) {
 
 rename_cols <- function(df_list, col_list){
   lapply(names(df_list), function(df_name) {
-    # Construct the file path using the dataframe's name
-    combat_list <- strsplit(gsub("_", " ", df_name), " ")[[1]]
+    # ID target variable(s) from dataframe name
+    combat_list <- strsplit(gsub(":", " ", df_name), " ")[[1]]
     
     #find any phenotypes that are NOT the combat targets
     not_target <- setdiff(col_list, combat_list)
@@ -128,6 +141,14 @@ df_list_clean <- merge_identical_dfs(df_list)
 
 #identify and mark non-target IDPs (those being used as priors) with _X
 df_list_final <- rename_cols(df_list_clean, idp_list)
+
+#check that all phenos are included
+#check for presence of all phenos across dfs
+df_names <- lapply(df_list_final, names) %>% 
+  unlist() %>%
+  unique()
+
+stopifnot(all(idp_list %in% df_names))
 
 #save
 name_prefix <- sub(pattern = "(.*)\\..*$", replacement = "\\1", basename(args[2]))
