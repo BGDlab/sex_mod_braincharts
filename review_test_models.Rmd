@@ -177,7 +177,7 @@ subcort_plt <- df %>%
 
 #no buffer for now
 glob_plt <- df %>%
-  select(-any_of(c("geometry", "tissue_class"))) %>%
+  dplyr::select(-any_of(c("geometry", "tissue_class"))) %>%
   group_by(cv_sample, pheno_cat) %>%
   filter(pheno_cat == "Global Vol") %>%
   ggplot() +
@@ -191,7 +191,7 @@ glob_plt <- df %>%
   ggseg::geom_brain(atlas = aseg_all_clean,
                     aes(color = sig_fdr, size = sig_fdr),
                     fill = NA) +
-  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
+  theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0)) +
   paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="gray90") +
   scale_color_manual(values = c("FALSE" = "white",
                                 "TRUE" = "black"),
@@ -201,7 +201,7 @@ glob_plt <- df %>%
                                "TRUE" = .2),
                     na.value = 0,
                     guide = 'none') +
-  facet_grid(pheno_cat ~ cv_sample)
+  facet_grid(pheno_cat ~ cv_sample, labeller = labeller(cv_sample = c("A" = "Split A", "B" = "Split B")))
 
 #testing new spacing
 # glob_plt <- glob_plt +
@@ -211,10 +211,7 @@ cortex_plt <- cortex_plt +
   theme(plot.margin = margin(5, 0, 5, 0))
 
 full_plt_obj <- glob_plt / cortex_plt / subcort_plt +
-  plot_layout(guides = "collect", heights = height_list)
-
-# full_plt_obj <- glob_plt /plot_spacer()/ cortex_plt / plot_spacer()/ subcort_plt +
-#   plot_layout(guides = 'collect', heights = unit(height_list, c('in', 'in', 'in')))
+  plot_layout(guides = "collect", heights = height_list, axis_titles = "collect_x", axes = "collect_x")
 
 return(full_plt_obj)
 }
@@ -270,7 +267,7 @@ LR.df <- bind_rows(output_fread, .id="file") %>%
   mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
          weighted  = stringr::str_detect(file, "weight")) %>%
-  select(!file)
+  dplyr::select(!file)
 ```
 
 ```{r, eval=FALSE}
@@ -404,9 +401,16 @@ range(LR.df_uncor$sig_resi, na.rm=T)
 LR.df_uncor_novent <- LR.df_uncor %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_uncor_novent$resi)
-full_plt_uncor <- plot_cv_brain(LR.df_uncor_novent, resi, "RESI", "grDevices::Greens 3", c(0,0.1), c(1, 5, 1.1))
+full_plt_uncor <- plot_cv_brain(LR.df_uncor_novent, resi, "RESI", "grDevices::Greens 3", c(0,0.1), c(1, 6, 1.6))
 
 ggsave("figs/resi_uncorrected.png", full_plt_uncor, width=7, height=8.5, dpi=600)
+```
+
+```{r}
+#test plotting just split A
+LR.df_uncor_novent_A <- LR.df_uncor_novent %>%
+  filter(cv_sample=="A")
+A_plt_uncor <- plot_cv_brain(LR.df_uncor_novent_A, resi, "RESI", "grDevices::Greens 3", c(0,0.1), c(1, 6, 1.6))
 ```
 
 #TBV-Corrected Models
@@ -477,6 +481,21 @@ ggsave("figs/resi_tbv_allsex.png", full_plt_tot_sex, width=7, height=8.5, dpi=60
 ```
 
 
+Note phenos with consistent sex and/or age*sex effects, per LR tests
+```{r}
+#regions w sig sex effects in both samples
+consistent_sex <- LR.df_tot_sex %>%
+  pivot_wider(id_cols=c(pheno, total, weighted, pheno_cat, label), names_from="cv_sample", values_from = c(chi, df, p_val, fsq, effect, resi, p.val_fdr, sig_fdr, sig_fsq, sig_resi)) %>%
+  filter(sig_fdr_A == TRUE & sig_fdr_B == TRUE) %>%
+  pull(pheno)
+ 
+#consistent age*sex effects
+consistent_agesex <- LR.df_tot %>%
+  pivot_wider(id_cols=c(pheno, total, weighted, pheno_cat, label), names_from="cv_sample", values_from = c(chi, df, p_val, fsq, effect, resi, p.val_fdr, sig_fdr, sig_fsq, sig_resi)) %>%
+  filter(sig_fdr_A == TRUE & sig_fdr_B == TRUE) %>%
+  pull(pheno)
+```
+
 ##Trajectories
 Read in sexdiff csvs
 ```{r}
@@ -541,7 +560,7 @@ for (df in list(sexdiffs_tbv, sexdiffs)){
   
   #median centile
   cent_df <- df %>%
-    select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F_z) %>%
+    dplyr::select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F_z) %>%
     na.omit() %>%
     arrange(pheno, logAge_days)
   
@@ -573,7 +592,7 @@ for (df in list(sexdiffs_tbv, sexdiffs)){
 
   #sigma
   sig_df <- df %>%
-    select(logcv_M_div_F, pheno, logAge_days, pheno_cat, cv_sample) %>%
+    dplyr::select(logcv_M_div_F, pheno, logAge_days, pheno_cat, cv_sample) %>%
     na.omit() %>%
     arrange(pheno, logAge_days)
   
@@ -591,7 +610,7 @@ for (df in list(sexdiffs_tbv, sexdiffs)){
   
   #derivatives
   deriv_df <- df %>%
-    select(deriv_M_minus_F_z, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F) %>%
+    dplyr::select(deriv_M_minus_F_z, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F) %>%
     na.omit() %>%
     arrange(pheno, logAge_days)
   
@@ -864,11 +883,11 @@ for (pheno_val in pheno_list){
   
   #rm nas for integral
   dfA <- dfA %>%
-    select(logAge_days, deriv_M_minus_F_z) %>%
+    dplyr::select(logAge_days, deriv_M_minus_F_z) %>%
     na.omit()
   
   dfB <- dfB %>%
-    select(logAge_days, deriv_M_minus_F_z) %>%
+    dplyr::select(logAge_days, deriv_M_minus_F_z) %>%
     na.omit()
   
   deriv_j <- trapz(dfA$logAge_days, abs(dfA$deriv_M_minus_F_z - dfB$deriv_M_minus_F_z))
@@ -921,14 +940,14 @@ dist_df %>%
 sexdiffs_tbv2 <- full_join(sexdiffs_tbv, dist_df)
 
 cent_dist_plt <- sexdiffs_tbv2 %>%
-    select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F_z, centile_dist) %>%
+    dplyr::select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F_z, centile_dist) %>%
     na.omit() %>%
     arrange(pheno, logAge_days) %>%
     ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=centile_dist)) +
     facet_grid(pheno_cat~cv_sample, scales="free_y") +
     theme_linedraw() +
-    gghighlight(centile_dist <= thresholds$centile_dist_threshold, calculate_per_facet = TRUE) +
+    #gghighlight(centile_dist <= thresholds$centile_dist_threshold, calculate_per_facet = TRUE) +
     theme(legend.position = "none") +
     format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
     labs(y="50th Centile Sex-Difference")
@@ -936,7 +955,7 @@ cent_dist_plt <- sexdiffs_tbv2 %>%
 cent_dist_plt
 
 cent_dist_plt_sig <- sexdiffs_tbv2 %>%
-    select(logcv_M_div_F, pheno, logAge_days, pheno_cat, cv_sample, sigma_dist) %>%
+    dplyr::select(logcv_M_div_F, pheno, logAge_days, pheno_cat, cv_sample, sigma_dist) %>%
     na.omit() %>%
     arrange(pheno, logAge_days) %>%
     ggplot() +
@@ -951,7 +970,7 @@ cent_dist_plt_sig <- sexdiffs_tbv2 %>%
 cent_dist_plt_sig
 
 cent_dist_plt_d <- sexdiffs_tbv2 %>%
-    select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F_z, deriv_dist) %>%
+    dplyr::select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F_z, deriv_dist) %>%
   #filter(deriv_dist <= thresholds$deriv_dist_threshold) %>%
     na.omit() %>%
     arrange(pheno, logAge_days) %>%
@@ -967,7 +986,7 @@ cent_dist_plt_d <- sexdiffs_tbv2 %>%
 ggplotly(cent_dist_plt_d)
 
 cent_dist_plt_d2 <- sexdiffs_tbv2 %>%
-    select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F_z, deriv_dist) %>%
+    dplyr::select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F_z, deriv_dist) %>%
     na.omit() %>%
     arrange(pheno, logAge_days) %>%
     ggplot() +
@@ -979,24 +998,6 @@ cent_dist_plt_d2 <- sexdiffs_tbv2 %>%
 
 #ggplotly(cent_dist_plt_d2)
 ```
-
-compare consistent trajectories to regions with consistent sex/ consistent age*sex effects
-
-```{r}
-dist_df2 <- dist_df %>%
-  mutate(consistent_sex = ifelse(pheno %in% consistent_sex, TRUE, FALSE),
-         consistent_agesex = ifelse(pheno %in% consistent_agesex, TRUE, FALSE))
-  
-ggplot(dist_df2) +
-  geom_jitter(aes(x=1, y=deriv_dist, color=consistent_agesex), alpha=.4) +
-  theme_bw()
-
-ggplot(dist_df) +
-  geom_jitter(aes(x=1, y=cent_dist), alpha=.4, color="red") +
-  #gghighlight(pheno %in% consistent_sex) +
-  theme_bw()
-```
-
 re-assessing peak male-female differences only in phenos with consistent derivatives
 
 ```{r}
@@ -1092,7 +1093,7 @@ dominance_df %>%
 
 
 ```{r}
-dominance_plt_df <- full_join(LR.df_tot_sex, dominance_df %>% select(!pheno_cat))
+dominance_plt_df <- full_join(LR.df_tot_sex, dominance_df %>% dplyr::select(!pheno_cat))
 dominance_plt_df %>%
   mutate(dominance = ifelse(sig_fdr==TRUE, dominance, "NA")) %>%
   group_by(cv_sample) %>%
@@ -1183,7 +1184,7 @@ prop_above_df %>%
 
 ```{r}
 #add back sex-effect significance, remove ventricles for visualization
-prop_above_df_novent <- full_join(LR.df_tot_sex, prop_above_df %>% select(!pheno_cat)) %>%
+prop_above_df_novent <- full_join(LR.df_tot_sex, prop_above_df %>% dplyr::select(!pheno_cat)) %>%
   filter(!(pheno %in% vent_list))
 
 full_above_plt <- plot_cv_brain(prop_above_df_novent, prop_male, "Proportion Male-Dominant", "ggthemes::Orange-Blue Diverging", c(0, 1), c(2, 5, 2))
@@ -1229,7 +1230,7 @@ prop_above_sigma_df %>%
 
 ```{r}
 #add back sex-effect significance, remove ventricles for visualization
-prop_above_sigma_df_novent <- full_join(LR.df_tot_sex, prop_above_sigma_df %>% select(!pheno_cat)) %>%
+prop_above_sigma_df_novent <- full_join(LR.df_tot_sex, prop_above_sigma_df %>% dplyr::select(!pheno_cat)) %>%
   filter(!(pheno %in% vent_list))
 
 full_above_sig_plt <- plot_cv_brain(prop_above_sigma_df_novent, prop_male, "Proportion Male-Dominant\nSigma", "ggthemes::Orange-Blue Diverging", c(0, 1), c(2, 5, 2))
@@ -1843,6 +1844,8 @@ print(centile_clusters$plots$trajectories_all)
 print(centile_clusters$plots$pc_scatter)
 print(centile_clusters$plots$elbow)
 ```
+
+*plot PC1 loadings on the brain!
 
 ```{r}
 sigma_clusters <- cluster_fpca_trajectories(fpca_output = sigma_A_fpc,
