@@ -1,0 +1,197 @@
+---
+title: "Format Figures"
+output: html_document
+date: "2026-02-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, ggcorrplot, sf)
+
+devtools::install_github("BGDlab/gamlssTools", force=TRUE)
+library(gamlssTools)
+
+sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
+ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
+vol_list <- readRDS("./pheno_lists/cortical_vols.rds")
+global_list <- readRDS("./pheno_lists/global_vols.rds")
+sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
+test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*/"
+#visualizing ventricles separately
+vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle", "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
+
+# install.packages("remotes")
+#remotes::install_github("BGDlab/ggsegTissue", force=TRUE)
+library(ggsegTissue)
+```
+
+#FIGURE 1: Age-by-Sex Effects
+
+Sample A exemplar curve(s)
+
+```{r}
+df <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/cv_sample_B_dfs/sGMV_totalFALSE_logPhenoFALSE_logAgeTRUE.csv", stringsAsFactors = TRUE, na.strings = "")
+
+test_mod <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_B_test/global_vols_totalFALSE_logAgeTRUE_pbmods/model_objs/sGMV_mu_pbAge_BCTo_test_full_mod.rds")
+test_mod$call$data <- "df"
+test_mod$call$family <- test_mod$family[[1]]
+
+sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+vars_of_interest <- c("sexMale_x_logAge", "logAge_days", "sexMale")
+resid_terms <- setdiff(list_predictors(test_mod), vars_of_interest)
+
+sGMV_fan <- make_centile_fan(gamlssModel=test_mod,
+                 df=df,
+                 x_var="logAge_days",
+                 color_var="sexMale",
+                 get_peaks=TRUE,
+                 desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
+                 sim_data_list = sim_df,
+                 remove_point_effect = resid_terms,
+                 label_centiles = "legend",
+                 x_axis="log_lifespan_fetal",
+                 point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
+                 color_manual = c('0' = "#c05f0d", '1' = "#38688D"),
+                 color_name = "Sex",
+                 color_labels = c("Female", "Male"))  +
+    theme_linedraw() +
+  theme(legend.position = "bottom") +
+    labs(title=paste("sGMV validation model"),
+         x ="log Age (years)",
+         y="Subcortical Gray Matter Volume (mm3)") +
+    guides(fill=FALSE) +
+    geom_vline(xintercept=log(280, base=10))
+```
+```{r}
+age_by_sex_plt <- readRDS("figs/ggobjs/agebysex_B.rds")
+
+age_by_sex_plt_wrap <- plot_grid(
+  age_by_sex_plt[[2]], 
+  age_by_sex_plt[[3]],
+  ncol = 1,
+  rel_heights = c(5,1.05),
+  align = "v",
+  axis = "lr"
+)
+```
+
+try to combine
+
+```{r}
+sGMV_fan <- plot_grid(NULL, sGMV_fan, NULL, ncol=1, rel_heights=c(1,6,1))
+
+fig1 <- plot_grid(sGMV_fan,
+                  age_by_sex_plt_wrap, 
+                  age_by_sex_plt[[4]],
+                  nrow=1, ncol=3, 
+                  rel_widths=c(3,2,.4), 
+                  labels=c("A", "B", ""))
+
+ggsave("figs/fig1.png", fig1, width=11, height=8, dpi=600, bg = "white")
+```
+
+
+
+#FIGURE 2: Sex Effects Controlling for Total Size
+
+Sample A exemplar curve(s)
+
+```{r}
+df <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/cv_sample_B_dfs/sGMV_totalTRUE_logPhenoFALSE_logAgeTRUE.csv", stringsAsFactors = TRUE, na.strings = "")
+
+test_mod <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_B_test/global_vols_totalTRUE_logAgeTRUE_pbmods/model_objs/sGMV_fsmu_pbAge_totalboth_test_full_mod.rds")
+test_mod$call$data <- "df"
+test_mod$call$family <- test_mod$family[[1]]
+list_predictors(test_mod)
+
+sim_df1 <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+vars_of_interest <- c("sexMale_x_logAge", "logAge_days", "sexMale", "TBV")
+resid_terms <- setdiff(list_predictors(test_mod), vars_of_interest)
+
+sGMV_fan1 <- make_centile_fan(gamlssModel=test_mod,
+                 df=df,
+                 x_var="logAge_days",
+                 color_var="sexMale",
+                 get_peaks=TRUE,
+                 desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
+                 sim_data_list = sim_df1,
+                 label_centiles = "legend",
+                 remove_point_effect = c(resid_terms, "TBV"),
+                 x_axis="log_lifespan_fetal",
+                 point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
+                 color_manual = c('0' = "#c05f0d", '1' = "#38688D"),
+                 color_name = "Sex",
+                 color_labels = c("Female", "Male"))  +
+    theme_linedraw() +
+  theme(legend.position = "none") +
+    labs(title=paste("sGMV validation model"),
+         x ="log Age (years)",
+         y="Subcortical Gray Matter Volume (mm3)") +
+    guides(fill=FALSE) +
+    geom_vline(xintercept=log(280, base=10))
+
+sim_df2 <- sim_data(df, "TBV", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+sGMV_fan2 <- make_centile_fan(gamlssModel=test_mod,
+                 df=df,
+                 x_var="TBV",
+                 color_var="sexMale",
+                 get_peaks=FALSE,
+                 desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
+                 sim_data_list = sim_df2,
+                 label_centiles = "legend",
+                 remove_point_effect = c(resid_terms, "logAge_days"),
+                 point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
+                 color_manual = c('0' = "#c05f0d", '1' = "#38688D"),
+                 color_name = "Sex",
+                 color_labels = c("Female", "Male"))  +
+    theme_linedraw() +
+  theme(legend.position = "bottom") +
+    labs(title=paste("sGMV validation model"),
+         x ="Total Brain Volume (mm3)",
+         y="Subcortical Gray Matter Volume (mm3)") +
+    guides(fill=FALSE)
+# sGMV_legend <- get_legend(sGMV_fan2)
+# sGMV_fan2 <- sGMV_fan2 + theme(legend.position="none")
+```
+```{r}
+sex_plt <- readRDS("figs/ggobjs/full_plt_tot_sex_B.rds")
+
+sex_plt_wrap <- plot_grid(
+  sex_plt[[2]], 
+  sex_plt[[3]],
+  ncol = 1,
+  rel_heights = c(5,1.05),
+  align = "v",
+  axis = "lr"
+)
+```
+
+try to combine
+
+```{r}
+sGMV_fan <- plot_grid(sGMV_fan1, sGMV_fan2,
+                      ncol=1, 
+                      nrow=2,
+                      rel_heights=c(1,1.2),
+                      labels=c("A", "B"))
+
+fig2 <- plot_grid(sGMV_fan,
+                  sex_plt_wrap, 
+                  sex_plt[[4]],
+                  nrow=1, ncol=3, 
+                  rel_widths=c(3,2,.4), 
+                  labels=c("", "C", ""))
+
+ggsave("figs/fig2.png", fig2, width=11, height=8, dpi=600, bg = "white")
+```
