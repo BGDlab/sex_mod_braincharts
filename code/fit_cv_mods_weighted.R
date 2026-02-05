@@ -64,7 +64,7 @@ model <- gamlss_lambda_rep(base_mod,
                            null_mod="false",
                            keep_lambdas=FALSE,
                            weight="weight",
-			   n.cyc=800)
+                           n.cyc=800)
 
 #if model isn't fit, skip to next loop
 if (is.null(model)) {

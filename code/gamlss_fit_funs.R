@@ -127,6 +127,9 @@ gamlss_lambda_rep <- function(og_mod,
   pheno <- paste0(og_mod$mu.formula)[[2]]
   fam <- og_mod$family[1]
   null_mod <- match.arg(null_mod)
+  
+  #test specifying k
+  gaic_k_str <- format(log(nrow(df)), digits = 15, trim = TRUE)
 
   #define formulas for each moment
   
@@ -158,7 +161,15 @@ gamlss_lambda_rep <- function(og_mod,
     }
   }
   
-  mu_form <- paste0("safe_gamlss_old(formula =", pheno, "~", mu_base)
+  mu_base <- gsub("log\\(nrow\\(df\\)\\)", gaic_k_str, mu_base)
+  
+  if (is.null(weight)){
+    mu_form <- paste0("safe_gamlss_old(formula =", pheno, "~", mu_base)
+  } else {
+    #bypass safe_gamlss when fitting with weights
+    mu_form <- paste0("gamlss(formula =", pheno, "~", mu_base)
+  }
+  
   
   #SIGMA
   sig_base <- paste0(og_mod$sigma.formula)[[2]]
@@ -188,6 +199,8 @@ gamlss_lambda_rep <- function(og_mod,
     }
   }
   
+  sig_base <- gsub("log\\(nrow\\(df\\)\\)", gaic_k_str, sig_base)
+  
   sig_form <- paste0("sigma.formula = ~", sig_base)
   
   #NU
@@ -203,6 +216,8 @@ gamlss_lambda_rep <- function(og_mod,
     nu_base <- sub('+ sexMale', '', nu_base)
   }
   
+  nu_base <- gsub("log\\(nrow\\(df\\)\\)", gaic_k_str, nu_base)
+  
   nu_form <- paste0("nu.formula = ~", nu_base)
   
   control <- paste("control = gamlss.control(n.cyc=", n.cyc,", nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")
@@ -212,7 +227,7 @@ gamlss_lambda_rep <- function(og_mod,
   }
   
   if (!is.null(weight)) {
-    control <- paste0("weights = df$", weight, ",", control)
+    control <- paste0("weights = df$", weight, ", ", control)
   }
   
   #try methods
@@ -494,22 +509,29 @@ gamlss_age <- function(pheno, lambda=NULL,
   }
   
   #try methods
-  
   result <- tryCatch({
     gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
     print(gamlss_RSformula)
     
-    eval(parse(text = gamlss_RSformula))
+    res <- eval(parse(text = gamlss_RSformula))
     
-  } , warning = function(w) {
-    message("warning")
-    eval(parse(text = gamlss_RSformula))
+    #additional checks for when safe_gamlss() can't be used (ie fitting with weights)
+    if (!isTRUE(res$converged)) {
+      stop("Model did not converge")
+    }
+    res
     
   } , error = function(e) {
     message(e$message, ", trying method=CG()")
     tryCatch({
       gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
-      eval(parse(text = gamlss_CGformula))
+      res <- eval(parse(text = gamlss_CGformula))
+      
+      #additional checks for when safe_gamlss() can't be used (ie fitting with weights)
+      if (!isTRUE(res$converged)) {
+        stop("Model did not converge")
+      }
+      res
       
       #if CG also fails, return NULL
     }, error = function(e2) {
@@ -528,17 +550,25 @@ gamlss_age <- function(pheno, lambda=NULL,
       gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
       print(gamlss_RSformula)
       
-      eval(parse(text = gamlss_RSformula))
+      res <- eval(parse(text = gamlss_RSformula))
       
-    } , warning = function(w) {
-      message("warning")
-      eval(parse(text = gamlss_RSformula))
+      #additional checks for when safe_gamlss() can't be used (ie fitting with weights)
+      if (!isTRUE(res$converged)) {
+        stop("Model did not converge")
+      }
+      res
       
     } , error = function(e) {
       message(e$message, ", trying method=CG()")
       tryCatch({
         gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
-        eval(parse(text = gamlss_CGformula))
+        res <- eval(parse(text = gamlss_CGformula))
+        
+        #additional checks for when safe_gamlss() can't be used (ie fitting with weights)
+        if (!isTRUE(res$converged)) {
+          stop("Model did not converge")
+        }
+        res
         
         #if CG also fails, return NULL
       }, error = function(e2) {
@@ -549,6 +579,39 @@ gamlss_age <- function(pheno, lambda=NULL,
       message("done")
     } )
     
+    #if needed, try one last time with mixed method
+    if(is.null(result)){
+      result <- tryCatch({
+        gamlss_Mformula <-paste(mu_form, sig_form, nu_form, "method=mixed(10,500)", control, sep=", ")
+        print(gamlss_Mformula)
+        
+        res <- eval(parse(text = gamlss_Mformula))
+        #additional checks for when safe_gamlss() can't be used (ie fitting with weights)
+        if (!isTRUE(res$converged)) {
+          stop("Model did not converge")
+        }
+        res
+        
+      } , error = function(e) {
+        message(e$message, ", trying method=CG()")
+        tryCatch({
+          gamlss_Mformula <-paste(mu_form, sig_form, nu_form, "method=mixed(10,800)", control, sep=", ")
+          res <- eval(parse(text = gamlss_Mformula))
+          
+          #additional checks for when safe_gamlss() can't be used (ie fitting with weights)
+          if (!isTRUE(res$converged)) {
+            stop("Model did not converge")
+          }
+          res
+          
+          #if CG also fails, return NULL
+        }, error = function(e2) {
+          message(e2$message, ", returning NULL")
+          return(NULL)
+        })
+      } , finally = {
+        message("done")
+      } )
   }
   
   return(result)
@@ -581,7 +644,6 @@ rm_lambdas <- function(formula_string){
 #tmp rollback to fix CG() and mixed() methods
 safe_gamlss_old <- function(...) {
   warn_msg <- NULL
-  
   
   mod <- withCallingHandlers({
     gamlss(...)
