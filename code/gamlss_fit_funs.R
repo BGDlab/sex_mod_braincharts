@@ -508,7 +508,15 @@ gamlss_age <- function(pheno, lambda=NULL,
     control <- paste0("weights = df$", weight, ",", control)
   }
   
-  #try methods
+  result <- try_gamlss_methods(mu_form, sig_form, nu_form, control)
+  
+  return(result)
+}
+ 
+
+try_gamlss_methods <- function(mu_form, sig_form, nu_form, control){
+  
+  #first loop - RS and CG
   result <- tryCatch({
     gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
     print(gamlss_RSformula)
@@ -578,6 +586,7 @@ gamlss_age <- function(pheno, lambda=NULL,
     } , finally = {
       message("done")
     } )
+  }
     
     #if needed, try one last time with mixed method
     if(is.null(result)){
@@ -612,11 +621,11 @@ gamlss_age <- function(pheno, lambda=NULL,
       } , finally = {
         message("done")
       } )
-  }
+    }
+    
+    return(result)
   
-  return(result)
-}
-
+} 
 
 #rm
 rm_sexage <- function(formula_string) {
