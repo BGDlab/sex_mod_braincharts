@@ -356,14 +356,14 @@ Get RESI effect size
 ```{r}
 LR.df2 <- LR.df %>%
   mutate(resi = fsq2S(fsq),
-         pheno_cat = factor(case_when(
+    pheno_cat = factor(case_when(
+    pheno %in% vent_list ~ "Ventricular Vol",
     pheno %in% global_list ~ "Global Vol",
     pheno %in% vol_list ~ "Regional Vol",
     pheno %in% sub_list ~ "Subcortical Vol",
     pheno %in% sa_list ~ "Regional SA",
     pheno %in% ct_list ~ "Regional CT",
-    TRUE ~ NA_character_)),
-)
+    TRUE ~ NA_character_)))
 
 table(LR.df2$effect, LR.df2$total)
 ```
@@ -590,6 +590,8 @@ sexdiffs.df_all <- bind_rows(output_fread_sd, .id="file") %>%
   dplyr::select(!file)
 
 sexdiffs.df <- sexdiffs.df_all %>% filter(uniform==FALSE)
+sexdiffs.df.u <- sexdiffs.df_all %>% filter(uniform==TRUE)
+
 
 rm(output_fread_sd) #save space
 rm(sexdiffs.df_all)
@@ -702,6 +704,8 @@ for (df in list(sexdiffs_tbv, sexdiffs)){
   ggsave(n, deriv_plt2)
 }
 ```
+
+*try median
 
 interactive plots
 ```{r, eval=FALSE}
@@ -1672,16 +1676,6 @@ sexdiffs_tbv %>%
 ```
 
 ```{r}
-ggplot(group_sum) +
-  geom_bar(aes(x=cent_group, fill=pheno_cat)) +
-  facet_wrap(~cv_sample) + coord_flip() +
-  gghighlight(pheno %in% consistent_agesex, calculate_per_facet = TRUE)
-```
-
-visualize trajectories
-
-```{r}
-sexdiffs_tbv_group <- full_join(sexdiffs_tbv, group_sum)
 group_color_scale <- scale_colour_manual(
   values = c("M_increasing"="#C06636FF", "M_decreasing"="#CE9344FF", "M_to_F" ="#E8B960FF", "F_to_M"="#7BA0B4FF", "F_decreasing"="#44728CFF", "F_increasing"="#17486FFF"),
   breaks = c("M_increasing", "M_decreasing", "M_to_F", "F_to_M", "F_decreasing", "F_increasing"),
@@ -1698,6 +1692,74 @@ group_fill_scale <- scale_fill_manual(
   na.value="gray90"
 )
   
+
+ggplot(group_sum) +
+  geom_bar(aes(x=pheno_cat, fill=cent_group)) +
+  facet_wrap(~cv_sample) + coord_flip() +
+  gghighlight(pheno %in% consistent_agesex, calculate_per_facet = TRUE) +
+  group_fill_scale
+
+group_plt_df_all <- inner_join(LR.df_tot, group_sum)
+
+group_bar_plt <- group_plt_df_all %>%
+  group_by(pheno_cat, cv_sample) %>% 
+  mutate(cent_group = as.character(cent_group)) %>%
+  mutate(cent_group = ifelse(sig_fdr ==TRUE, cent_group, NA)) %>%
+  count(cent_group, pheno_cat, cv_sample) %>% 
+  mutate(perc = n / sum(n)) %>% 
+  ggplot(aes(x=pheno_cat, y=perc, fill=cent_group)) +
+  geom_col(position="fill") +
+  facet_wrap(~cv_sample) +
+  geom_text(aes(label = paste0(scales::percent(perc, accuracy = 0.1), "\n(", n, ")")), 
+            position = position_fill(vjust = 0.5),
+            size = 1.5) +
+  scale_y_continuous(labels = scales::percent) +
+  coord_flip() +
+  theme_linedraw() +
+  theme(axis.title= element_blank(), legend.position = "none",
+        strip.text.x = element_blank(), strip.background.x = element_blank()) +
+  group_fill_scale
+
+group_bar_plt_total <- group_plt_df_all %>%
+  group_by(cv_sample) %>% 
+  mutate(cent_group = as.character(cent_group)) %>%
+  mutate(cent_group = ifelse(sig_fdr ==TRUE, cent_group, NA)) %>%
+  count(cent_group, cv_sample) %>% 
+  mutate(perc = n / sum(n)) %>% 
+  ggplot(aes(x="TOTAL", y=perc, fill=cent_group)) +
+  geom_col(position="fill") +
+  facet_wrap(~cv_sample) +
+  geom_text(aes(label = paste0(scales::percent(perc, accuracy = 0.1), "\n(", n, ")")), 
+            position = position_fill(vjust = 0.5),
+            size = 1.5) +
+  coord_flip() +
+  theme_linedraw() +
+  theme(axis.title= element_blank(), axis.text.x=element_blank()) +
+  group_fill_scale
+
+bar_legend <- get_legend(group_bar_plt_total)
+group_bar_plt_total <- group_bar_plt_total + theme(legend.position = "none")
+
+group_bar_plt_all <- plot_grid(
+  plot_grid(
+    group_bar_plt_total, 
+    group_bar_plt,
+    ncol = 1,
+    rel_heights = c(1,4),
+    align = "v",
+    axis = "lr"),
+  bar_legend,
+  ncol=2,
+  rel_widths = c(4,1)
+)
+
+ggsave("figs/supplement/group_bar_plt.png", group_bar_plt_all, dpi=600, height=6, width=10, bg = "white")
+```
+
+visualize trajectories
+
+```{r}
+sexdiffs_tbv_group <- full_join(sexdiffs_tbv, group_sum)
 #median centile
 cent_group_df <- sexdiffs_tbv_group %>%
   mutate(samp_pheno = paste(cv_sample, pheno, sep="_")) %>%
@@ -1742,18 +1804,41 @@ testing getting average line
 
 ```{r}
 cent_group_df %>%
-  filter(cv_sample=="B" & samp_pheno %in% sig_agesex) %>%
-  ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group, fill=cent_group)) +
-  facet_wrap(~pheno_cat, scales="free_y") +
-  geom_point(alpha=.001) +
-  geom_smooth() +
+  filter(samp_pheno %in% sig_agesex) %>%
+  ggplot(aes(x = age_days, y = centile_M_minus_F_z, color=cent_group, fill=cent_group)) +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_smooth(method = "gam") +
+  #ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group, fill=cent_group)) +
+  facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  #geom_point(alpha=.001) +
+  group_color_scale +
+  group_fill_scale +
+  theme_linedraw() +
   format_x_axis("lifespan_fetal", cent_group_df$age_days)
 ```
 
+try getting median lines with uniform points
+```{r}
+#add group info
+uniform_groups <- full_join(group_plt_df_all, sexdiffs.df.u) %>%
+  filter(sig_fdr==TRUE) %>%
+  group_by(cv_sample, pheno_cat, cent_group, age_days) %>%
+  summarise(median_traj = median(centile_M_minus_F_z, na.rm = TRUE),
+            mean_traj = mean(centile_M_minus_F_z, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+#test plots
+uniform_groups %>% 
+  ggplot(aes(x = age_days, y = mean_traj, colour = cent_group)) +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_smooth(method = "gam") +
+  facet_grid(pheno_cat~cv_sample, scales="free_y")
+```
 
 visualize with significance from age*sex effects
 ````{r}
-group_plt_df <- inner_join(LR.df_tot, group_sum) %>%
+group_plt_df <- group_plt_df_all %>%
   filter(!(pheno %in% vent_list))
 
 group_brain_plt <- plot_cv_brain(group_plt_df, cent_group, "Group", "ggthemes::Classic_Green_Orange_6", levels(group_plt_df$cent_group), c(1.03, 4.5, .93), return_plt = FALSE)
