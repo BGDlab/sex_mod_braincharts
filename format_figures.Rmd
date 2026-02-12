@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, ggcorrplot, sf)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, cowplot, sf)
 
 devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -66,7 +66,7 @@ sGMV_fan <- make_centile_fan(gamlssModel=test_mod,
                  color_name = "Sex",
                  color_labels = c("Female", "Male"))  +
     theme_linedraw() +
-  theme(legend.position = "bottom") +
+  theme(legend.position = "bottom", plot.title = element_blank()) +
     labs(title=paste("sGMV validation model"),
          x ="log Age (years)",
          y="Subcortical Gray Matter Volume (mm3)") +
@@ -119,6 +119,10 @@ sim_df1 <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sex
 vars_of_interest <- c("sexMale_x_logAge", "logAge_days", "sexMale", "TBV")
 resid_terms <- setdiff(list_predictors(test_mod), vars_of_interest)
 
+#manually set tbv to zero rather than mean
+sim_df1$'1'$TBV <- 0
+sim_df1$'0'$TBV <- 0
+
 sGMV_fan1 <- make_centile_fan(gamlssModel=test_mod,
                  df=df,
                  x_var="logAge_days",
@@ -127,21 +131,25 @@ sGMV_fan1 <- make_centile_fan(gamlssModel=test_mod,
                  desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                  sim_data_list = sim_df1,
                  label_centiles = "legend",
-                 remove_point_effect = c(resid_terms, "TBV"),
+                 show_points = FALSE,
                  x_axis="log_lifespan_fetal",
-                 point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
                  color_manual = c('0' = "#c05f0d", '1' = "#38688D"),
                  color_name = "Sex",
                  color_labels = c("Female", "Male"))  +
     theme_linedraw() +
-  theme(legend.position = "none") +
-    labs(title=paste("sGMV validation model"),
-         x ="log Age (years)",
-         y="Subcortical Gray Matter Volume (mm3)") +
+  theme(legend.position = "none", plot.title = element_blank()) +
+    labs(x ="log Age (years)",
+         y="sGMV (mm3)") +
     guides(fill=FALSE) +
     geom_vline(xintercept=log(280, base=10))
 
-sim_df2 <- sim_data(df, "TBV", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+sim_df2 <- sim_data(df, "TBV", factor_var="sexMale")
+#manually set age to zero rather than mean
+sim_df2$'1'$logAge_days <- 0
+sim_df2$'0'$logAge_days <- 0
+sim_df2$'1'$sexMale_x_logAge <- 0
+sim_df2$'0'$sexMale_x_logAge <- 0
+
 sGMV_fan2 <- make_centile_fan(gamlssModel=test_mod,
                  df=df,
                  x_var="TBV",
@@ -150,48 +158,84 @@ sGMV_fan2 <- make_centile_fan(gamlssModel=test_mod,
                  desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                  sim_data_list = sim_df2,
                  label_centiles = "legend",
-                 remove_point_effect = c(resid_terms, "logAge_days"),
-                 point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
+                 show_points = FALSE,
                  color_manual = c('0' = "#c05f0d", '1' = "#38688D"),
                  color_name = "Sex",
                  color_labels = c("Female", "Male"))  +
     theme_linedraw() +
-  theme(legend.position = "bottom") +
-    labs(title=paste("sGMV validation model"),
-         x ="Total Brain Volume (mm3)",
-         y="Subcortical Gray Matter Volume (mm3)") +
-    guides(fill=FALSE)
-# sGMV_legend <- get_legend(sGMV_fan2)
-# sGMV_fan2 <- sGMV_fan2 + theme(legend.position="none")
+  theme(legend.position = "bottom", plot.title = element_blank()) +
+    labs(x ="Total Brain Volume (mm3)",
+         y="sGMV (mm3)") +
+    guides(fill=FALSE) + 
+  annotate("segment", 
+           x = -Inf, xend = Inf, 
+           y = -Inf, yend = Inf,
+           color = "lightgray", linetype = "dashed", linewidth = .5)
+sGMV_legend <- cowplot::get_legend(sGMV_fan2, legend="bottom")
+sGMV_fan2 <- sGMV_fan2 + theme(legend.position="none")
 ```
+
+combine
+```{r}
+sGMV_fan <- plot_grid(sGMV_fan1, sGMV_fan2,
+                      ncol=2, 
+                      nrow=1,
+                      rel_widths=c(1,1),
+                      labels=c("A", "B"),
+                      label_size = 12)
+#add legend
+sGMV_fan <- plot_grid(sGMV_fan, sGMV_legend, ncol = 1, rel_heights = c(1, .1))
+```
+
+brain plots
 ```{r}
 sex_plt <- readRDS("figs/ggobjs/full_plt_tot_sex_B.rds")
+sex_plt[[1]] <- sex_plt[[1]] + theme(strip.text.x = element_blank(), strip.background.x = element_blank())
 
 sex_plt_wrap <- plot_grid(
+  plot_grid(
+  sex_plt[[1]],
   sex_plt[[2]], 
   sex_plt[[3]],
   ncol = 1,
-  rel_heights = c(5,1.05),
+  rel_heights = c(1, 5.3, 1.1),
   align = "v",
   axis = "lr"
-)
+), sex_plt[[4]],
+ncol = 2,
+rel_widths = c(1, .2))
+```
+
+lastly add diff trajectories
+```{r}
+sGMV_B_plots <- readRDS("figs/ggobjs/sGMV_B_trajectories.rds")
+
+sGMV_B_plots_wrap <- plot_grid(sGMV_B_plots[[1]],
+                               sGMV_B_plots[[2]],
+                               sGMV_B_plots[[3]],
+                               ncol=1,
+                               align = "v",
+  axis = "lr",
+  labels=c("D", "E", "F"),
+  scale = 0.95,
+  label_size = 12)
 ```
 
 try to combine
 
 ```{r}
-sGMV_fan <- plot_grid(sGMV_fan1, sGMV_fan2,
-                      ncol=1, 
-                      nrow=2,
-                      rel_heights=c(1,1.2),
-                      labels=c("A", "B"))
-
-fig2 <- plot_grid(sGMV_fan,
+fig2 <- plot_grid(
+  plot_grid(sGMV_fan,
+            sGMV_B_plots_wrap,
+            ncol=1),
                   sex_plt_wrap, 
-                  sex_plt[[4]],
-                  nrow=1, ncol=3, 
-                  rel_widths=c(3,2,.4), 
-                  labels=c("", "C", ""))
+                  nrow=1, ncol=2, 
+                  rel_widths=c(3,2), 
+                  labels=c("", "C", ""),
+  label_size = 12)
 
-ggsave("figs/fig2.png", fig2, width=11, height=8, dpi=600, bg = "white")
+ggsave("figs/fig2.png", fig2, width=12, height=8, dpi=600, bg = "white")
 ```
+
+#FIGURE 3: Sex Effects Over the Lifespan
+

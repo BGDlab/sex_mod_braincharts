@@ -81,7 +81,20 @@ df_cent <- lapply(names(mod_list), function(mn){
 
 #rejoin
 df_full_cent <- bind_cols(df_clean, df_cent) %>%
-  mutate(sex = ifelse(sexMale==0, "F", "M"))
+  mutate(sex = ifelse(sexMale==0, "F", "M")) %>%
+  #make sure base levels set at Female, Controls
+  mutate(sex=factor(sex, 
+                    levels = c("F", "M"),
+                    ordered = TRUE))
+
+cn_level <- grep("^CN_", levels(df_full_cent$dx_recode), value = TRUE)
+pt_level <- setdiff(levels(df_full_cent$dx_recode), cn_level)
+
+# Reorder with CN_ as base
+df_full_cent <- df_full_cent %>%
+  mutate(dx_recode = factor(dx_recode, 
+                            levels = c(cn_level, pt_level),
+                            ordered = TRUE))
 
 #save
 fwrite(df_full_cent, file=paste0(save_path, "/cent_csvs/", pheno, "_", dx_val, "_cent.csv"))
@@ -98,13 +111,6 @@ for (mn in names(mod_list)){
   test_out <- t.test(df_full_cent[[col_name]] ~ df_full_cent$dx_recode)
   test_d <- effsize::cohen.d(df_full_cent[[col_name]] ~ df_full_cent$dx_recode)
   
-  #welch's t test - M vs F patients
-  df_full_cent_pts <- df_full_cent %>%
-    filter(dx_recode == dx_val)
-  
-  sex_test_out <- t.test(df_full_cent_pts[[col_name]] ~ df_full_cent_pts$sex)
-  sex_test_d <- effsize::cohen.d(df_full_cent_pts[[col_name]] ~ df_full_cent_pts$sex)
-  
   test_df <- data.frame("dx" = dx_val,
                         "model" = mn,
                         "case.control_tstat" = test_out$statistic,
@@ -113,15 +119,7 @@ for (mn in names(mod_list)){
                         "case.control_est" = test_out$estimate,
                         "case.control_ci_up" = test_out$conf.int[1],
                         "case.control_ci_low" = test_out$conf.int[1],
-                        "case.control_d" = test_d$estimate,
-                        
-                        "pt.sex_tstat" = sex_test_out$statistic,
-                        "pt.sex_df" = sex_test_out$parameter,
-                        "pt.sex_p.val" = sex_test_out$p.value,
-                        "pt.sex_est" = sex_test_out$estimate,
-                        "pt.sex_ci_up" = sex_test_out$conf.int[1],
-                        "pt.sex_ci_low" = sex_test_out$conf.int[1],
-                        "pt.sex_d" = sex_test_d$estimate)
+                        "case.control_d" = test_d$estimate)
   
   dx_test_df <- rbind(dx_test_df, test_df)
   
@@ -137,7 +135,6 @@ for (mn in names(mod_list)){
   
 }
 
-fwrite(dx_test_df, file=paste0(save_path, "/cent_csvs/", pheno, "_cent_pt", dx_val, "_test.csv"))
 fwrite(dx_lm_df, file=paste0(save_path, "/cent_csvs/", pheno, "_cent_pt", dx_val, "_lm.csv"))
 
 print("SUCCESS")

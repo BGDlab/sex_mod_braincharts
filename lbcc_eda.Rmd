@@ -11,7 +11,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr, pwr)
 #devtools::install_github("BGDlab/gamlssTools", force = TRUE) 
 library(gamlssTools)
 ```
@@ -695,7 +695,7 @@ Splitting data into 50-50 train and testing, stratified by site and sex. Using t
 table(df_clean$study_site, df_clean$sexMale)
 ```
 
-going to drop small sites (<10 subjects per sex) for now, but alternatives could be grouping small sitest together? (go back and include sites with <5 total subjs)
+going to drop small sites (<10 subjects per sex) for now, but alternatives could be grouping small sites together? 
 
 ```{r}
 valid_sites <- df_clean %>%
@@ -899,12 +899,19 @@ df_pt_recode %>%
   arrange(desc(n)) %>%
   slice(1:40)
 
+df_pt_recode %>%
+  filter(study=="UKB") %>%
+  group_by(dx_recode) %>%
+  summarise(n=n())
+
 #drop NAs
 df_pt_recode2 <- df_pt_recode %>%
   tidyr::drop_na(dx_recode) %>% 
   #removing MCI, too small
-  filter(dx_recode != "MCI")
-
+  filter(dx_recode != "MCI") %>%
+  #remove UKB ASD and SCZ - very few pts vs many controls -> skews sample
+  filter(!(study=="UKB" & (dx_recode=="ASD" | dx_recode=="SCZ")))
+  
 #fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
 ```
 
@@ -930,6 +937,8 @@ df_pt_recode2 %>%
 site match controls
 
 ```{r}
+#samp_A <- fread("./data/cv_sample_A.csv")
+#samp_B <- fread("./data/cv_sample_B.csv")
 cn_df_list <- list(samp_A, samp_B)
 names(cn_df_list) <- c("A", "B")
 dx_list <- unique(df_pt_recode2$dx_recode)
@@ -948,12 +957,6 @@ for (dx_val in dx_list){
   new_df <- cn_df %>%
     filter(study_site %in% sites) %>%
     mutate(dx_recode = paste(dx, dx_val, sep="_"))
-  
-  #remove UKB controls from ASD - otherwise data is way too skewed!
-  if (dx_val == "ASD" | dx_val == "SCZ"){
-    new_df <- new_df %>%
-    filter(study != "UKB")
-  }
     
   full_samp <- rbind(new_df, pts, fill=TRUE)
   
@@ -1016,6 +1019,24 @@ ggplot(full_df)+
 # fwrite(split_samples$SAMP1, "./data/pt_sample_A.csv")
 # fwrite(split_samples$SAMP2, "./data/pt_sample_B.csv")
 ```
+
+
+Power analyses for sex differences within diagnoses
+```{r}
+n_comp <- length(unique(full_df$dx_recode)) * length(global_list)
+
+full_df %>%
+  group_by(sample, dx_recode) %>%
+  summarise(n_female = sum(sexMale==0),
+            n_male = sum(sexMale==1)) %>%
+  rowwise() %>%
+  mutate(d = pwr.t2n.test(n1=n_female, n2=n_male, sig.level=(0.05/n_comp), power=.8)$d) %>%
+  ungroup() %>%
+  arrange(d)
+```
+
+only powered for pretty large effects
+
 
 # Visualize Data
 
