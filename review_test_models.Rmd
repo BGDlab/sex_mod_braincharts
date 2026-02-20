@@ -36,235 +36,9 @@ vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventric
 library(ggsegTissue)
 ```
 
-#ggseg Prep
-
+#ggseg plotting functions and atlas definitions
 ```{r}
-### dk for cortical ###
-#write out new dk atlas w/o medial wall
-dk_clean <- dk
-dk_clean$data <- dk_clean$data %>%
-  dplyr::filter(!is.na(region) & region !="corpus callosum")
-
-#shrink for outlines
-dk_region_gap <- 0.4       # Space between regions
-dk_border_inset <- 0.4      # Additional inset for border
-
-# Create shrunk atlas for fills (creates gaps between regions)
-dk_fill <- dk_clean
-dk_fill$data <- dk_clean$data %>%
-  st_as_sf() %>%
-  st_buffer(dist = -dk_region_gap) %>%
-  as_tibble() %>%
-  st_as_sf()
-
-# Create further shrunk atlas for borders (inside the fill)
-dk_border <- dk_clean
-dk_border$data <- dk_clean$data %>%
-  st_as_sf() %>%
-  st_buffer(dist = -(dk_region_gap + dk_border_inset)) %>%
-  as_tibble() %>%
-  st_as_sf()
-
-### aseg for subcortical ###
-#shrink for outlines
-aseg_region_gap <- 0        # Space between regions
-aseg_border_inset <- 1e-5     # Additional inset for border
-
-# Create shrunk atlas for fills (creates gaps between regions)
-aseg_fill <- aseg
-aseg_fill$data <- aseg$data %>%
-  st_as_sf() %>%
-  st_buffer(dist = 0, 
-            joinStyle = "MITRE",
-            nQuadSegs=500) %>%
-  st_buffer(0) %>%
-  as_tibble() %>%
-  st_as_sf()
-
-# Create further shrunk atlas for borders (inside the fill)
-aseg_border <- aseg
-aseg_border$data <- aseg$data %>%
-  st_as_sf() %>%
-  st_buffer(dist = -(aseg_region_gap + aseg_border_inset), nQuadSegs=500) %>%
-  as_tibble() %>%
-  st_as_sf()
-
-### aseg for global ###
-aseg_all_clean <- aseg_all
-aseg_all_clean$data <- aseg_all_clean$data %>%
-  dplyr::filter(label != "Brain-Stem") %>%
-  dplyr::filter(side != "axial")
-
-#shrink for outlines
-glob_region_gap <- 1e-10        # Space between regions
-glob_border_inset <- 1e-10      # Additional inset for border
-
-# Create shrunk atlas for fills (creates gaps between regions)
-glob_fill <- aseg_all_clean
-glob_fill$data <- aseg_all_clean$data %>%
-  st_as_sf() %>%
-  st_buffer(dist = -glob_region_gap) %>%
-  as_tibble() %>%
-  st_as_sf()
-
-# Create further shrunk atlas for borders (inside the fill)
-glob_border <- aseg_all_clean
-glob_border$data <- aseg_all_clean$data %>%
-  st_as_sf() %>%
-  st_buffer(dist = -(glob_region_gap + glob_border_inset)) %>%
-  as_tibble() %>%
-  st_as_sf()
-```
-
-trying to write funs for easier plotting
-```{r}
-plot_cortex <- function(df, fill_var){
-  #cortex
-  cortex_plt <- df %>%
-    filter(pheno_cat == "Regional Vol" | pheno_cat == "Regional SA" | pheno_cat == "Regional CT") %>%
-    group_by(cv_sample, pheno_cat) %>%
-    ggplot() +
-    theme_linedraw(base_size=12) +
-    #fill
-    ggseg::geom_brain(atlas = dk_fill,
-               position = position_brain(hemi ~ side),
-              aes(fill={{fill_var}}),#
-              color=NA,
-              size=0) +
-    #lines
-    ggseg::geom_brain(atlas = dk_border,
-                      position = position_brain(hemi ~ side),
-                      aes(color = sig_fdr, size = sig_fdr),
-                      fill = NA) +
-    theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(5, 0, 5, 0), legend.position = "none") +
-    scale_color_manual(values = c("FALSE" = "gray",
-                                  "TRUE" = "black"),
-                       na.value = NA,
-                       guide = 'none') +
-    scale_size_manual(values = c("FALSE" = .2,
-                                 "TRUE" = .2),
-                      na.value = 0,
-                      guide = 'none') +
-    facet_grid(pheno_cat ~ cv_sample)
-}
-
-plot_subcortex <- function(df, fill_var){
-  subcort_plt <- df %>%
-    filter(pheno_cat == "Subcortical Vol") %>%
-    group_by(cv_sample, pheno_cat) %>%
-    ggplot() +
-    theme_linedraw(base_size=12) +
-    #fill
-    ggseg::geom_brain(atlas = aseg_fill,
-              aes(fill={{fill_var}}),
-              color=NA,
-              size=0) +
-    #lines
-    ggseg::geom_brain(atlas = aseg_border,
-                      aes(color = sig_fdr, size = sig_fdr),
-                      fill = NA) +
-    theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "none") +
-    scale_color_manual(values = c("FALSE" = "gray",
-                                  "TRUE" = "black"),
-                       na.value = NA,
-                       guide = 'none') +
-    scale_size_manual(values = c("FALSE" = .2,
-                                 "TRUE" = .2),
-                      na.value = 0,
-                      guide = 'none') +
-    facet_grid(pheno_cat ~ cv_sample)
-}
-
-plot_global <- function(df, fill_var){
-  #no buffer for now
-  glob_plt <- df %>%
-    dplyr::select(-any_of(c("geometry", "tissue_class"))) %>%
-    group_by(cv_sample, pheno_cat) %>%
-    filter(pheno_cat == "Global Vol") %>%
-    ggplot() +
-    theme_linedraw(base_size=12) +
-    #fill
-    ggseg::geom_brain(atlas = aseg_all_clean,
-              aes(fill={{fill_var}}), #
-              color=NA,
-              size=0) +
-    #lines
-    ggseg::geom_brain(atlas = aseg_all_clean,
-                      aes(color = sig_fdr, size = sig_fdr),
-                      fill = NA) +
-    theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "right", legend.box.margin = margin(0, 0, 0, 5)) +
-    scale_color_manual(values = c("FALSE" = "gray",
-                                  "TRUE" = "black"),
-                       na.value = NA,
-                       guide = 'none') +
-    scale_size_manual(values = c("FALSE" = .2,
-                                 "TRUE" = .2),
-                      na.value = 0,
-                      guide = 'none') +
-    facet_grid(pheno_cat ~ cv_sample, labeller = labeller(cv_sample = c("A" = "Split A", "B" = "Split B")))
-}
-
-format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limits){
-  # Detect if fill_var is categorical or continuous
-  fill_var_name <- rlang::as_name(rlang::enquo(fill_var))
-  is_categorical <- is.factor(df[[fill_var_name]]) || is.character(df[[fill_var_name]])
-
-  # Add appropriate fill scale
-  if (is_categorical) {
-    plt <- plt + 
-      paletteer::scale_fill_paletteer_d(fill_color, name = fill_name, na.value="gray90", limits = fill_limits, drop = FALSE)
-  } else {
-    plt <- plt + 
-      paletteer::scale_fill_paletteer_c(fill_color, name = fill_name, limits = fill_limits, direction = -1, na.value="gray90")
-  }
-  return(plt)
-}
-
-plot_cv_brain <- function(df, fill_var, fill_name, fill_color, fill_limits, height_list, return_plt=TRUE){
-  cortex_plt <- plot_cortex(df, {{fill_var}})
-  cortex_plt <- format_fill_var(df, {{fill_var}}, cortex_plt, fill_name, fill_color, fill_limits)
-  
-  subcort_plt <- plot_subcortex(df, {{fill_var}})
-  subcort_plt <- format_fill_var(df, {{fill_var}}, subcort_plt, fill_name, fill_color, fill_limits)
-  
-  glob_plt <- plot_global(df, {{fill_var}})
-  glob_plt <- format_fill_var(df, {{fill_var}}, glob_plt, fill_name, fill_color, fill_limits)
-
-  # Extract legend
-  legend <- cowplot::get_legend(glob_plt)
-  
-  # Remove legend from all plots
-  glob_plt <- glob_plt + theme(legend.position = "none")
-  
-  
-  if (return_plt==TRUE){
-    # Use cowplot to align and combine
-  plts <- cowplot::plot_grid(
-    glob_plt,
-    cortex_plt,
-    subcort_plt,
-    ncol = 1,
-    nrow = 3,
-    rel_heights = height_list,
-    align = "v",
-    axis = "lr",
-    greedy = TRUE
-  ) 
-  
-  full_plt_obj <- plot_grid(plts, legend, ncol=2, rel_widths = c(3, .6))
-
-  return(full_plt_obj)
-  
-  } else {
-    plt_list <- list(
-      glob_plt,
-      cortex_plt,
-      subcort_plt,
-      legend)
-    return(plt_list)
-  }
-  
-}
+source("code/plot_cv_brain.R")
 ```
 
 #Defining integral funs
@@ -1034,8 +808,7 @@ Taking derivative of lnCVR squared: (not sure this totally makes sense tbh)
 
 ```{r}
 #quick dirty code to get abs diff
-sigma_df <- sexdiffs.df_sc %>%
-  filter(weighted==FALSE & total==TRUE) %>%
+sigma_df <- sexdiffs_tbv %>%
   arrange(pheno, logAge_days) %>%
   mutate(sq_cv_diff = (logcv_M_div_F)^2) %>%
   group_by(pheno, cv_sample) %>%
@@ -1076,8 +849,7 @@ Taking derivative of deriv squared: (not sure this totally makes sense tbh)
 
 ```{r}
 #quick dirty code to get abs diff
-deriv_df <- sexdiffs.df_sc %>%
-  filter(weighted==FALSE & total==TRUE) %>%
+deriv_df <- sexdiffs_tbv %>%
   arrange(pheno, logAge_days) %>%
   mutate(sq_deriv_diff = (deriv_M_minus_F_z)^2) %>%
   group_by(pheno, cv_sample) %>%
@@ -1109,8 +881,9 @@ deriv_convergence_df <- deriv_df %>%
 ###Cross-sample Consistency
 Get across-sample euclidean distance
 ```{r}
-dist_df <- data.frame()
-for (pheno_val in pheno_list){
+dist_results <- vector("list", length(pheno_list))
+for (i in seq_along(pheno_list)) {
+  pheno_val <- pheno_list[[i]]
   df <- sexdiffs_tbv %>%
     filter(pheno==pheno_val) %>%
     arrange(logAge_days)
@@ -1121,7 +894,7 @@ for (pheno_val in pheno_list){
   dfB <- df %>%
     filter(cv_sample=="B")
   
-  if (nrow(dfA) == 0 | nrow(dfB) == 0) next
+  if (nrow(dfA) == 0 || nrow(dfB) == 0) next
   
   cent_dist <- euclidean_dist(dfA$centile_M_minus_F_z, dfB$centile_M_minus_F_z)
   sigma_dist <- euclidean_dist(dfA$logcv_M_div_F, dfB$logcv_M_div_F)
@@ -1138,15 +911,16 @@ for (pheno_val in pheno_list){
   
   deriv_j <- trapz(dfA$logAge_days, abs(dfA$deriv_M_minus_F_z - dfB$deriv_M_minus_F_z))
   
-  result <- data.frame(
+  dist_results[[i]] <- data.frame(
     "pheno" = pheno_val,
     "centile_dist" = cent_dist,
     "sigma_dist" = sigma_dist,
     "deriv_dist" = deriv_dist,
     "deriv_trapz" = deriv_j
   )
-  dist_df <- bind_rows(dist_df, result)
 }
+
+dist_df <- dplyr::bind_rows(dist_results)
 
 dist_df <- dist_df %>%
   mutate(centile_sim = 1/(1+centile_dist),
