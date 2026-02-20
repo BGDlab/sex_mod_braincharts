@@ -7,6 +7,7 @@ library(gamlss)
 library(gamlssTools)
 library(effsize)
 library(broom)
+library(RESI)
 
 base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
@@ -110,6 +111,9 @@ print("testing disease effects...")
 dx_test_df <- data.frame()
 dx_lm_df <- data.frame()
 
+#get sampling proportions for RESI
+pi <- nrow(df_cn)/nrow(df_pt)
+
 for (mn in names(mod_list)){
   col_name <- paste(pheno, "std_score", mn, sep="_")
     
@@ -125,7 +129,8 @@ for (mn in names(mod_list)){
                         "case.control_est" = test_out$estimate,
                         "case.control_ci_up" = test_out$conf.int[1],
                         "case.control_ci_low" = test_out$conf.int[1],
-                        "case.control_d" = test_d$estimate)
+                        "case.control_d" = test_d$estimate,
+                        "case.control_resi" = d2S(test_d$estimate, pi))
   
   dx_test_df <- rbind(dx_test_df, test_df)
   
