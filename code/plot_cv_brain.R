@@ -77,11 +77,11 @@ glob_border$data <- aseg_all_clean$data |>
 plot_cortex <- function(df, fill_var) {
   df |>
     dplyr::filter(
-      dplyr::.data$pheno_cat == "Regional Vol" |
-        dplyr::.data$pheno_cat == "Regional SA" |
-        dplyr::.data$pheno_cat == "Regional CT"
+      pheno_cat == "Regional Vol" |
+        pheno_cat == "Regional SA" |
+        pheno_cat == "Regional CT"
     ) |>
-    dplyr::group_by(dplyr::.data$cv_sample, dplyr::.data$pheno_cat) |>
+    dplyr::group_by(cv_sample, pheno_cat) |>
     ggplot2::ggplot() +
     ggplot2::theme_linedraw(base_size = 12) +
     ggseg::geom_brain(
@@ -94,7 +94,7 @@ plot_cortex <- function(df, fill_var) {
     ggseg::geom_brain(
       atlas = dk_border,
       position = ggseg::position_brain(hemi ~ side),
-      ggplot2::aes(color = dplyr::.data$sig_fdr, size = dplyr::.data$sig_fdr),
+      ggplot2::aes(color = sig_fdr, size = sig_fdr),
       fill = NA
     ) +
     ggplot2::theme(
@@ -122,8 +122,8 @@ plot_cortex <- function(df, fill_var) {
 
 plot_subcortex <- function(df, fill_var) {
   df |>
-    dplyr::filter(dplyr::.data$pheno_cat == "Subcortical Vol") |>
-    dplyr::group_by(dplyr::.data$cv_sample, dplyr::.data$pheno_cat) |>
+    dplyr::filter(pheno_cat == "Subcortical Vol") |>
+    dplyr::group_by(cv_sample, pheno_cat) |>
     ggplot2::ggplot() +
     ggplot2::theme_linedraw(base_size = 12) +
     ggseg::geom_brain(
@@ -134,7 +134,7 @@ plot_subcortex <- function(df, fill_var) {
     ) +
     ggseg::geom_brain(
       atlas = aseg_border,
-      ggplot2::aes(color = dplyr::.data$sig_fdr, size = dplyr::.data$sig_fdr),
+      ggplot2::aes(color = sig_fdr, size = sig_fdr),
       fill = NA
     ) +
     ggplot2::theme(
@@ -163,8 +163,8 @@ plot_subcortex <- function(df, fill_var) {
 plot_global <- function(df, fill_var) {
   df |>
     dplyr::select(-dplyr::any_of(c("geometry", "tissue_class"))) |>
-    dplyr::group_by(dplyr::.data$cv_sample, dplyr::.data$pheno_cat) |>
-    dplyr::filter(dplyr::.data$pheno_cat == "Global Vol") |>
+    dplyr::group_by(cv_sample, pheno_cat) |>
+    dplyr::filter(pheno_cat == "Global Vol") |>
     ggplot2::ggplot() +
     ggplot2::theme_linedraw(base_size = 12) +
     ggseg::geom_brain(
@@ -175,7 +175,7 @@ plot_global <- function(df, fill_var) {
     ) +
     ggseg::geom_brain(
       atlas = aseg_all_clean,
-      ggplot2::aes(color = dplyr::.data$sig_fdr, size = dplyr::.data$sig_fdr),
+      ggplot2::aes(color = sig_fdr, size = sig_fdr),
       fill = NA
     ) +
     ggplot2::theme(
