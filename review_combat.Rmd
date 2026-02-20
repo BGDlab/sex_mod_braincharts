@@ -1,0 +1,79 @@
+---
+title: "Review Harmonization"
+output: html_document
+date: "2026-02-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+```
+
+```{r, warning=FALSE}}
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats)
+
+#devtools::install_github("BGDlab/gamlssTools", force=TRUE)
+library(gamlssTools)
+
+sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
+ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
+vol_list <- readRDS("./pheno_lists/cortical_vols.rds")
+global_list <- readRDS("./pheno_lists/global_vols.rds")
+sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
+data_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data"
+
+# install.packages("remotes")
+remotes::install_github("BGDlab/ggsegTissue")
+library(ggsegTissue)
+#remotes::install_github("ggseg/ggsegExtra")
+```
+
+Read in harmonized data csvs
+
+```{r}
+# Use Sys.glob to expand wildcard paths
+paths <- Sys.glob(file.path(data_path, "harmonized/*.csv"))
+
+# Read all matching CSVs
+df_list <- lapply(paths, fread)
+
+#check for presence of all phenos across dfs
+df_names <- lapply(df_list, names) %>% 
+  unlist() %>%
+  unique()
+
+all(sub_list %in% df_names)
+setdiff(sub_list, df_names) #CC subregions missing
+
+all(global_list %in% df_names)
+
+#harmonized_df <- purrr::reduce(df_list, full_join)
+```
+
+
+Quick plotting fun
+```{r}
+plot_fun <- function(df){
+  pheno_harmonized <- intersect(pheno_list, names(df))
+  print(pheno_harmonized)
+  if (length(pheno_harmonized) > 0) {
+    for (i in length(pheno_harmonized)){
+    pheno <- pheno_harmonized[i]
+    plt <- ggplot(df) +
+      geom_point(aes(x=logAge_days, y=!!sym(pheno), color=as.factor(sexMale)), alpha=.5)
+    
+    print(plt)
+  }
+  }
+  
+}
+
+lapply(df_list, plot_fun)
+```

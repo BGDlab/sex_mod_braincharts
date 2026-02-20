@@ -53,7 +53,7 @@ do
     touch $config_file
   
   #LOOP THROUGH PHENO CATEGORIES
-  for pheno_list in $(find $(realpath $pheno_lists) -type f -name "global_vols.txt")
+  for pheno_list in $(find $(realpath $pheno_lists) -type f -name "*.txt")
   do
     echo "pheno list: $pheno_list"
 

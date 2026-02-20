@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH --job-name=cv_mods
-#SBATCH --time=336:00:00
+#SBATCH --time=400:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=16G #almost all jobs run with 8G, upping for resubmission
@@ -10,7 +10,7 @@
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
 
-CONFIGFN=$BASE/code/config_files/cv_mods_totalFALSE_logAgeTRUE_smpb_rerun20260115_config.txt
+CONFIGFN=$BASE/code/config_files/cv_mods_totalFALSE_logAgeTRUE_smpb_rerun20260217_config.txt
 
 echo "Config file: $CONFIGFN"
 echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"

@@ -1,11 +1,11 @@
 #!/bin/bash
 #
 #SBATCH --job-name=combatLS
-#SBATCH --time=168:00:00
+#SBATCH --time=10-00:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=50G
-#SBATCH --array=1-74
+#SBATCH --array=1-74%15
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combat/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combat/R-%A_%a.err
 
@@ -37,8 +37,11 @@ echo "SAVE_PATH: $SAVE_PATH"
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
 
-module load R/4.4.0
+SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.12.sif"
 
+singularity run --cleanenv \
+    -B $BASE \
+    $SINGULARITY_IMAGE \
 Rscript $BASE/code/combat_apply_w_transform.R $DF $PLIST $BATCH $COVARS "$MMODEL" "$SMODEL" $SAVE_PATH
 
 # Done!

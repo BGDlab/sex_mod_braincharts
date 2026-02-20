@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, RESI)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -39,12 +39,39 @@ library(ggsegTissue)
 
 centiles
 
+*need to figure out how to just get control centiles ONCE*
+
 ```{r}
 # Use Sys.glob to expand wildcard paths
-paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent.csv"))
+paths <- Sys.glob(file.path(test_path, "cent_csvs/*_PT_*cent.csv"))[1:100] #troubleshooting with subset
 
 # Read all matching CSVs
-cent_df_list <- lapply(paths, function(p) {
+pt_cent_df_list <- lapply(paths, function(p) {
+  fread(p) %>%
+    filter(dx != "CN") %>%
+    mutate(
+      cv_sample = stringr::str_extract(p, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+      total     = stringr::str_extract(p, "(?<=total)(TRUE|FALSE)"),
+      weighted  = stringr::str_detect(p, "weight"),
+      control = if_else(str_detect(dx_recode, "^CN_"), "CN", "PT"),
+      dx_tested  = str_remove(dx_recode, "^CN_")
+    ) %>%
+    select(!c(sexMale_x_logAge, sexMale, study_site, INDEX.ID))
+})
+
+length(pt_cent_df_list)
+#stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
+pt_cent_df <- rbindlist(pt_cent_df_list, fill=T)
+
+rm(pt_cent_df_list)
+```
+
+```{r}
+# Use Sys.glob to expand wildcard paths
+paths <- Sys.glob(file.path(test_path, "cent_csvs/*_CN_*cent.csv"))[1:100]
+
+# Read all matching CSVs
+cn_cent_df_list <- lapply(paths, function(p) {
   fread(p) %>%
     mutate(
       cv_sample = stringr::str_extract(p, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
@@ -53,19 +80,22 @@ cent_df_list <- lapply(paths, function(p) {
       control = if_else(str_detect(dx_recode, "^CN_"), "CN", "PT"),
       dx_tested  = str_remove(dx_recode, "^CN_")
     ) %>%
-    select(!c(sexMale_x_logAge, sexMale, study_site, INDEX.ID, dx))
+    select(!c(sexMale_x_logAge, sexMale, study_site, INDEX.ID, dx_recode))
 })
 
 
-length(cent_df_list)
+length(cn_cent_df_list)
 #stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
-cent_df <- bind_rows(cent_df_list)
+cn_cent_df <- cn_cent_df_list %>%
+  reduce(full_join) 
+
+rm(cn_cent_df_list)
 ```
 
-Test results
+Case-Control results
 ```{r}
 # Use Sys.glob to expand wildcard paths
-paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent_pt*_test.csv"))
+paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent_pt*_casecontrol_test.csv"))
 
 # Read all matching CSVs
 output_fread <- lapply(paths, fread)
@@ -75,25 +105,44 @@ names(output_fread) <- paths
 
 
 cent_test.df <- bind_rows(output_fread, .id="file") %>%
-  mutate(pheno = stringr::str_extract(basename(file), "^[^_]+"),
-        cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+  mutate(pheno = sapply(basename(file), function(f) {
+           matched <- pheno_list[startsWith(f, pheno_list)]
+           if (length(matched) > 0) matched[which.max(nchar(matched))] else NA_character_
+         }),
+         cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
          weighted  = stringr::str_detect(file, "weight")) %>%
+  mutate(pheno_cat = factor(case_when(
+    pheno %in% global_list ~ "Global Vol",
+    pheno %in% vol_list ~ "Regional Vol",
+    pheno %in% sub_list ~ "Subcortical Vol",
+    pheno %in% sa_list ~ "Regional SA",
+    pheno %in% ct_list ~ "Regional CT",
+    TRUE ~ NA_character_))) %>%
+  mutate(label = case_when(
+    pheno %in% sub_list ~ gsub("^SUBC\\.", "", pheno),
+    TRUE ~ gsub("\\.(SA|GM|CT)\\.", "_", pheno))) %>%
+  mutate(label = gsub("\\.", "-", label)) %>%
+  mutate(label = ifelse(label == "3rd-Ventricle", "x3rd-ventricle", label)) %>%
+  mutate(label = ifelse(label == "4th-Ventricle", "x4th-ventricle", label)) %>%
+  mutate(label = case_when(
+    pheno == "sGMV" ~ "sGM",
+    pheno == "GMV" ~ "cGM",
+    pheno == "WMV" ~ "WM",
+    pheno == "CSF" ~ "CSF",
+    pheno == "CBV" ~ "Cerebellum",
+    TRUE ~ label
+  )) %>%
   select(!file) %>%
-  group_by(total, weighted, cv_sample) %>% #apply FDR correction within each combo
+  group_by(total, weighted, cv_sample) %>% #apply FDR correction within each combo ??apply fdr correction within each model??
   mutate(
     dx_p.val_fdr = p.adjust(
       case.control_p.val,
       method = "fdr"
     ),
-    pt.sex_p.val_fdr = p.adjust(
-      pt.sex_p.val,
-      method = "fdr"
-    )
-  ) %>%
+    case.control_d = -case.control_d) %>% #flipping sign so that neg effect means pts < CN
   ungroup() %>%
-  mutate(dx_sig_fdr = ifelse(dx_p.val_fdr <=0.05, TRUE, FALSE),
-         pt.sex_sig_fdr = ifelse(pt.sex_p.val <=0.05, TRUE, FALSE))
+  mutate(dx_sig_fdr = ifelse(dx_p.val_fdr <=0.05, TRUE, FALSE))
 ```
 
 lm test results
@@ -108,7 +157,7 @@ names(output_fread) <- paths
 #stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
 
 
-cent_lm.df <- bind_rows(output_fread, .id="file") %>%
+cent_lm.df <- rbindlist(output_fread, .id="file") %>%
   mutate(pheno = stringr::str_extract(basename(file), "^[^_]+"),
           cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
@@ -145,21 +194,79 @@ cent_test.df_uncor %>%
   facet_grid(model~dx) +
   gghighlight(dx_sig_fdr == TRUE, calculate_per_facet = TRUE, unhighlighted_params = list(fill = NULL, alpha = 0.3))
 
-cent_test.df_uncor %>%
+uncor_d_plt <- cent_test.df_uncor %>%
   filter(dx_sig_fdr == TRUE) %>%
   ggplot() +
-  geom_col(aes(x=pheno, y= case.control_d, fill=cv_sample), position="dodge") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  facet_grid(model~dx) 
+  geom_col(aes(x=pheno, y= case.control_d, fill=model), position="dodge") +
+  theme(axis.text.x = element_blank()) +
+  facet_grid(dx~cv_sample, scales="free_y") 
+ggplotly(uncor_d_plt)
 
 cent_test.df_uncor %>%
-  filter(dx_sig_fdr == TRUE) %>%
+  filter(dx_sig_fdr == TRUE & pheno %in% global_list) %>%
   ggplot() +
   geom_col(aes(x=dx, y= case.control_d, fill=cv_sample), position="dodge") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  facet_grid(model~pheno) 
+  facet_grid(model~pheno)
+```
+
+```{r}
+cent_plt_df <- cent_test.df_uncor %>%
+  filter(dx_sig_fdr == TRUE) %>%
+  arrange(pheno_cat, pheno) %>%
+  mutate(pheno_nested = interaction(pheno, pheno_cat, sep = "__"))
+
+cent_plt_uncor <- ggplot(cent_plt_df) +
+  geom_col(aes(x = pheno_nested, y = case.control_d, fill = model), position = "dodge") +
+  guides(x = legendry::guide_axis_nested(
+  key = key_range_auto(sep = "__"),
+  levels_text = list(
+    element_blank(),        # inner (pheno) - hide
+    element_text(size = 8)  # outer (pheno_cat) - show
+  )
+)) +
+  theme_linedraw() +
+  theme(
+    axis.ticks.x    = element_blank(),
+    legend.position = "right",
+    axis.title.x = element_blank()
+  ) +
+  scale_fill_discrete(name = "Sex-Effect", labels = c("Age-Varying", "Intercept Only")) +
+  facet_grid(dx~cv_sample, scales = "free_y") +
+  labs(y = "Cohen's D")
+ggsave("figs/misc/cent_test_col_uncorrected.png", cent_plt_uncor, dpi = 600)
+```
+
+```{r, eval=FALSE}
+dx_levels <- unique(cent_test.df_uncor$dx)
+
+for (dx_name in dx_levels) {
+  
+  # Filter and rename
+  dx.df_uncor <- cent_test.df_uncor %>%
+    filter(dx == dx_name) %>%
+    dplyr::rename(sig_fdr = dx_sig_fdr)
+  
+  # Compute symmetric range for color scale
+  d_range <- range(dx.df_uncor$case.control_d, na.rm = TRUE)
+  sym_range <- c(-max(abs(d_range)), max(abs(d_range)))
+  
+  # Split by model
+  dx.df_full <- dx.df_uncor %>% filter(model == "full")
+  dx.df_null <- dx.df_uncor %>% filter(model == "null")
+  
+  # Plot
+  plt_full <- plot_cv_brain(dx.df_full, case.control_d, "Cohen's D", "ggthemes::Gold-Purple Diverging", sym_range, c(1.03, 4.5, .93))
+  plt_null <- plot_cv_brain(dx.df_null, case.control_d, "Cohen's D", "ggthemes::Gold-Purple Diverging", sym_range, c(1.03, 4.5, .93))
+  
+  # Save
+  dx_lower <- tolower(dx_name)
+  ggsave(paste0("figs/misc/", dx_lower, "_full_uncorrected.png"),  plt_full, dpi = 600, height = 8.5, width = 7.1, bg = "white")
+  ggsave(paste0("figs/misc/", dx_lower, "_null_uncorrected.png"),  plt_null, dpi = 600, height = 8.5, width = 7.1, bg = "white")
+  
+  message("Saved plots for: ", dx_name)
+}
 ```
 
 **need to add significance markers to boxplots!
@@ -267,8 +374,8 @@ cent_test.df_tbv %>%
   ggplot() +
   geom_col(aes(x=pheno, y= case.control_d, fill=cv_sample), position="dodge") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  facet_grid(model~dx) 
+  theme(axis.text.x = element_blank()) +
+  facet_grid(dx~model, scales="free_y") 
 ```
 
 ```{r}

@@ -43,7 +43,7 @@ if (file.exists(file_full)){
   })
 }
 if (is.null(model)){
-  model <- gamlss_lambda_rep(base_mod, null_mod="false", n.cyc=800)
+  model <- gamlss_lambda_rep(base_mod, null_mod="false", n.cyc=1200)
 }
 
 #if model doesn't fit, fail
@@ -165,7 +165,7 @@ if (file.exists(file_null)){
   })
 }
 if (is.null(null_model)){
-  null_model <- gamlss_lambda_rep(base_mod, null_mod="true", n.cyc=800)
+  null_model <- gamlss_lambda_rep(base_mod, null_mod="true", n.cyc=1200)
 }
 
 #if model doesn't fit, fail
@@ -194,7 +194,7 @@ test_df <- data.frame(
 #FIT NULL MODEL WITH NO SEX-EFFECT FOR TBV-CORRECTED MODELS
 if (total == TRUE) {
   print("fitting null model of all sex effects")
-  null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex", n.cyc=800)
+  null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex", n.cyc=1200)
   
   file_null2 <- paste0(save_path, "/model_objs/", filename, "_null2_mod.rds")
   print (paste("saving to", file_null2))
@@ -298,6 +298,9 @@ process_sex_diffs <- function(sim_data_list,
         .fns = z_score,
         .names = "{.col}_z"
       )) %>%
+    #get CV ratios
+    mutate(cv_M_div_F = sigma_Male/sigma_Female,
+           logcv_M_div_F = log(sigma_Male/sigma_Female)) %>%
     #get derivs
     mutate(across(
       .cols = matches("centile|cv"),
@@ -307,10 +310,8 @@ process_sex_diffs <- function(sim_data_list,
   #get M-F differences
     mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
            centile_M_minus_F_z = median_centile_Male_z - median_centile_Female_z,
-           cv_M_div_F = sigma_Male/sigma_Female,
            deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
-           deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z,
-           deriv_cv_M_minus_F = deriv_cv_Male - deriv_cv_Female)
+           deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z)
   
   return(result_df)
 }

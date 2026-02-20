@@ -96,8 +96,14 @@ df_full_cent <- df_full_cent %>%
                             levels = c(cn_level, pt_level),
                             ordered = TRUE))
 
-#save
-fwrite(df_full_cent, file=paste0(save_path, "/cent_csvs/", pheno, "_", dx_val, "_cent.csv"))
+#save patient and control centiles separately, otherwise files are too big to read in
+df_cn <- df_full_cent %>%
+  filter(dx_recode==cn_level)
+fwrite(df_cn, file=paste0(save_path, "/cent_csvs/", pheno, "_CN_", dx_val, "_cent.csv"))
+
+df_pt <- df_full_cent %>%
+  filter(dx_recode!=cn_level)
+fwrite(df_pt, file=paste0(save_path, "/cent_csvs/", pheno, "_PT_", dx_val, "_cent.csv"))
 
 ##### DX #####
 print("testing disease effects...")
@@ -134,6 +140,8 @@ for (mn in names(mod_list)){
   dx_lm_df <- rbind(dx_lm_df, lm_out)
   
 }
+
+fwrite(dx_test_df, file=paste0(save_path, "/cent_csvs/", pheno, "_cent_pt", dx_val, "_casecontrol_test.csv"))
 
 fwrite(dx_lm_df, file=paste0(save_path, "/cent_csvs/", pheno, "_cent_pt", dx_val, "_lm.csv"))
 

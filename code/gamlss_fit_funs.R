@@ -3,6 +3,8 @@
 library(gamlss)
 #library(gamlss2)
 
+### MAIN FIT FUNS ###
+
 #gamlss_lambda
 gamlss_lambda <- function(pheno, lambda=NULL, 
                            fs_ver, fs_moment=c("both", "mu", "none", "all"), 
@@ -122,7 +124,7 @@ gamlss_lambda_rep <- function(og_mod,
                                keep_lambdas=TRUE,
                                start.from=NULL,
                                weight=NULL,
-                               n.cyc=400){
+                               n.cyc=800){
   
   pheno <- paste0(og_mod$mu.formula)[[2]]
   fam <- og_mod$family[1]
@@ -232,100 +234,9 @@ gamlss_lambda_rep <- function(og_mod,
   
   #try methods
   
-  result <- tryCatch({
-    gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
-    print(gamlss_RSformula)
-    
-    eval(parse(text = gamlss_RSformula))
-    
-  } , warning = function(w) {
-    message("warning")
-    eval(parse(text = gamlss_RSformula))
-    
-  } , error = function(e) {
-    message(e$message, ", trying method=CG()")
-    tryCatch({
-      gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
-      eval(parse(text = gamlss_CGformula))
-      
-      #if CG also fails, return NULL
-    }, error = function(e2) {
-      message(e2$message, ", returning NULL")
-      return(NULL)
-    })
-  } , finally = {
-    message("done")
-  } )
+  result <- try_gamlss_methods(mu_form, sig_form, nu_form, control)
   
-  #if needed, try again with tiny nu.step
-  if(is.null(result)){
-    control <- sub("nu\\.step\\s*=\\s*[-+]?[0-9]*\\.?[0-9]+", "nu.step = 0.00000000001", control)
-    
-    result <- tryCatch({
-      gamlss_RSformula <-paste(mu_form, sig_form, nu_form, control, sep=", ")
-      print(gamlss_RSformula)
-      
-      eval(parse(text = gamlss_RSformula))
-      
-    } , warning = function(w) {
-      message("warning")
-      eval(parse(text = gamlss_RSformula))
-      
-    } , error = function(e) {
-      message(e$message, ", trying method=CG()")
-      tryCatch({
-        gamlss_CGformula <-paste(mu_form, sig_form, nu_form, "method=CG()", control, sep=", ")
-        eval(parse(text = gamlss_CGformula))
-        
-        #if CG also fails, return NULL
-      }, error = function(e2) {
-        message(e2$message, ", returning NULL")
-        return(NULL)
-      })
-    } , finally = {
-      message("done")
-    } )
-    
-  }
-  
-  #if needed, try one last time with mixed method
-  if(is.null(result)){
-    result <- tryCatch({
-      gamlss_Mformula <-paste(mu_form, sig_form, nu_form, "method=mixed(10,500)", control, sep=", ")
-      print(gamlss_Mformula)
-      
-      eval(parse(text = gamlss_Mformula))
-      
-    } , warning = function(w) {
-      message("warning")
-      eval(parse(text = gamlss_Mformula))
-      
-    } , error = function(e) {
-      message(e$message, ", trying method=CG()")
-      tryCatch({
-        gamlss_Mformula <-paste(mu_form, sig_form, nu_form, "method=mixed(10,800)", control, sep=", ")
-        eval(parse(text = gamlss_Mformula))
-        
-        #if CG also fails, return NULL
-      }, error = function(e2) {
-        message(e2$message, ", returning NULL")
-        return(NULL)
-      })
-    } , finally = {
-      message("done")
-    } )
-    
-  }
   return(result)
-}
-
-#helper fun
-make_pb <- function(var, lambda) {
-  if (is.null(lambda)) {
-    paste0("pb(", var, ", method='GAIC', k=log(nrow(df)))")
-  } else {
-    paste0("pb(", var, ", lambda=", lambda, ", method='GAIC', k=log(nrow(df)))")
-  }
 }
 
 #gamlss_lambda_etiv
@@ -456,63 +367,7 @@ gamlss_lambda_etiv <- function(pheno, lambda=NULL,
   return(result)
 }
 
-
-#try not log-scaling age
-gamlss_age <- function(pheno, lambda=NULL, 
-                           fs_ver, fs_moment=c("both", "mu", "none", "all"), 
-                           fam="GG",
-                           weight= NULL,
-                           nu_form="1",
-                           start.from=NULL){
-  
-  fs_moment <- match.arg(fs_moment)
-  
-  #define formulas for each moment
-  mu_base <- paste(
-    "safe_gamlss_old(formula =", pheno, "~",
-    make_pb("sexMale_x_age", lambda), "+",
-    make_pb("age_days", lambda), "+ sexMale + random(study_site)"
-  )
-  
-  if (fs_moment != "none"){
-    mu_form <- paste(mu_base, "+", fs_ver) #add fs_version term if needed
-  } else {
-    mu_form <- paste(mu_base) #or just comma
-  }
-  
-  sig_base <- paste(
-    "sigma.formula = ~",
-    make_pb("sexMale_x_age", lambda), "+",
-    make_pb("age_days", lambda), "+ sexMale + random(study_site)"
-  )
-  
-  if (fs_moment == "both" | fs_moment == "all") {
-    sig_form <- paste(sig_base, "+", fs_ver)
-  } else {
-    sig_form <- sig_base
-  }
-  
-  if (fs_moment == "all") {
-    nu_form <- paste("nu.formula = ~", nu_form," + ", fs_ver)
-  } else {
-    nu_form <- paste("nu.formula = ~", nu_form)
-  }
-  
-  control <- paste("control = gamlss.control(n.cyc=400, nu.step=0.25), family =", fam, ", data= df, trace = FALSE)")
-  
-  if (!is.null(start.from)) {
-    control <- paste0("start.from = ", start.from,", ", control)
-  }
-  
-  if (!is.null(weight)) {
-    control <- paste0("weights = df$", weight, ",", control)
-  }
-  
-  result <- try_gamlss_methods(mu_form, sig_form, nu_form, control)
-  
-  return(result)
-}
- 
+### HELPER FUNS ###
 
 try_gamlss_methods <- function(mu_form, sig_form, nu_form, control){
   
@@ -602,7 +457,7 @@ try_gamlss_methods <- function(mu_form, sig_form, nu_form, control){
         res
         
       } , error = function(e) {
-        message(e$message, ", trying method=CG()")
+        message(e$message, ", trying more loops")
         tryCatch({
           gamlss_Mformula <-paste(mu_form, sig_form, nu_form, "method=mixed(10,800)", control, sep=", ")
           res <- eval(parse(text = gamlss_Mformula))
@@ -686,4 +541,13 @@ safe_gamlss_old <- function(...) {
   }
   
   return(mod)
+}
+
+#helper fun
+make_pb <- function(var, lambda) {
+  if (is.null(lambda)) {
+    paste0("pb(", var, ", method='GAIC', k=log(nrow(df)))")
+  } else {
+    paste0("pb(", var, ", lambda=", lambda, ", method='GAIC', k=log(nrow(df)))")
+  }
 }

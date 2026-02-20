@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, sf, cowplot)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, sf, cowplot, subcortexVisualizationR)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -46,8 +46,8 @@ dk_clean$data <- dk_clean$data %>%
   dplyr::filter(!is.na(region) & region !="corpus callosum")
 
 #shrink for outlines
-dk_region_gap <- 0.3        # Space between regions
-dk_border_inset <- 0.3      # Additional inset for border
+dk_region_gap <- 0.4       # Space between regions
+dk_border_inset <- 0.4      # Additional inset for border
 
 # Create shrunk atlas for fills (creates gaps between regions)
 dk_fill <- dk_clean
@@ -137,11 +137,11 @@ plot_cortex <- function(df, fill_var){
                       aes(color = sig_fdr, size = sig_fdr),
                       fill = NA) +
     theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(5, 0, 5, 0), legend.position = "none") +
-    scale_color_manual(values = c("FALSE" = "white",
+    scale_color_manual(values = c("FALSE" = "gray",
                                   "TRUE" = "black"),
                        na.value = NA,
                        guide = 'none') +
-    scale_size_manual(values = c("FALSE" = .4,
+    scale_size_manual(values = c("FALSE" = .2,
                                  "TRUE" = .2),
                       na.value = 0,
                       guide = 'none') +
@@ -164,11 +164,11 @@ plot_subcortex <- function(df, fill_var){
                       aes(color = sig_fdr, size = sig_fdr),
                       fill = NA) +
     theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), strip.text.x = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "none") +
-    scale_color_manual(values = c("FALSE" = "white",
+    scale_color_manual(values = c("FALSE" = "gray",
                                   "TRUE" = "black"),
                        na.value = NA,
                        guide = 'none') +
-    scale_size_manual(values = c("FALSE" = .4,
+    scale_size_manual(values = c("FALSE" = .2,
                                  "TRUE" = .2),
                       na.value = 0,
                       guide = 'none') +
@@ -193,11 +193,11 @@ plot_global <- function(df, fill_var){
                       aes(color = sig_fdr, size = sig_fdr),
                       fill = NA) +
     theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), plot.margin = margin(0, 0, 0, 0), legend.position = "right", legend.box.margin = margin(0, 0, 0, 5)) +
-    scale_color_manual(values = c("FALSE" = "white",
+    scale_color_manual(values = c("FALSE" = "gray",
                                   "TRUE" = "black"),
                        na.value = NA,
                        guide = 'none') +
-    scale_size_manual(values = c("FALSE" = .4,
+    scale_size_manual(values = c("FALSE" = .2,
                                  "TRUE" = .2),
                       na.value = 0,
                       guide = 'none') +
@@ -894,7 +894,7 @@ sexdiffs_tbv_sq %>%
     geom_line(aes(x=logAge_days, y=sq_deriv_z, group=pheno, color=pheno)) +
   geom_hline(yintercept = 0) +
   #geom_smooth(aes(x=logAge_days, y=sq_deriv_z))+
-    ggh4x::facet_grid2(pheno_cat~cv_sample, scales = "free_y", independent = "y") +
+    ggh4x:::facet_grid2(pheno_cat~cv_sample, scales = "free_y", independent = "y") +
     #facet_grid(pheno_cat~cv_sample, scales="free_y") +
   #gghighlight(pheno %in% consistent_agesex, calculate_per_facet = TRUE) +
     theme_linedraw() +
@@ -1778,8 +1778,6 @@ cent_group_plt <- cent_group_df %>%
   group_color_scale +
   labs(y="50th Centile Sex-Difference")
 
-cent_group_plt
-
 ggsave("figs/misc/centile_groupings.png", cent_group_plt, width=9, height=9, dpi=600)
 #ggplotly(cent_group_plt)
 ```
@@ -1800,24 +1798,7 @@ cent_group_pltB <- cent_group_df %>%
 saveRDS(cent_group_pltB, "figs/ggobjs/cent_groups_B.rds")
 ```
 
-testing getting average line
-
-```{r}
-cent_group_df %>%
-  filter(samp_pheno %in% sig_agesex) %>%
-  ggplot(aes(x = age_days, y = centile_M_minus_F_z, color=cent_group, fill=cent_group)) +
-  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
-  geom_smooth(method = "gam") +
-  #ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group, fill=cent_group)) +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  #geom_point(alpha=.001) +
-  group_color_scale +
-  group_fill_scale +
-  theme_linedraw() +
-  format_x_axis("lifespan_fetal", cent_group_df$age_days)
-```
-
-try getting median lines with uniform points
+median lines with uniform points
 ```{r}
 #add group info
 uniform_groups <- full_join(group_plt_df_all, sexdiffs.df.u) %>%
@@ -1828,12 +1809,31 @@ uniform_groups <- full_join(group_plt_df_all, sexdiffs.df.u) %>%
     .groups = "drop"
   )
 
-#test plots
-uniform_groups %>% 
-  ggplot(aes(x = age_days, y = mean_traj, colour = cent_group)) +
+med_trajectory_plt <- uniform_groups %>% 
+  ggplot(aes(x = age_days, y = median_traj, color = cent_group)) +
   geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
   geom_smooth(method = "gam") +
-  facet_grid(pheno_cat~cv_sample, scales="free_y")
+  facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  group_color_scale +
+  group_fill_scale +
+  theme_linedraw() +
+  format_x_axis("lifespan", uniform_groups$age_days) +
+  labs(y="Median Sex-Difference")
+ggsave("figs/supplement/med_centile_groupings.png", med_trajectory_plt, width=9, height=9, dpi=600)
+
+#also just B
+med_trajectory_pltB <- uniform_groups %>%
+  filter(cv_sample=="B" & pheno_cat != "Ventricular Vol") %>%
+  ggplot(aes(x = age_days, y = median_traj, color = cent_group)) +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_smooth(method = "gam") +
+  facet_wrap(~pheno_cat, scales="free_y", ncol=1) +
+  group_color_scale +
+  group_fill_scale +
+  theme_linedraw() +
+  format_x_axis("lifespan", uniform_groups$age_days) +
+  labs(y="Median Sex-Difference")
+saveRDS(med_trajectory_pltB, "figs/ggobjs/cent_groups_median_B.rds")
 ```
 
 visualize with significance from age*sex effects
@@ -1930,6 +1930,43 @@ sigma_group_pltB <- sigma_group_df %>%
 saveRDS(sigma_group_pltB, "figs/ggobjs/sig_groups_B.rds")
 ```
 
+median lines with uniform points
+```{r}
+#add group info
+sigma_uniform_groups <- sigma_group_df %>%
+  filter(samp_pheno %in% sig_agesex) %>%
+  group_by(cv_sample, pheno_cat, sigma_group, age_days) %>%
+  summarise(median_traj = median(logcv_M_div_F, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+med_trajectory_plt <- sigma_uniform_groups %>% 
+  ggplot(aes(x = age_days, y = median_traj, color = sigma_group)) +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_smooth(method = "gam") +
+  facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  group_color_scale +
+  group_fill_scale +
+  theme_linedraw() +
+  format_x_axis("lifespan", sigma_uniform_groups$age_days) +
+  labs(y="Median Sex-Difference")
+ggsave("figs/supplement/med_sigma_groupings.png", med_trajectory_plt, width=9, height=9, dpi=600)
+
+#also just B
+med_trajectory_pltB <- sigma_uniform_groups %>%
+  filter(cv_sample=="B" & pheno_cat != "Ventricular Vol") %>%
+  ggplot(aes(x = age_days, y = median_traj, color = sigma_group)) +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_smooth(method = "gam") +
+  facet_wrap(~pheno_cat, scales="free_y", ncol=1) +
+  group_color_scale +
+  group_fill_scale +
+  theme_linedraw() +
+  format_x_axis("lifespan", sigma_uniform_groups$age_days) +
+  labs(y="Median Sex-Difference")
+saveRDS(med_trajectory_pltB, "figs/ggobjs/sigma_groups_median_B.rds")
+```
+
 visualize with significance from age*sex effects
 
 ````{r}
@@ -2008,17 +2045,43 @@ deriv_group_plt <- deriv_group_df %>%
   theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1))+
   labs(y="Male-Female Derivative")
 
-deriv_group_df %>%
-  ggplot(aes(x=age_days, y=deriv_M_minus_F_z, color=deriv_group)) +
-  geom_point(alpha=.00001) +
-  geom_smooth() +
+```
+
+median lines with uniform points
+```{r}
+#add group info
+deriv_uniform_groups <- deriv_group_df %>%
+  filter(samp_pheno %in% sig_agesex) %>%
+  group_by(cv_sample, pheno_cat, deriv_group, age_days) %>%
+  summarise(median_traj = median(deriv_M_minus_F_z, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+med_trajectory_plt <- deriv_uniform_groups %>% 
+  ggplot(aes(x = age_days, y = median_traj, color = deriv_group)) +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_smooth(method = "gam") +
   facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  theme_linedraw() +
-  format_x_axis("lifespan_fetal", deriv_group_df$age_days) +
-    gghighlight(samp_pheno %in% sig_agesex, calculate_per_facet = TRUE, use_direct_label=FALSE) +
   group_color_scale +
-  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1))+
-  labs(y="Male-Female Derivative")
+  group_fill_scale +
+  theme_linedraw() +
+  format_x_axis("lifespan", deriv_uniform_groups$age_days) +
+  labs(y="Derivative Sex-Difference")
+ggsave("figs/supplement/med_deriv_groupings.png", med_trajectory_plt, width=9, height=9, dpi=600)
+
+#also just B
+med_trajectory_pltB <- deriv_uniform_groups %>%
+  filter(cv_sample=="B" & pheno_cat != "Ventricular Vol") %>%
+  ggplot(aes(x = age_days, y = median_traj, color = deriv_group)) +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_smooth(method = "gam") +
+  facet_wrap(~pheno_cat, scales="free_y", ncol=1) +
+  group_color_scale +
+  group_fill_scale +
+  theme_linedraw() +
+  format_x_axis("lifespan", deriv_uniform_groups$age_days) +
+  labs(y="Derivative Sex-Difference")
+saveRDS(med_trajectory_pltB, "figs/ggobjs/deriv_groups_median_B.rds")
 ```
 
 

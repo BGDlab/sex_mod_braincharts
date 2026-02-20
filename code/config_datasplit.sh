@@ -37,6 +37,10 @@ count=1
 for pheno_list in $(find $(realpath $pheno_lists)  -type f -name "*.rds")
 do
   echo "prepping: $pheno_list"
+  
+  #get filename -> freesurfer variable name
+    pheno_cat=$(basename -- "$pheno_list")
+    pheno_cat="${pheno_cat%.*}"
 
   # write out args
   echo -e "$count\t$file\t$pheno_list\t$save_path\t$batch_arg" >> "$config_path/datasplit_config.txt"

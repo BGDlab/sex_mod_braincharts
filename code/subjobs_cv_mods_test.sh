@@ -1,10 +1,10 @@
 #!/bin/bash
 #
 #SBATCH --job-name=cv_mods
-#SBATCH --time=40:00:00
+#SBATCH --time=80:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=15G
+#SBATCH --mem-per-cpu=20G
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_test/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_test/R-%A_%a.err
 
