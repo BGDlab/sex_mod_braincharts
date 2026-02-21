@@ -79,7 +79,7 @@ do
       
       #skip already tested models if rerunning
       if [[ "$rerun" == "TRUE" ]]; then
-          test_csv=$(ls ${save_path}/model_sums/${pheno_line}*_${dx}pt_cent_test.csv 2>/dev/null | head -n 1 || true)
+          test_csv=$(ls ${save_path}/model_sums/${pheno_line}*_cent_pt${dx}_sex_test.csv 2>/dev/null | head -n 1 || true)
           if [[ -n "$test_csv" ]]; then
             echo "Skipping $pheno_line (centile tests found)"
             continue

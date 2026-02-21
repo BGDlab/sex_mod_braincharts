@@ -7,7 +7,6 @@ library(gamlss)
 library(gamlssTools)
 library(effsize)
 library(broom)
-library(RESI)
 
 base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
@@ -130,7 +129,7 @@ for (mn in names(mod_list)){
                         "case.control_ci_up" = test_out$conf.int[1],
                         "case.control_ci_low" = test_out$conf.int[1],
                         "case.control_d" = test_d$estimate,
-                        "case.control_resi" = d2S(test_d$estimate, pi))
+                        "case.control_pi" = pi)
   
   dx_test_df <- rbind(dx_test_df, test_df)
   
