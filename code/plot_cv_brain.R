@@ -238,7 +238,15 @@ format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limit
   return(plt)
 }
 
-plot_cv_brain <- function(df, fill_var, fill_name, fill_color, fill_limits, height_list=c(1.03, 4.5, .93), return_plt = TRUE, include_global = TRUE) {
+plot_cv_brain <- function(df, 
+                          fill_var, 
+                          fill_name, 
+                          fill_color, 
+                          fill_limits, 
+                          height_list=c(1.03, 4.5, .93), 
+                          return_plt = TRUE, 
+                          include_global = TRUE, 
+                          rel_widths = c(3, .6)) {
   show_cv_labels <- !include_global
 
   cortex_plt <- plot_cortex(
@@ -287,7 +295,7 @@ plot_cv_brain <- function(df, fill_var, fill_name, fill_color, fill_limits, heig
       )
     }
 
-    full_plt_obj <- cowplot::plot_grid(plts, legend, ncol = 2, rel_widths = c(3, .6))
+    full_plt_obj <- cowplot::plot_grid(plts, legend, ncol = 2, rel_widths = rel_widths)
     return(full_plt_obj)
   } else {
     if (include_global) {

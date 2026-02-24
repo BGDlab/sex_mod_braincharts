@@ -402,6 +402,26 @@ deriv_group[[4]],
 nrow=2,
 rel_heights=c(1, .2)
 )
-ggsave("figs/fig3.png", grp_plt, width=17, height=9, dpi=600, bg = "white")
+ggsave("figs/fig3.png", grp_plt, width=1, height=9, dpi=600, bg = "white")
+```
 
+#FIGURE 4: Case-Control Differences
+
+```{r}
+dx_bxpltB <- readRDS("figs/ggobjs/dx_bxpltB.rds")
+dx_brain_plt <- readRDS("figs/ggobjs/dx_brain_plt.rds")
+```
+
+combine
+
+```{r}
+dx_plt <- plot_grid(
+  dx_bxpltB,
+  NULL,
+  dx_brain_plt,
+  ncol=3,
+  rel_widths=c(1.2,.06, 4),
+  labels=c("A", "B", "")
+)
+ggsave("figs/fig4.png", dx_plt, width=21, height=6.5, dpi=600, bg = "white")
 ```

@@ -362,10 +362,12 @@ dx_bxpltB <- cent_df_full_long %>%
                               "WMV" = "WM")) +
   scale_color_discrete(labels = c("CN" = "Control", "PT" = "Patient"), name = NULL) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), axis.title.x=element_blank()) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.x=element_blank(),
+        legend.position = "bottom") +
   labs(y="Standard Score")
 
-saveRDS(dx_bxpltB, "figs/ggobjs/dx_bxpltB.png")
+saveRDS(dx_bxpltB, "figs/ggobjs/dx_bxpltB.rds")
 ```
 
 brainplots across dx for just B
@@ -383,14 +385,15 @@ dx_all <- cent_test.df_uncor %>%
 
 # Compute symmetric range for color scale
 d_range <- range(dx_all$case.control_resi, na.rm = TRUE)
-sym_range <- c(-max(abs(d_range)), max(abs(d_range)))
+sym_range <- c(-.5, .5)
 
-  full_parts <- plot_cv_brain(
-    dx_all, case.control_resi, "RESI",
-    "ggthemes::Gold-Purple Diverging", sym_range, c(1.03, 4.5, .93),
-    return_plt = TRUE
-  )
-
+dx_brain_plt <- plot_cv_brain(
+  dx_all, case.control_resi, "RESI",
+  "ggthemes::Gold-Purple Diverging", sym_range, c(5,1.1),
+  return_plt = TRUE, include_global=FALSE, rel_widths=c(6,.5)
+)
+ggsave("figs/tmp.png", dx_brain_plt, width=18, height=7, dpi=600, bg = "white")
+saveRDS(dx_brain_plt, "figs/ggobjs/dx_brain_plt.rds")
 ```
 
 ##Patient Sex-Differences
