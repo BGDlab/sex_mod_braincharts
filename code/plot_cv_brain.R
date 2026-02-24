@@ -74,8 +74,8 @@ glob_border$data <- aseg_all_clean$data |>
 
 ### plotting helpers ###
 
-plot_cortex <- function(df, fill_var) {
-  df |>
+plot_cortex <- function(df, fill_var, show_cv_facet_labels = FALSE) {
+  p <- df |>
     dplyr::filter(
       pheno_cat == "Regional Vol" |
         pheno_cat == "Regional SA" |
@@ -103,7 +103,7 @@ plot_cortex <- function(df, fill_var) {
       axis.ticks = ggplot2::element_blank(),
       panel.grid.major = ggplot2::element_blank(),
       panel.grid.minor = ggplot2::element_blank(),
-      strip.text.x = ggplot2::element_blank(),
+      strip.text.x = if (show_cv_facet_labels) ggplot2::element_text() else ggplot2::element_blank(),
       plot.margin = ggplot2::margin(5, 0, 5, 0),
       legend.position = "none"
     ) +
@@ -116,12 +116,18 @@ plot_cortex <- function(df, fill_var) {
       values = c("FALSE" = .2, "TRUE" = .2),
       na.value = 0,
       guide = "none"
-    ) +
-    ggplot2::facet_grid(pheno_cat ~ cv_sample)
+    )
+
+  if (show_cv_facet_labels) {
+    p <- p + ggplot2::facet_grid(pheno_cat ~ cv_sample, labeller = ggplot2::labeller(cv_sample = c("A" = "Split A", "B" = "Split B")))
+  } else {
+    p <- p + ggplot2::facet_grid(pheno_cat ~ cv_sample)
+  }
+  p
 }
 
-plot_subcortex <- function(df, fill_var) {
-  df |>
+plot_subcortex <- function(df, fill_var, show_cv_facet_labels = FALSE) {
+  p <- df |>
     dplyr::filter(pheno_cat == "Subcortical Vol") |>
     dplyr::group_by(cv_sample, pheno_cat) |>
     ggplot2::ggplot() +
@@ -143,7 +149,7 @@ plot_subcortex <- function(df, fill_var) {
       axis.ticks = ggplot2::element_blank(),
       panel.grid.major = ggplot2::element_blank(),
       panel.grid.minor = ggplot2::element_blank(),
-      strip.text.x = ggplot2::element_blank(),
+      strip.text.x = if (show_cv_facet_labels) ggplot2::element_text() else ggplot2::element_blank(),
       plot.margin = ggplot2::margin(0, 0, 0, 0),
       legend.position = "none"
     ) +
@@ -156,8 +162,14 @@ plot_subcortex <- function(df, fill_var) {
       values = c("FALSE" = .2, "TRUE" = .2),
       na.value = 0,
       guide = "none"
-    ) +
-    ggplot2::facet_grid(pheno_cat ~ cv_sample)
+    )
+
+  if (show_cv_facet_labels) {
+    p <- p + ggplot2::facet_grid(pheno_cat ~ cv_sample, labeller = ggplot2::labeller(cv_sample = c("A" = "Split A", "B" = "Split B")))
+  } else {
+    p <- p + ggplot2::facet_grid(pheno_cat ~ cv_sample)
+  }
+  p
 }
 
 plot_global <- function(df, fill_var) {
@@ -230,41 +242,60 @@ format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limit
   return(plt)
 }
 
-plot_cv_brain <- function(df, fill_var, fill_name, fill_color, fill_limits, height_list, return_plt = TRUE) {
-  cortex_plt <- plot_cortex(df, {{ fill_var }})
+plot_cv_brain <- function(df, fill_var, fill_name, fill_color, fill_limits, height_list, return_plt = TRUE, include_global = TRUE) {
+  show_cv_labels <- !include_global
+
+  cortex_plt <- plot_cortex(df, {{ fill_var }}, show_cv_facet_labels = show_cv_labels)
   cortex_plt <- format_fill_var(df, {{ fill_var }}, cortex_plt, fill_name, fill_color, fill_limits)
 
-  subcort_plt <- plot_subcortex(df, {{ fill_var }})
+  subcort_plt <- plot_subcortex(df, {{ fill_var }}, show_cv_facet_labels = show_cv_labels)
   subcort_plt <- format_fill_var(df, {{ fill_var }}, subcort_plt, fill_name, fill_color, fill_limits)
 
-  glob_plt <- plot_global(df, {{ fill_var }})
-  glob_plt <- format_fill_var(df, {{ fill_var }}, glob_plt, fill_name, fill_color, fill_limits)
-
-  legend <- cowplot::get_legend(glob_plt)
-  glob_plt <- glob_plt + ggplot2::theme(legend.position = "none")
+  if (include_global) {
+    glob_plt <- plot_global(df, {{ fill_var }})
+    glob_plt <- format_fill_var(df, {{ fill_var }}, glob_plt, fill_name, fill_color, fill_limits)
+    legend <- cowplot::get_legend(glob_plt)
+    glob_plt <- glob_plt + ggplot2::theme(legend.position = "none")
+  } else {
+    subcort_with_legend <- subcort_plt + ggplot2::theme(legend.position = "right", legend.box.margin = ggplot2::margin(0, 0, 0, 5))
+    legend <- cowplot::get_legend(subcort_with_legend)
+  }
 
   if (return_plt == TRUE) {
-    plts <- cowplot::plot_grid(
-      glob_plt,
-      cortex_plt,
-      subcort_plt,
-      ncol = 1,
-      nrow = 3,
-      rel_heights = height_list,
-      align = "v",
-      axis = "lr",
-      greedy = TRUE
-    )
+    if (include_global) {
+      plts <- cowplot::plot_grid(
+        glob_plt,
+        cortex_plt,
+        subcort_plt,
+        ncol = 1,
+        nrow = 3,
+        rel_heights = height_list,
+        align = "v",
+        axis = "lr",
+        greedy = TRUE
+      )
+    } else {
+      regional_heights <- if (length(height_list) >= 2) height_list[2:3] else c(4.5, .93)
+      plts <- cowplot::plot_grid(
+        cortex_plt,
+        subcort_plt,
+        ncol = 1,
+        nrow = 2,
+        rel_heights = regional_heights,
+        align = "v",
+        axis = "lr",
+        greedy = TRUE
+      )
+    }
 
     full_plt_obj <- cowplot::plot_grid(plts, legend, ncol = 2, rel_widths = c(3, .6))
     return(full_plt_obj)
   } else {
-    plt_list <- list(
-      glob_plt,
-      cortex_plt,
-      subcort_plt,
-      legend
-    )
+    if (include_global) {
+      plt_list <- list(glob_plt, cortex_plt, subcort_plt, legend)
+    } else {
+      plt_list <- list(cortex_plt, subcort_plt, legend)
+    }
     return(plt_list)
   }
 }
