@@ -111,7 +111,7 @@ dx_test_df <- data.frame()
 dx_lm_df <- data.frame()
 
 #get sampling proportions for RESI
-pi <- nrow(df_cn)/nrow(df_pt)
+pi <- nrow(df_cn)/nrow(df_full_cent)
 
 for (mn in names(mod_list)){
   col_name <- paste(pheno, "std_score", mn, sep="_")

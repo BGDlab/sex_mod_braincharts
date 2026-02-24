@@ -101,7 +101,7 @@ print("testing disease effects...")
 dx_test_df <- data.frame()
 
 #get sampling proportions for RESI
-pi <- table(df_full_cent$sex)[["F"]]/table(df_full_cent$sex)[["M"]]
+pi <- table(df_full_cent$sex)[["F"]]/nrow(df_full_cent)
 
 for (mn in names(mod_list)){
   col_name <- paste(pheno, "std_score", mn, sep="_")

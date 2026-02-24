@@ -67,6 +67,14 @@ print("creating centile fan plot")
 ```{r}
 sim_df
 
+test_resid <- resid_data(model, df, rm_terms = "mean.CT")
+range(test_resid$rh.CT.insula)
+
+df %>%
+  mutate(big_insula = ifelse(rh.CT.insula > mean.CT, TRUE, FALSE)) %>%
+ggplot() +
+  geom_point(aes(x=rh.CT.insula, y=mean.CT, color=big_insula))
+
 make_centile_fan(gamlssModel=model, 
                                df=df, 
                                x_var=age_var, 
@@ -74,5 +82,6 @@ make_centile_fan(gamlssModel=model,
                                get_peaks=TRUE, 
                                desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                                sim_data_list = sim_df,
+                 show_points = FALSE,
                                x_axis="log_lifespan_fetal")
 ```

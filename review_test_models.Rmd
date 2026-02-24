@@ -1291,6 +1291,20 @@ dominance_plt_df_B <- dominance_plt_df_novent %>%
 
 #centiles
 full_dom_pltB <- plot_cv_brain(dominance_plt_df_B, centile_int_norm.unlog, "Normalized\nSex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93), return_plt = FALSE)
+full_dom_pltB[[4]] <- get_legend(
+  ggplot(dominance_plt_df_B) +
+    geom_point(aes(x=cv_sample, y=pheno, color=centile_int_norm.unlog)) +
+     paletteer::scale_color_paletteer_c(
+        "ggthemes::Orange-Blue Diverging",
+        name = "Normalized Sex Difference",
+        limits = c(-0.07, 0.07),
+        direction = -1,
+        na.value = "gray90"
+      ) +
+    theme(legend.position = "bottom",
+          legend.title.position = "top"), 
+  legend="bottom"
+  )
 saveRDS(full_dom_pltB, "figs/ggobjs/cent_dom_B.rds")
 
 #sigma
@@ -1646,6 +1660,28 @@ full_plt_obj <- plot_grid(plts, legend, ncol=2, rel_widths = c(3, 1))
 ggsave("figs/supplement/group_brain_plt.png", full_plt_obj, dpi=600, height=8.5, width=8, bg = "white")
 ```
 
+plot just B
+
+```{r}
+group_plt_dfB <- group_plt_df %>%
+  filter(cv_sample=="B")
+
+group_brain_pltB <- plot_cv_brain(group_plt_dfB, cent_group, "Group", "ggthemes::Classic_Green_Orange_6", levels(group_plt_dfB$cent_group), c(1.03, 4.5, .93), return_plt = FALSE)
+
+group_brain_pltB[[1]] <- group_brain_pltB[[1]] + group_fill_scale
+
+group_brain_pltB[[2]] <- group_brain_pltB[[2]] + group_fill_scale
+
+group_brain_pltB[[3]] <- group_brain_pltB[[3]] + group_fill_scale
+
+group_brain_pltB[[4]] <- get_legend(
+  ggplot(group_plt_df) +
+    geom_bar(aes(x=cv_sample, fill=cent_group)) + group_fill_scale
+  )
+
+saveRDS(group_brain_pltB, "figs/ggobjs/cent_groups_brain_B.rds")
+```
+
 ####Sigma
 
 ```{r}
@@ -1886,4 +1922,27 @@ sig.plts <- cowplot::plot_grid(
 sig.full_plt_obj <- plot_grid(sig.plts, legend, ncol=2, rel_widths = c(3, 1))
 
 ggsave("figs/supplement/deriv_group_brain_plt.png", sig.full_plt_obj, dpi=600, height=8.5, width=8, bg = "white")
+```
+
+plot just B
+
+```{r}
+deriv_group_plt_dfB <- deriv_group_plt_df %>%
+  filter(cv_sample=="B")
+
+deriv_group_pltB <- plot_cv_brain(deriv_group_plt_dfB, deriv_group, "Group", "ggthemes::Classic_Green_Orange_6", levels(deriv_group_plt_dfB$cent_group), c(1.03, 4.5, .93), return_plt = FALSE)
+
+deriv_group_pltB[[1]] <- deriv_group_pltB[[1]] + group_fill_scale
+
+deriv_group_pltB[[2]] <- deriv_group_pltB[[2]] + group_fill_scale
+
+deriv_group_pltB[[3]] <- deriv_group_pltB[[3]] + group_fill_scale
+
+deriv_group_pltB[[4]] <- get_legend(
+  ggplot(deriv_group_plt_dfB) +
+    geom_bar(aes(x=cv_sample, fill=deriv_group)) + group_fill_scale +
+    theme(legend.position="bottom")
+  )
+
+saveRDS(deriv_group_pltB, "figs/ggobjs/deriv_groups_brain_B.rds")
 ```
