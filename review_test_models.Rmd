@@ -551,6 +551,26 @@ sgmv_sigmaB <- sexdiffs_tbv %>%
 
 sGMV_B_plots <- list(sgmv_centB, sgmv_sigmaB, sgmv_derivB)
 saveRDS(sGMV_B_plots, "figs/ggobjs/sGMV_B_trajectories.rds")
+
+sexdiffs_tbv_glob <- sexdiffs_tbv %>%
+  mutate(age_days = age_days-280) %>%
+  filter(pheno %in% global_list & cv_sample=="B")
+
+cent_plt_pct <- sexdiffs_tbv_glob %>%
+  dplyr::select(centile_M_minus_F_z, pheno, age_days) %>%
+  na.omit() %>%
+  arrange(pheno, age_days) %>%
+  group_by(pheno) %>%
+  mutate(centile_M_minus_F_z = centile_M_minus_F_z / max(abs(centile_M_minus_F_z)) * 100) %>%
+  ungroup() %>%
+  ggplot() +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+  theme_linedraw() +
+  format_x_axis("lifespan", sexdiffs_tbv_glob$age_days) +
+  labs(y="% of Maximum Sex-Difference")
+cent_plt_pct
+saveRDS(cent_plt_pct, "figs/ggobjs/sGMV_B_trajectories.rds")
 ```
 
 
@@ -858,7 +878,8 @@ deriv_df <- sexdiffs_tbv %>%
   ungroup() %>%
   mutate(sq_deriv2.unlog = sq_deriv2*deriv_age)
 
-deriv_df %>%
+sq_deriv2_plt <- deriv_df %>%
+  #filter(pheno == "lh.CT.caudalanteriorcingulate") %>%
     ggplot() +
     geom_line(aes(x=logAge_days, y=sq_deriv2, group=pheno, color=pheno)) +
   #geom_smooth(aes(x=logAge_days, y=sq_deriv)) +
@@ -868,6 +889,7 @@ deriv_df %>%
     theme(legend.position = "none") +
     format_x_axis("log_lifespan_fetal", deriv_df$logAge_days) +
     labs(y="Change in Magnitude Sex Diff in Velocity")
+#ggplotly(sq_deriv2_plt)
 
 #try getting integral
 deriv_convergence_df <- deriv_df %>%
@@ -1296,19 +1318,16 @@ full_dom_pltB[[4]] <- get_legend(
     geom_point(aes(x=cv_sample, y=pheno, color=centile_int_norm.unlog)) +
      paletteer::scale_color_paletteer_c(
         "ggthemes::Orange-Blue Diverging",
-        name = "Normalized Sex Difference",
+        name = "Normalized\nSex Difference",
         limits = c(-0.07, 0.07),
         direction = -1,
         na.value = "gray90"
-      ) +
-    theme(legend.position = "bottom",
-          legend.title.position = "top"), 
-  legend="bottom"
+      )
   )
 saveRDS(full_dom_pltB, "figs/ggobjs/cent_dom_B.rds")
 
 #sigma
-full_dom_plt_sigmaB <- plot_cv_brain(dominance_plt_df_B, sigma_int_norm.unlog, "Normalized\nSigma Sex\nDifference", "ggthemes::Orange-Blue Diverging", c(-.03, .03), c(1.03, 4.5, .93), return_plt = FALSE)
+full_dom_plt_sigmaB <- plot_cv_brain(dominance_plt_df_B, sigma_int_norm.unlog, "Normalized\nSigma Sex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93), return_plt = FALSE)
 saveRDS(full_dom_plt_sigmaB, "figs/ggobjs/sig_dom_B.rds")
 ```
 
@@ -1564,9 +1583,9 @@ cent_group_plt <- cent_group_df %>%
   format_x_axis("lifespan_fetal", cent_group_df$age_days) +
   theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1)) +
   group_color_scale +
-  labs(y="50th Centile Sex-Difference")
+  labs(y="Trajectory Sex-Difference")
 
-ggsave("figs/misc/centile_groupings.png", cent_group_plt, width=9, height=9, dpi=600)
+ggsave("figs/supplement/centile_groupings.png", cent_group_plt, width=9, height=9, dpi=600)
 #ggplotly(cent_group_plt)
 ```
 
@@ -1622,6 +1641,16 @@ med_trajectory_pltB <- uniform_groups %>%
   format_x_axis("lifespan", uniform_groups$age_days) +
   labs(y="Median Sex-Difference")
 saveRDS(med_trajectory_pltB, "figs/ggobjs/cent_groups_median_B.rds")
+```
+
+trying again with clustering
+
+```{r}
+sexdiffs.df.u_centB <- full_join(LR.df_tot, sexdiffs.df.u) %>%
+  filter(sig_fdr==TRUE & total==TRUE & weighted==FALSE & cv_sample=="B") %>%
+  select(pheno, logAge_days, centile_M_minus_F_z)
+
+
 ```
 
 visualize with significance from age*sex effects
@@ -1855,7 +1884,22 @@ deriv_group_plt <- deriv_group_df %>%
   theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1))+
   labs(y="Male-Female Derivative")
 
+#testing
+test_plt <- deriv_group_df %>%
+  filter(pheno %in% ct_list) %>%
+  ggplot() +
+  geom_line(aes(x=age_days, y=deriv_M_minus_F_z, group=pheno, color=deriv_group)) +
+  facet_grid(deriv_group~cv_sample, scales="free_y") +
+  theme_linedraw() +
+  format_x_axis("lifespan_fetal", deriv_group_df$age_days) +
+    gghighlight(samp_pheno %in% sig_agesex, calculate_per_facet = TRUE, use_direct_label=FALSE) +
+  group_color_scale +
+  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1))+
+  labs(y="Male-Female Derivative")
+
+ggplotly(test_plt)
 ```
+
 
 median lines with uniform points
 ```{r}

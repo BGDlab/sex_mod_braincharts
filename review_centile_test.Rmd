@@ -122,6 +122,8 @@ cent_test.df <- bind_rows(output_fread, .id="file") %>%
     dx_sig_fdr = ifelse(dx_p.val_fdr <= 0.05, TRUE, FALSE),
     case.control_resi = d2S(d = case.control_d, pi = case.control_pi)
   ) %>%
+  #get back sign from d - pending approval from simon
+  mutate(case.control_resi = ifelse(case.control_d < 0, -case.control_resi, case.control_resi)) %>%
   ungroup()
 ```
 
@@ -205,7 +207,7 @@ cent_plt_resi_uncor <- ggplot(cent_plt_df) +
   ) +
   scale_fill_discrete(name = "Sex-Effect", labels = c("Age-Varying", "Intercept Only")) +
   facet_grid(dx~cv_sample, scales = "free_y") +
-  labs(y = "Cohen's D")
+  labs(y = "RESI")
 ggsave("figs/misc/cent_test_col_resi_uncorrected.png", cent_plt_resi_uncor, dpi = 600, width = 14, height=7)
 ```
 
@@ -337,7 +339,59 @@ dx_bxplt <- ggplot(cent_df_full_long, aes(x=pheno, y=std_score_full, color=contr
 
 ggsave("figs/supplement/dx_bxplt.png", dx_bxplt, height=7, width=9, dpi=600)
 ```
+save just B
 
+```{r}
+dx_bxpltB <- cent_df_full_long %>%
+  filter(cv_sample=="B") %>%
+  ggplot(aes(x=pheno, y=std_score_full, color=control)) +
+  geom_boxplot(outlier.size = .5) +
+  geom_text(
+    data = pvals %>% filter(cv_sample=="B"),
+    aes(x = pheno, y = y_pos, label = dx_sig_fdr),
+    inherit.aes = FALSE,
+    size = 4
+  ) +
+  facet_wrap(~dx_tested, nrow=3) +
+  scale_x_discrete(labels = c("total.SA" = "Total SA", 
+                              "mean.CT" = "Mean CT",
+                              "CBV" = "Cerebellum",
+                              "CSF" = "CSF",
+                              "GMV" = "Cortical GM",
+                              "sGMV" = "Subcortical GM",
+                              "WMV" = "WM")) +
+  scale_color_discrete(labels = c("CN" = "Control", "PT" = "Patient"), name = NULL) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), axis.title.x=element_blank()) +
+  labs(y="Standard Score")
+
+saveRDS(dx_bxpltB, "figs/ggobjs/dx_bxpltB.png")
+```
+
+brainplots across dx for just B
+
+```{r}
+#visualizing ventricles separately
+vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle", "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
+
+dx_all <- cent_test.df_uncor %>%
+  dplyr::filter(model == "full" & cv_sample == "B") %>%
+  filter(!(pheno %in% vent_list)) %>%
+  select(-cv_sample) %>%
+  dplyr::rename(sig_fdr = dx_sig_fdr,
+                cv_sample = dx)
+
+# Compute symmetric range for color scale
+d_range <- range(dx_all$case.control_resi, na.rm = TRUE)
+sym_range <- c(-max(abs(d_range)), max(abs(d_range)))
+
+  full_parts <- plot_cv_brain(
+    dx_all, case.control_resi, "RESI",
+    "ggthemes::Gold-Purple Diverging", sym_range, c(1.03, 4.5, .93),
+    return_plt = TRUE
+  )
+
+```
 
 ##Patient Sex-Differences
 
