@@ -551,28 +551,165 @@ sgmv_sigmaB <- sexdiffs_tbv %>%
 
 sGMV_B_plots <- list(sgmv_centB, sgmv_sigmaB, sgmv_derivB)
 saveRDS(sGMV_B_plots, "figs/ggobjs/sGMV_B_trajectories.rds")
+```
 
+```{r}
 sexdiffs_tbv_glob <- sexdiffs_tbv %>%
   mutate(age_days = age_days-280) %>%
-  filter(pheno %in% global_list & cv_sample=="B")
+  filter(pheno %in% global_list) %>%
+  #rescale to be percentage max
+  group_by(cv_sample, pheno) %>%
+  #mutate(centile_M_minus_F_z = centile_M_minus_F_z / max(abs(centile_M_minus_F_z)) * 100) %>%
+ungroup()
+
+sexdiffs_tbv_glob_sums <- sexdiffs_tbv_glob %>%
+  summarize(#age at peak sex diff
+            max_sex_diff = extr_val(centile_M_minus_F_z, which_max_gc(abs(centile_M_minus_F_z))),
+            age_max_sex_diff = extr_val(age_days, which_max_gc(abs(centile_M_minus_F_z))),
+            #age at min sex diff
+            min_sex_diff = extr_val(centile_M_minus_F_z, which_min_gc(abs(centile_M_minus_F_z))),
+            age_min_sex_diff = extr_val(age_days, which_min_gc(abs(centile_M_minus_F_z))),
+            #age peak change in sex diff
+            max_deriv = extr_val(centile_M_minus_F_z, which_max_gc(abs(deriv_M_minus_F_z))),
+            age_max_deriv = extr_val(age_days, which_max_gc(abs(deriv_M_minus_F_z))),
+            #age at male peak
+            max_M = extr_val(centile_M_minus_F_z, which_max_gc(median_centile_Male_z)),
+            age_max_M = extr_val(age_days, which_max_gc(median_centile_Male_z)),
+            #age at female peak
+            max_F = extr_val(centile_M_minus_F_z, which_max_gc(median_centile_Female_z)),
+            age_max_F = extr_val(age_days, which_max_gc(median_centile_Female_z)),
+            #age at male peak growth
+            max_deriv_M = extr_val(centile_M_minus_F_z, which_max_gc(deriv_median_centile_Male_z)),
+            age_max_deriv_M = extr_val(age_days, which_max_gc(deriv_median_centile_Male_z)),
+            #age at female peak growth
+            max_deriv_F = extr_val(centile_M_minus_F_z, which_max_gc(deriv_median_centile_Female_z)),
+            age_max_deriv_F = extr_val(age_days, which_max_gc(deriv_median_centile_Female_z)),
+            .by = c(cv_sample, pheno)
+            )
+
+#add age at peak rate divergence!!
+
+#pivot and rejoin
+values_long <- sexdiffs_tbv_glob_sums %>%
+  select(!starts_with("age_")) %>%
+  pivot_longer(cols = -c(pheno, cv_sample), names_to = "metric", values_to = "value")
+
+ages_long <- sexdiffs_tbv_glob_sums %>%
+  select(pheno, cv_sample, starts_with("age_")) %>%
+  pivot_longer(cols = starts_with("age_"), names_to = "metric", values_to = "age") %>%
+  mutate(metric = gsub("^age_", "", metric))
+
+sexdiffs_tbv_glob_sums_long <- left_join(values_long, ages_long, by = c("pheno", "cv_sample", "metric"))
 
 cent_plt_pct <- sexdiffs_tbv_glob %>%
-  dplyr::select(centile_M_minus_F_z, pheno, age_days) %>%
-  na.omit() %>%
-  arrange(pheno, age_days) %>%
-  group_by(pheno) %>%
-  mutate(centile_M_minus_F_z = centile_M_minus_F_z / max(abs(centile_M_minus_F_z)) * 100) %>%
-  ungroup() %>%
+  dplyr::select(cv_sample, centile_M_minus_F_z, pheno, age_days) %>%
   ggplot() +
   geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=cv_sample, color=cv_sample)) +
+  geom_point(
+    data = sexdiffs_tbv_glob_sums_long,
+    aes(x = age, y = value, color = cv_sample, shape = metric),
+    size = 3
+  ) +
+  scale_shape_manual(
+    values = c(
+      "max_sex_diff" = 19,
+      "min_sex_diff" = 15,
+      "max_deriv" = 18,
+      "max_M"        = 2,
+      "max_F"        = 6,
+      "max_deriv_M"  = 3,
+      "max_deriv_F"  = 4
+    )
+  ) +
   theme_linedraw() +
   format_x_axis("lifespan", sexdiffs_tbv_glob$age_days) +
-  labs(y="% of Maximum Sex-Difference")
+  facet_wrap(~pheno, scales="free_y") +
+  labs(y="Normalized Sex-Difference")
 cent_plt_pct
 saveRDS(cent_plt_pct, "figs/ggobjs/sGMV_B_trajectories.rds")
 ```
 
+Try averaging across splits
+
+```{r}
+sum_cols <- setdiff(names(sexdiffs.df.u), c("logAge_days", "cv_sample", "total", "weighted", "pheno", "uniform", "pheno_cat", "age_days"))
+
+glob_mean <- sexdiffs.df.u %>%
+  filter(pheno %in% global_list & total==TRUE) %>%
+  mutate(age_days = round(age_days, digits=0)) %>%
+  group_by(pheno, age_days) %>%
+  summarise(across(all_of(sum_cols), mean, na.rm = TRUE)) %>%
+  #rescale
+  group_by(pheno) %>%
+  mutate(centile_M_minus_F_z = centile_M_minus_F_z / max(abs(centile_M_minus_F_z)) * 100) %>%
+  ungroup()
+
+glob_mean_sums <- glob_mean %>%
+  summarize(#age at peak sex diff
+            max_sex_diff = extr_val(centile_M_minus_F_z, which_max_gc(abs(centile_M_minus_F_z))),
+            age_max_sex_diff = extr_val(age_days, which_max_gc(abs(centile_M_minus_F_z))),
+            #age at min sex diff
+            min_sex_diff = extr_val(centile_M_minus_F_z, which_min_gc(abs(centile_M_minus_F_z))),
+            age_min_sex_diff = extr_val(age_days, which_min_gc(abs(centile_M_minus_F_z))),
+            #age peak change in sex diff
+            max_deriv = extr_val(centile_M_minus_F_z, which_max_gc(abs(deriv_M_minus_F_z))),
+            age_max_deriv = extr_val(age_days, which_max_gc(abs(deriv_M_minus_F_z))),
+            #age at male peak
+            max_M = extr_val(centile_M_minus_F_z, which_max_gc(median_centile_Male_z)),
+            age_max_M = extr_val(age_days, which_max_gc(median_centile_Male_z)),
+            #age at female peak
+            max_F = extr_val(centile_M_minus_F_z, which_max_gc(median_centile_Female_z)),
+            age_max_F = extr_val(age_days, which_max_gc(median_centile_Female_z)),
+            #age at male peak growth
+            max_deriv_M = extr_val(centile_M_minus_F_z, which_max_gc(deriv_median_centile_Male_z)),
+            age_max_deriv_M = extr_val(age_days, which_max_gc(deriv_median_centile_Male_z)),
+            #age at female peak growth
+            max_deriv_F = extr_val(centile_M_minus_F_z, which_max_gc(deriv_median_centile_Female_z)),
+            age_max_deriv_F = extr_val(age_days, which_max_gc(deriv_median_centile_Female_z)),
+            .by = pheno
+            )
+
+#add age at peak rate divergence!!
+
+#pivot and rejoin
+values_long <- glob_mean_sums %>%
+  select(!starts_with("age_")) %>%
+  pivot_longer(cols = -c(pheno), names_to = "metric", values_to = "value")
+
+ages_long <- glob_mean_sums %>%
+  select(pheno, starts_with("age_")) %>%
+  pivot_longer(cols = starts_with("age_"), names_to = "metric", values_to = "age") %>%
+  mutate(metric = gsub("^age_", "", metric))
+
+glob_mean_sums_long <- left_join(values_long, ages_long, by = c("pheno", "metric"))
+
+cent_plt_pct_mean <- glob_mean %>%
+  ggplot() +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_smooth(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+  geom_point(
+    data = glob_mean_sums_long,
+    aes(x = age, y = value, color = pheno, shape = metric),
+    size = 3
+  ) +
+  scale_shape_manual(
+    values = c(
+      "max_sex_diff" = 19,
+      "min_sex_diff" = 15,
+      "max_deriv" = 18,
+      "max_M"        = 2,
+      "max_F"        = 6,
+      "max_deriv_M"  = 3,
+      "max_deriv_F"  = 4
+    )
+  ) +
+  theme_linedraw() +
+  format_x_axis("lifespan", sexdiffs_tbv_glob$age_days) +
+  facet_wrap(~pheno, scales="free_y") +
+  labs(y="% Maximum Sex-Difference")
+cent_plt_pct_mean
+```
 
 ```{r}
 biggest_agesex_resi <- LR.df_tot %>%

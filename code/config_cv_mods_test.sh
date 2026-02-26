@@ -6,6 +6,8 @@
 data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
+#hardcoding sim df for consistency across phenos and splits
+sim_df=$(realpath $data_path/v3_full_sim.rds)
 
 rerun="FALSE"
 
@@ -112,19 +114,6 @@ do
           continue
         else
           file="${file_matches[0]}"
-        fi
-        
-        #write csv to test in - handle optional _logPheno*_ in filename
-        mapfile -t sim_df_matches < <(find $(realpath $data_path) -type f -name "cv_sample_${split}_sim.rds" 2>/dev/null)
-        if [ ${#sim_df_matches[@]} -gt 1 ]; then
-          echo "Error: Multiple *sim.rds files found:"
-          printf '%s\n' "${sim_df_matches[@]}"
-          exit 1
-        elif [ ${#sim_df_matches[@]} -eq 0 ]; then
-          echo "Warning: No *sim.rds file found, skipping"
-          continue
-        else
-          sim_df="${sim_df_matches[0]}"
         fi
 
 	  # find training BestModel in other csv - handle optional _logPheno*_ in directory names
