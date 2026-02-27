@@ -212,19 +212,30 @@ plot_global <- function(df, fill_var) {
     )
 }
 
-format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limits, direction) {
+format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limits, direction, fill_values = NULL) {
   fill_var_name <- rlang::as_name(rlang::enquo(fill_var))
   is_categorical <- is.factor(df[[fill_var_name]]) || is.character(df[[fill_var_name]])
 
   if (is_categorical) {
-    plt <- plt +
-      paletteer::scale_fill_paletteer_d(
-        fill_color,
-        name = fill_name,
-        na.value = "gray90",
-        limits = fill_limits,
-        drop = FALSE
-      )
+    if (!is.null(fill_values) && length(fill_values) > 0) {
+      plt <- plt +
+        ggplot2::scale_fill_manual(
+          values = fill_values,
+          name = fill_name,
+          na.value = "gray90",
+          limits = fill_limits,
+          drop = FALSE
+        )
+    } else {
+      plt <- plt +
+        paletteer::scale_fill_paletteer_d(
+          fill_color,
+          name = fill_name,
+          na.value = "gray90",
+          limits = fill_limits,
+          drop = FALSE
+        )
+    }
   } else {
     plt <- plt +
       paletteer::scale_fill_paletteer_c(
@@ -247,7 +258,8 @@ plot_cv_brain <- function(df,
                           return_plt = TRUE, 
                           include_global = TRUE, 
                           rel_widths = c(3, .6),
-                          direction=1) {
+                          direction = 1,
+                          fill_values = NULL) {
   show_cv_labels <- !include_global
 
   cortex_plt <- plot_cortex(
@@ -255,14 +267,14 @@ plot_cv_brain <- function(df,
     show_cv_facet_labels = show_cv_labels,
     margin_top = if (include_global) 5 else 0
   )
-  cortex_plt <- format_fill_var(df, {{ fill_var }}, cortex_plt, fill_name, fill_color, fill_limits, direction)
+  cortex_plt <- format_fill_var(df, {{ fill_var }}, cortex_plt, fill_name, fill_color, fill_limits, direction, fill_values)
 
   subcort_plt <- plot_subcortex(df, {{ fill_var }})
-  subcort_plt <- format_fill_var(df, {{ fill_var }}, subcort_plt, fill_name, fill_color, fill_limits, direction)
+  subcort_plt <- format_fill_var(df, {{ fill_var }}, subcort_plt, fill_name, fill_color, fill_limits, direction, fill_values)
 
   if (include_global) {
     glob_plt <- plot_global(df, {{ fill_var }})
-    glob_plt <- format_fill_var(df, {{ fill_var }}, glob_plt, fill_name, fill_color, fill_limits, direction)
+    glob_plt <- format_fill_var(df, {{ fill_var }}, glob_plt, fill_name, fill_color, fill_limits, direction, fill_values)
     legend <- cowplot::get_legend(glob_plt)
     glob_plt <- glob_plt + ggplot2::theme(legend.position = "none")
   } else {
