@@ -212,7 +212,7 @@ plot_global <- function(df, fill_var) {
     )
 }
 
-format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limits) {
+format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limits, direction) {
   fill_var_name <- rlang::as_name(rlang::enquo(fill_var))
   is_categorical <- is.factor(df[[fill_var_name]]) || is.character(df[[fill_var_name]])
 
@@ -231,7 +231,7 @@ format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limit
         fill_color,
         name = fill_name,
         limits = fill_limits,
-        direction = -1,
+        direction = direction,
         na.value = "gray90"
       )
   }
@@ -246,7 +246,8 @@ plot_cv_brain <- function(df,
                           height_list=c(1.03, 4.5, .93), 
                           return_plt = TRUE, 
                           include_global = TRUE, 
-                          rel_widths = c(3, .6)) {
+                          rel_widths = c(3, .6),
+                          direction=1) {
   show_cv_labels <- !include_global
 
   cortex_plt <- plot_cortex(
@@ -254,14 +255,14 @@ plot_cv_brain <- function(df,
     show_cv_facet_labels = show_cv_labels,
     margin_top = if (include_global) 5 else 0
   )
-  cortex_plt <- format_fill_var(df, {{ fill_var }}, cortex_plt, fill_name, fill_color, fill_limits)
+  cortex_plt <- format_fill_var(df, {{ fill_var }}, cortex_plt, fill_name, fill_color, fill_limits, direction)
 
   subcort_plt <- plot_subcortex(df, {{ fill_var }})
-  subcort_plt <- format_fill_var(df, {{ fill_var }}, subcort_plt, fill_name, fill_color, fill_limits)
+  subcort_plt <- format_fill_var(df, {{ fill_var }}, subcort_plt, fill_name, fill_color, fill_limits, direction)
 
   if (include_global) {
     glob_plt <- plot_global(df, {{ fill_var }})
-    glob_plt <- format_fill_var(df, {{ fill_var }}, glob_plt, fill_name, fill_color, fill_limits)
+    glob_plt <- format_fill_var(df, {{ fill_var }}, glob_plt, fill_name, fill_color, fill_limits, direction)
     legend <- cowplot::get_legend(glob_plt)
     glob_plt <- glob_plt + ggplot2::theme(legend.position = "none")
   } else {

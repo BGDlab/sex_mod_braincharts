@@ -215,7 +215,7 @@ range(LR.df_uncor$sig_resi, na.rm=T)
 LR.df_uncor_novent <- LR.df_uncor %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_uncor_novent$resi)
-full_plt_uncor <- plot_cv_brain(LR.df_uncor_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1.03, 4.5, .93))
+full_plt_uncor <- plot_cv_brain(LR.df_uncor_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1.03, 4.5, .93), direction=-1)
 
 ggsave("figs/supplement/resi_uncorrected.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
@@ -224,7 +224,7 @@ ggsave("figs/supplement/resi_uncorrected.png", full_plt_uncor, dpi=600, height=8
 #test plotting just split A
 LR.df_uncor_novent_B <- LR.df_uncor_novent %>%
   filter(cv_sample=="B")
-B_plt_uncor <- plot_cv_brain(LR.df_uncor_novent_B, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1, , 1.5), return_plt=FALSE)
+B_plt_uncor <- plot_cv_brain(LR.df_uncor_novent_B, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1, , 1.5), return_plt=FALSE, direction=-1)
 saveRDS(B_plt_uncor, "figs/ggobjs/agebysex_B.rds")
 ```
 
@@ -258,7 +258,7 @@ LR.df_tot_novent <- LR.df_tot %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_tot_novent$resi)
 
-full_plt_tot <- plot_cv_brain(LR.df_tot_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1.03, 4.5, .93))
+full_plt_tot <- plot_cv_brain(LR.df_tot_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1.03, 4.5, .93), direction=-1)
 
 ggsave("figs/supplement/resi_tbv.png", full_plt_tot, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
@@ -292,7 +292,7 @@ LR.df_tot_sex_novent <- LR.df_tot_sex %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_tot_sex_novent$resi)
 
-full_plt_tot_sex <- plot_cv_brain(LR.df_tot_sex_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.2), c(1.03, 4.5, .93))
+full_plt_tot_sex <- plot_cv_brain(LR.df_tot_sex_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.2), c(1.03, 4.5, .93), direction=-1)
 
 ggsave("figs/supplement/resi_tbv_allsex.png", full_plt_tot_sex, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
@@ -302,7 +302,7 @@ plot just in B
 #removing ventricles for visualization:
 LR.df_tot_sex_noventB <- LR.df_tot_sex_novent %>%
   filter(cv_sample=="A")
-full_plt_tot_sex_B <- plot_cv_brain(LR.df_tot_sex_noventB, resi, "RESI", "grDevices::Greens 2", c(0,0.2), c(1, 5, 1.1), return_plt = FALSE)
+full_plt_tot_sex_B <- plot_cv_brain(LR.df_tot_sex_noventB, resi, "RESI", "grDevices::Greens 2", c(0,0.2), c(1, 5, 1.1), return_plt = FALSE, direction=-1)
 
 saveRDS(full_plt_tot_sex_B, "figs/ggobjs/full_plt_tot_sex_B.rds")
 ```
@@ -1300,7 +1300,7 @@ dominance_plt_df_novent <- dominance_plt_df %>%
   filter(!(pheno %in% vent_list))
 range(dominance_plt_df_novent$centile_int_norm.unlog)
 
-full_dom_plt <- plot_cv_brain(dominance_plt_df_novent, centile_int_norm.unlog, "Normalized\nSex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93))
+full_dom_plt <- plot_cv_brain(dominance_plt_df_novent, centile_int_norm.unlog, "Normalized\nSex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93), direction=1)
 
 ggsave("figs/supplement/dominance_tbvTRUE.png", full_dom_plt, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
