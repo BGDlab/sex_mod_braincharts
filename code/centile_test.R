@@ -105,13 +105,24 @@ df_pt <- df_full_cent %>%
   filter(dx_recode!=cn_level)
 fwrite(df_pt, file=paste0(save_path, "/cent_csvs/", pheno, "_PT_", dx_val, "_cent.csv"))
 
+#get stats about patients with extreme centiles
+df_long <- df_pt %>%
+  pivot_longer(
+    cols = matches("_centile_|_std_score_"),
+    names_to = c("pheno", ".value", "model"),
+    names_pattern = "(.+)_(centile|std_score)_(full|null|null2)"
+  ) %>%
+  rename(centile = centile, std_score = std_score)
+
 ##### DX #####
 print("testing disease effects...")
 dx_test_df <- data.frame()
 dx_lm_df <- data.frame()
 
-#get sampling proportions for RESI
-pi <- nrow(df_cn)/nrow(df_full_cent)
+#get basic sample stats
+n_cn <- nrow(df_cn)
+n_pt <- nrow(df_pt)
+pi <- n_cn/nrow(df_full_cent) #sampling prop for resi
 
 for (mn in names(mod_list)){
   col_name <- paste(pheno, "std_score", mn, sep="_")
@@ -121,15 +132,18 @@ for (mn in names(mod_list)){
   test_d <- effsize::cohen.d(df_full_cent[[col_name]] ~ df_full_cent$dx_recode)
   
   test_df <- data.frame("dx" = dx_val,
+                        "n_cn" = n_cn,
+                        "n_pt" = n_pt,
                         "model" = mn,
+                        "case.control_pi" = pi,
                         "case.control_tstat" = test_out$statistic,
                         "case.control_df" = test_out$parameter,
                         "case.control_p.val" = test_out$p.value,
                         "case.control_est" = test_out$estimate,
                         "case.control_ci_up" = test_out$conf.int[1],
                         "case.control_ci_low" = test_out$conf.int[1],
-                        "case.control_d" = test_d$estimate,
-                        "case.control_pi" = pi)
+                        "case.control_d" = test_d$estimate
+                        )
   
   dx_test_df <- rbind(dx_test_df, test_df)
   

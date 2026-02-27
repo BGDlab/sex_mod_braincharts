@@ -1367,25 +1367,15 @@ prop_above_df <- sexdiffs_tbv %>%
   summarise(prop_male = prop_above(age_days, centile_M_minus_F_z)) %>%
   ungroup() %>%
   mutate(class = case_when(
-    prop_male == 0 ~ "all_female",
-    prop_male == 1 ~ "all_male",
+    prop_male < .1 ~ "F",
+    prop_male > .9 ~ "M",
+    TRUE ~ "mixed"),
+    strict_class = case_when(
+    prop_male == 0 ~ "F",
+    prop_male == 1 ~ "M",
     TRUE ~ "mixed")
   )
 
-table(prop_above_df$cv_sample, prop_above_df$class)
-
-prop_above_df %>%
-  group_by(cv_sample) %>%
-  summarise(n_female = sum(class=="all_female"),
-            n_male = sum(class=="all_male"),
-            n_mixed = sum(class=="mixed"),
-            n=n()) %>%
-  mutate(pct_female = (n_female/n)*100,
-         pct_male = (n_male/n)*100,
-         pct_mix = (n_mixed/n)*100)
-```
-
-```{r}
 #add back sex-effect significance, remove ventricles for visualization
 prop_above_df_novent <- full_join(LR.df_tot_sex, prop_above_df %>% dplyr::select(!pheno_cat)) %>%
   filter(!(pheno %in% vent_list))
@@ -1393,6 +1383,135 @@ prop_above_df_novent <- full_join(LR.df_tot_sex, prop_above_df %>% dplyr::select
 full_above_plt <- plot_cv_brain(prop_above_df_novent, prop_male, "Proportion\nMale-\nDominant", "ggthemes::Orange-Blue Diverging", c(0, 1), c(1.03, 4.5, .93))
 
 ggsave("figs/supplement/prop_male_tbvTRUE.png", full_above_plt, dpi=600, height=8.5, width=7.5, bg = "white")
+```
+
+
+####Grouping
+grouping by M vs F, converging vs diverging
+
+```{r}
+ggplot(prop_above_df) +
+  geom_histogram(aes(x=prop_male)) +
+  geom_vline(xintercept = .1) +
+  geom_vline(xintercept = .9)
+
+table(prop_above_df$class, prop_above_df$cv_sample)
+table(prop_above_df$strict_class, prop_above_df$cv_sample)
+
+#look at age*sex significance
+prop_above_df2 <- full_join(prop_above_df, LR.df_tot)
+prop_above_df2 %>%
+  group_by(cv_sample, class) %>%
+  summarise(sig_agesex=sum(sig_fdr==TRUE),
+            n=n()) %>%
+  mutate(pct_sig = sig_agesex/n)
+
+#plot trajectories
+sexdiffs_tbv3 <- full_join(sexdiffs_tbv, prop_above_df2)
+
+sexdiffs_tbv3 %>%
+    dplyr::select(pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F_z, class) %>%
+    na.omit() %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno_cat)) +
+    facet_grid(class~cv_sample, scales="free_y")
+
+#look at just those with sig. age*sex
+sexdiffs_tbv3 %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno_cat)) +
+    facet_grid(class~cv_sample, scales="free_y") +
+  gghighlight(sig_fdr==TRUE, calculate_per_facet = TRUE)
+
+#see convergence vs divergence
+prop_above_df3 <- full_join(prop_above_df2, convergence_int) %>%
+  mutate(class = paste(class, overall_trajectory, sep="_"))
+
+prop_above_df3 %>%
+  filter(sig_fdr==TRUE) %>%
+  group_by(cv_sample, class) %>%
+  summarise(n = n())
+```
+
+
+
+
+what's going on with the mixed phenotypes?
+
+```{r}
+group_cd <- full_join(sexdiffs_tbv, prop_above_df3)
+
+mixed_plt <- group_cd %>%
+  filter(sig_fdr==TRUE & (class=="mixed_converging" | class=="mixed_diverging")) %>%
+  arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y")
+ggplotly(mixed_plt)
+
+#try simple grouping by sign
+group_cd_mix <- group_cd %>%
+  filter(class=="mixed_converging" | class=="mixed_diverging") %>%
+  select(logAge_days, cv_sample, pheno, centile_M_minus_F_z) %>%
+  arrange(logAge_days) %>%
+  group_by(cv_sample, pheno) %>%
+  slice(c(1,n())) %>%
+  mutate(sex = ifelse(centile_M_minus_F_z > 0 , "M", "F")) %>%
+  summarise(transition = paste(first(sex), last(sex), sep = "_to_"), .groups = "drop")
+table(group_cd_mix$transition, group_cd_mix$cv_sample)
+
+mixed_plt2 <- full_join(group_cd, group_cd_mix) %>%
+  filter(class=="mixed_converging" | class=="mixed_diverging" & sig_fdr==TRUE) %>%
+  #filter(pheno != "rh.CT.rostralanteriorcingulate") %>%
+  arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+    facet_grid(transition~cv_sample, scales="free_y") +
+  theme(legend.position="none")
+
+ggplotly(mixed_plt2)
+```
+
+```{r}
+group_traj_final <- full_join(group_cd, group_cd_mix) %>%
+  mutate(group=case_when(
+    class=="mixed_converging" | class=="mixed_diverging" ~ transition,
+    TRUE ~ class
+  ))
+
+group_final <- group_traj_final %>%
+  select(cv_sample, total, weighted, pheno, pheno_cat, class, prop_male, strict_class, resi, sig_fdr, overall_trajectory, transition, group, label) %>%
+  unique()
+```
+
+brain plots
+
+```{r}
+group_color_scale <- scale_colour_manual(
+  values = c("F_diverging"="#9E3D22FF", "F_converging"="#C06636FF", "F_to_F"="#CE9344FF", "F_to_M" ="#E8B960FF", 
+             "M_to_F"="#97B4C4", "M_to_M" = "#4C7F9C", "M_converging"="#365b6f","M_diverging"="#17486FFF"),
+  breaks = c("F_diverging", "F_converging", "F_to_F", "F_to_M", 
+             "M_to_F", "M_to_M", "M_converging", "M_diverging"),
+  labels = c("Female Diverging", "Female Converging", "Female U", "Female to Male", 
+             "Male to Female", "Male U", "Male Converging", "Male Diverging"),
+  name = "Group",
+  na.value="gray90"
+)
+
+group_fill_scale <- scale_fill_manual(
+  values = c("F_diverging"="#9E3D22FF", "F_converging"="#C06636FF", "F_to_F"="#CE9344FF", "F_to_M" ="#E8B960FF", 
+             "M_to_F"="#97B4C4", "M_to_M" = "#4C7F9C", "M_converging"="#365b6f","M_diverging"="#17486FFF"),
+  breaks = c("F_diverging", "F_converging", "F_to_F", "F_to_M", 
+             "M_to_F", "M_to_M", "M_converging", "M_diverging"),
+  labels = c("Female Diverging", "Female Converging", "Female U", "Female to Male", 
+             "Male to Female", "Male U", "Male Converging", "Male Diverging"),
+  name = "Group",
+  na.value="gray90"
+)
+
+group_brain_plt <- plot_cv_brain(group_final, group, "Group", "ggthemes::Classic_Green_Orange_6", levels(group_final$group), c(1.03, 4.5, .93), return_plt = TRUE)
 ```
 
 
@@ -1620,23 +1739,6 @@ sexdiffs_tbv %>%
 ```
 
 ```{r}
-group_color_scale <- scale_colour_manual(
-  values = c("M_increasing"="#C06636FF", "M_decreasing"="#CE9344FF", "M_to_F" ="#E8B960FF", "F_to_M"="#7BA0B4FF", "F_decreasing"="#44728CFF", "F_increasing"="#17486FFF"),
-  breaks = c("M_increasing", "M_decreasing", "M_to_F", "F_to_M", "F_decreasing", "F_increasing"),
-  labels = c("Male Diverging", "Male Converging", "Male to Female", "Female to Male", "Female Converging", "Female Diverging"),
-  name = "Group",
-  na.value="gray90"
-)
-
-group_fill_scale <- scale_fill_manual(
-  values = c("M_increasing"="#C06636FF", "M_decreasing"="#CE9344FF", "M_to_F" ="#E8B960FF", "F_to_M"="#7BA0B4FF", "F_decreasing"="#44728CFF", "F_increasing"="#17486FFF"),
-  breaks = c("M_increasing", "M_decreasing", "M_to_F", "F_to_M", "F_decreasing", "F_increasing"),
-  labels = c("Male Diverging", "Male Converging", "Male to Female", "Female to Male", "Female Converging", "Female Diverging"),
-  name = "Group",
-  na.value="gray90"
-)
-  
-
 ggplot(group_sum) +
   geom_bar(aes(x=pheno_cat, fill=cent_group)) +
   facet_wrap(~cv_sample) + coord_flip() +

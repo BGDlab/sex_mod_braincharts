@@ -402,7 +402,7 @@ deriv_group[[4]],
 nrow=2,
 rel_heights=c(1, .2)
 )
-ggsave("figs/fig3.png", grp_plt, width=1, height=9, dpi=600, bg = "white")
+ggsave("figs/fig3.png", grp_plt, width=17, height=9, dpi=600, bg = "white")
 ```
 
 #FIGURE 4: Case-Control Differences
@@ -424,4 +424,10 @@ dx_plt <- plot_grid(
   labels=c("A", "B", "")
 )
 ggsave("figs/fig4.png", dx_plt, width=21, height=6.5, dpi=600, bg = "white")
+```
+
+#FIGURE 5: sex-differences across the lifespan
+
+```{r}
+cent_plt_pct <- readRDS("figs/ggobjs/sGMV_B_trajectories.rds")
 ```

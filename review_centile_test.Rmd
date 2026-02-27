@@ -108,7 +108,7 @@ cent_test.df <- bind_rows(output_fread, .id="file") %>%
     TRUE ~ label
   )) %>%
   select(!file) %>%
-  group_by(total, weighted, cv_sample) %>% #apply FDR correction within each combo ??apply fdr correction within each model??
+  group_by(total, weighted, cv_sample, model) %>% #apply FDR correction within each combo ??apply fdr correction within each model??
   mutate(
     dx_p.val_fdr = p.adjust(
       case.control_p.val,
@@ -396,6 +396,50 @@ ggsave("figs/tmp.png", dx_brain_plt, width=18, height=7, dpi=600, bg = "white")
 saveRDS(dx_brain_plt, "figs/ggobjs/dx_brain_plt.rds")
 ```
 
+
+playing with logistic regression
+
+```{r}
+scz_test <- cent_df_uncor %>%
+  filter(dx_tested=="SCZ") %>%
+  filter(!is.na(mean.CT_std_score_full)) %>%
+  mutate(control = ifelse(control=="CN",1,0))
+
+test1 <- glm(control ~ mean.CT_std_score_full, data = scz_test, family = "binomial")
+test2 <- glm(control ~ mean.CT_std_score_null, data = scz_test, family = "binomial")
+
+# Extract ROCs
+fit1.roc <- pROC::roc(scz_test$control, test1$fitted.values)
+fit2.roc <- pROC::roc(scz_test$control, test2$fitted.values)
+
+# Convert each ROC to a data frame
+roc_to_df <- function(roc_obj, model_name) {
+  data.frame(
+    specificity = roc_obj$specificities,
+    sensitivity = roc_obj$sensitivities,
+    model = model_name
+  )
+}
+
+roc_df <- rbind(
+  roc_to_df(fit1.roc, paste0("Full (AUC = ", round(fit1.roc$auc, 3), ")")),
+  roc_to_df(fit2.roc, paste0("Null (AUC = ", round(fit2.roc$auc, 3), ")"))
+)
+
+# Plot
+ggplot(roc_df, aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_line(linewidth = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_manual(values = c("steelblue", "tomato")) +
+  labs(
+    title = "ROC Curves",
+    x = "False Positive Rate (1 - Specificity)",
+    y = "True Positive Rate (Sensitivity)",
+    color = "Model"
+  ) +
+  theme_classic() +
+  theme(legend.position = c(0.7, 0.2))
+```
 ##Patient Sex-Differences
 
 ```{r}
@@ -439,7 +483,7 @@ sex_test.df <- bind_rows(output_fread, .id="file") %>%
     TRUE ~ label
   )) %>%
   select(!file) %>%
-  group_by(total, weighted, cv_sample) %>% #apply FDR correction within each combo ??apply fdr correction within each model??
+  group_by(total, weighted, cv_sample, model) %>%
   mutate(
     sex_p.val_fdr = p.adjust(
       pt.sex_p.val,
