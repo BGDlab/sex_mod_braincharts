@@ -800,6 +800,21 @@ group_by(pheno, cv_sample) %>%
     theme(legend.position = "none")
 ```
 
+what are the age-ranges plotted per pheno?
+```{r}
+ages_sum <- sexdiffs_tbv %>%
+  arrange(logAge_days) %>%
+  group_by(cv_sample, pheno) %>%
+  summarise(min_age=min(age_days),
+            max_age=max(age_days)) %>%
+  mutate(min_years = (min_age-280)/365.25,
+         max_years = (max_age-280)/365.25)
+ggplot(ages_sum) +
+  geom_histogram(aes(x=min_years))
+ggplot(ages_sum) +
+  geom_histogram(aes(x=max_years))
+```
+
 ###Convergence vs Divergence
 
 *Do sex-differences tend to increase, decrease, or remain constant across the lifespan?*
@@ -1037,6 +1052,1012 @@ deriv_convergence_df <- deriv_df %>%
   mutate(overall_trajectory = ifelse(sq_int_z <0 ,"converging", "diverging"))
 ```
 
+###Sex-Dominance
+*Which regions on average are bigger/more variable in males vs females and at what points in the lifespan?*
+Now look at sex-dominance with integrals (M-F > or < 0)
+Calculating across age, not log-age, for interpretability
+
+```{r}
+dominance_df <- sexdiffs_tbv %>%
+  group_by(pheno, cv_sample, pheno_cat) %>%
+  arrange(logAge_days, .by_group = TRUE) %>%
+  summarise(centile_int.unlog = rs_integral(logAge_days, centile_M_minus_F_z),
+            sigma_int.unlog =  rs_integral(logAge_days, logcv_M_div_F),
+            age_range = max(age_days) - min(age_days)) %>%
+  # rescaling integrals to 100 years
+  mutate(centile_int_norm.unlog = (centile_int.unlog/age_range)*365.25*100,
+         sigma_int_norm.unlog = (sigma_int.unlog/age_range)*365.25*100) %>%
+  mutate(dominance = case_when(
+    centile_int.unlog == 0 ~ "Balanced",
+    centile_int.unlog < 0 ~ "Female",
+    centile_int.unlog > 0 ~ "Male"
+  ),
+  dominance_norm = case_when(
+    centile_int_norm.unlog == 0 ~ "Balanced",
+    centile_int_norm.unlog < 0 ~ "Female",
+    centile_int_norm.unlog > 0 ~ "Male"
+  ),
+  sigma_dominance = case_when(
+    sigma_int.unlog == 0 ~ "Balanced",
+    sigma_int.unlog < 0 ~ "Female",
+    sigma_int.unlog > 0 ~ "Male"
+  ),
+  sigma_dominance_norm = case_when(
+    sigma_int_norm.unlog == 0 ~ "Balanced",
+    sigma_int_norm.unlog < 0 ~ "Female",
+    sigma_int_norm.unlog > 0 ~ "Male"
+  ))
+
+dominance_df %>%
+  group_by(pheno_cat, cv_sample) %>% 
+  count(dominance, pheno_cat, cv_sample) %>% 
+  mutate(perc = n / sum(n)) %>% 
+  ggplot(aes(x=pheno_cat, y=perc, fill=dominance)) +
+  geom_col(position="fill") +
+  facet_wrap(~cv_sample) +
+    geom_text(aes(label = scales::percent(perc)), position = position_fill(vjust = 0.5)) +
+  coord_flip()
+
+dominance_df %>%
+  group_by(pheno_cat, cv_sample) %>% 
+  count(sigma_dominance, pheno_cat, cv_sample) %>% 
+  mutate(perc = n / sum(n)) %>% 
+  ggplot(aes(x=pheno_cat, y=perc, fill=sigma_dominance)) +
+  geom_col(position="fill") +
+  facet_wrap(~cv_sample) +
+    geom_text(aes(label = scales::percent(perc)), position = position_fill(vjust = 0.5))+
+  coord_flip()
+```
+
+
+```{r}
+dominance_plt_df <- full_join(LR.df_tot_sex, dominance_df %>% dplyr::select(!pheno_cat))
+dominance_plt_df %>%
+  mutate(dominance = ifelse(sig_fdr==TRUE, dominance, "NA")) %>%
+  group_by(cv_sample) %>%
+  summarise(F_dom = sum(dominance=="Female")/n(),
+            M_dom = sum(dominance=="Male")/n())
+```
+
+plot dominance on brain
+
+```{r}
+#removing ventricles for visualization:
+dominance_plt_df_novent <- dominance_plt_df %>%
+  filter(!(pheno %in% vent_list))
+range(dominance_plt_df_novent$centile_int_norm.unlog)
+
+full_dom_plt <- plot_cv_brain(dominance_plt_df_novent, centile_int_norm.unlog, "Normalized\nSex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93), direction=1)
+
+ggsave("figs/supplement/dominance_tbvTRUE.png", full_dom_plt, dpi=600, height=8.5, width=7.5, bg = "white")
+```
+
+How much of the lifespan are phenos male vs female dominant?
+
+```{r}
+#define function
+prop_above <- function(x, y, threshold=0){
+  crosses <- find_threshold_crosses(y, x, threshold, return="x", return_endpoints = FALSE)
+  crosses <- c(crosses, min(x), max(x)) %>% 
+    sort()
+  #overall age modeled
+  total_range <- max(x) - min(x)
+  
+  ranges <- diff(crosses)
+  
+  #if y > threshold at min(x) -> sum odd number ranges
+  odd_indices_logical <- (1:length(ranges)) %% 2 == 1
+  
+  if (y[1] > threshold) {
+    items_at_odd_indices <- ranges[odd_indices_logical]
+    time_above <- sum(items_at_odd_indices)
+  } else {
+    items_at_even_indices <- ranges[!odd_indices_logical]
+    time_above <- sum(items_at_even_indices)
+  }
+  
+  prop_above <- time_above/total_range
+  
+  return(prop_above)
+}
+
+#test function
+test <- sexdiffs_tbv %>%
+  filter(cv_sample =="A" & pheno=="sGMV")
+prop_above(test$age_days, test$centile_M_minus_F_z)
+ggplot(test) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+
+test <- sexdiffs_tbv %>%
+  filter(cv_sample =="A" & pheno=="WMV")
+prop_above(test$age_days, test$centile_M_minus_F_z)
+ggplot(test) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+
+test <- sexdiffs_tbv %>%
+  filter(cv_sample =="A" & pheno=="GMV")
+prop_above(test$age_days, test$centile_M_minus_F_z)
+ggplot(test) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+
+test <- sexdiffs_tbv %>%
+  filter(cv_sample =="B" & pheno=="GMV")
+prop_above(test$age_days, test$centile_M_minus_F_z)
+ggplot(test) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+
+test <- sexdiffs_tbv %>%
+  filter(cv_sample =="B" & pheno=="lh.SA.pericalcarine")
+prop_above(test$age_days, test$centile_M_minus_F_z)
+ggplot(test) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+```
+
+```{r}
+prop_above_df <- sexdiffs_tbv %>%
+  group_by(pheno, cv_sample, pheno_cat) %>%
+  arrange(age_days, .by_group = TRUE) %>%
+  summarise(prop_male = prop_above(age_days, centile_M_minus_F_z)) %>%
+  ungroup() %>%
+  mutate(class = case_when(
+    prop_male < .1 ~ "F",
+    prop_male > .9 ~ "M",
+    TRUE ~ "mixed"),
+    strict_class = case_when(
+    prop_male == 0 ~ "F",
+    prop_male == 1 ~ "M",
+    TRUE ~ "mixed")
+  )
+
+#add back sex-effect significance, remove ventricles for visualization
+prop_above_df_novent <- full_join(LR.df_tot_sex, prop_above_df %>% dplyr::select(!pheno_cat)) %>%
+  filter(!(pheno %in% vent_list))
+
+full_above_plt <- plot_cv_brain(prop_above_df_novent, prop_male, "Proportion\nMale-\nDominant", "ggthemes::Orange-Blue Diverging", c(0, 1), c(1.03, 4.5, .93))
+
+ggsave("figs/supplement/prop_male_tbvTRUE.png", full_above_plt, dpi=600, height=8.5, width=7.5, bg = "white")
+```
+####Sigma
+
+```{r}
+range(dominance_plt_df_novent$sigma_int_norm.unlog)
+
+full_dom_plt_sigma <- plot_cv_brain(dominance_plt_df_novent, sigma_int_norm.unlog, "Normalized\nSigma Sex\nDifference", "ggthemes::Orange-Blue Diverging", c(-.03, .03), c(1.03, 4.5, .93))
+
+ggsave("figs/supplement/sigma_dominance_tbvTRUE.png", full_dom_plt_sigma, dpi=600, height=8.5, width=7.5, bg = "white")
+```
+
+```{r}
+prop_above_sigma_df <- sexdiffs_tbv %>%
+  group_by(pheno, cv_sample, pheno_cat) %>%
+  arrange(age_days, .by_group = TRUE) %>%
+  summarise(prop_male = prop_above(age_days, logcv_M_div_F)) %>%
+  ungroup() %>%
+  mutate(class = case_when(
+    prop_male < .1 ~ "F",
+    prop_male > .9 ~ "M",
+    TRUE ~ "mixed"),
+    strict_class = case_when(
+    prop_male == 0 ~ "F",
+    prop_male == 1 ~ "M",
+    TRUE ~ "mixed")
+  )
+
+table(prop_above_sigma_df$cv_sample, prop_above_sigma_df$class)
+
+prop_above_sigma_df %>%
+  group_by(cv_sample) %>%
+  summarise(n_female = sum(class=="all_female"),
+            n_male = sum(class=="all_male"),
+            n_mixed = sum(class=="mixed"),
+            n=n()) %>%
+  mutate(pct_female = (n_female/n)*100,
+         pct_male = (n_male/n)*100,
+         pct_mix = (n_mixed/n)*100)
+```
+
+```{r}
+#add back sex-effect significance, remove ventricles for visualization
+prop_above_sigma_df_novent <- full_join(LR.df_tot_sex, prop_above_sigma_df %>% dplyr::select(!pheno_cat)) %>%
+  filter(!(pheno %in% vent_list))
+
+full_above_sig_plt <- plot_cv_brain(prop_above_sigma_df_novent, prop_male, "Proportion\nMale-\nDominant", "ggthemes::Orange-Blue Diverging", c(0, 1), c(1.03, 4.5, .93))
+
+ggsave("figs/supplement/prop_male_sigma_tbvTRUE.png", full_above_sig_plt, dpi=600, height=8.5, width=7.5, bg = "white")
+```
+
+
+Prep for fig 3
+
+```{r}
+dominance_plt_df_B <- dominance_plt_df_novent %>%
+  filter(cv_sample=="B")
+
+#centiles
+full_dom_pltB <- plot_cv_brain(dominance_plt_df_B, centile_int_norm.unlog, "Normalized\nSex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93), return_plt = FALSE)
+full_dom_pltB[[4]] <- get_legend(
+  ggplot(dominance_plt_df_B) +
+    geom_point(aes(x=cv_sample, y=pheno, color=centile_int_norm.unlog)) +
+     paletteer::scale_color_paletteer_c(
+        "ggthemes::Orange-Blue Diverging",
+        name = "Normalized\nSex Difference",
+        limits = c(-0.07, 0.07),
+        direction = -1,
+        na.value = "gray90"
+      )
+  )
+saveRDS(full_dom_pltB, "figs/ggobjs/cent_dom_B.rds")
+
+#sigma
+full_dom_plt_sigmaB <- plot_cv_brain(dominance_plt_df_B, sigma_int_norm.unlog, "Normalized\nSigma Sex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93), return_plt = FALSE)
+saveRDS(full_dom_plt_sigmaB, "figs/ggobjs/sig_dom_B.rds")
+```
+
+
+###Grouping
+grouping by M vs F, converging vs diverging
+
+```{r}
+ggplot(prop_above_df) +
+  geom_histogram(aes(x=prop_male)) +
+  geom_vline(xintercept = .1) +
+  geom_vline(xintercept = .9)
+
+table(prop_above_df$class, prop_above_df$cv_sample)
+table(prop_above_df$strict_class, prop_above_df$cv_sample)
+
+#look at age*sex significance
+prop_above_df2 <- full_join(prop_above_df, LR.df_tot)
+prop_above_df2 %>%
+  group_by(cv_sample, class) %>%
+  summarise(sig_agesex=sum(sig_fdr==TRUE),
+            n=n()) %>%
+  mutate(pct_sig = sig_agesex/n)
+
+#plot trajectories
+sexdiffs_tbv3 <- full_join(sexdiffs_tbv, prop_above_df2)
+
+sexdiffs_tbv3 %>%
+    dplyr::select(pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F_z, class) %>%
+    na.omit() %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno_cat)) +
+    facet_grid(class~cv_sample, scales="free_y")
+
+#look at just those with sig. age*sex
+sexdiffs_tbv3 %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno_cat)) +
+    facet_grid(class~cv_sample, scales="free_y") +
+  gghighlight(sig_fdr==TRUE, calculate_per_facet = TRUE)
+
+#see convergence vs divergence
+prop_above_df3 <- full_join(prop_above_df2, convergence_int) %>%
+  mutate(class = paste(class, overall_trajectory, sep="_"))
+
+prop_above_df3 %>%
+  filter(sig_fdr==TRUE) %>%
+  group_by(cv_sample, class) %>%
+  summarise(n = n())
+```
+
+
+
+
+what's going on with the mixed phenotypes?
+
+```{r}
+group_cd <- full_join(sexdiffs_tbv, prop_above_df3)
+
+mixed_plt <- group_cd %>%
+  filter(sig_fdr==TRUE & (class=="mixed_converging" | class=="mixed_diverging")) %>%
+  arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y")
+ggplotly(mixed_plt)
+
+#try simple grouping by sign
+group_cd_mix <- group_cd %>%
+  filter(class=="mixed_converging" | class=="mixed_diverging") %>%
+  select(logAge_days, cv_sample, pheno, centile_M_minus_F_z) %>%
+  arrange(logAge_days) %>%
+  group_by(cv_sample, pheno) %>%
+  slice(c(1,n())) %>%
+  mutate(sex = ifelse(centile_M_minus_F_z > 0 , "M", "F")) %>%
+  summarise(transition = paste(first(sex), last(sex), sep = "_to_"), .groups = "drop")
+table(group_cd_mix$transition, group_cd_mix$cv_sample)
+
+mixed_plt2 <- full_join(group_cd, group_cd_mix) %>%
+  filter(class=="mixed_converging" | class=="mixed_diverging" & sig_fdr==TRUE) %>%
+  #filter(pheno != "rh.CT.rostralanteriorcingulate") %>%
+  arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+    facet_grid(transition~cv_sample, scales="free_y") +
+  theme(legend.position="none")
+
+ggplotly(mixed_plt2)
+```
+
+```{r}
+group_traj_final <- full_join(group_cd, group_cd_mix) %>%
+  mutate(cent_group=case_when(
+    class=="mixed_converging" | class=="mixed_diverging" ~ transition,
+    TRUE ~ class
+  ))
+
+group_final <- group_traj_final %>%
+  select(cv_sample, total, weighted, pheno, pheno_cat, class, prop_male, strict_class, resi, sig_fdr, overall_trajectory, transition, cent_group, label) %>%
+  unique() %>%
+  filter(!(pheno %in% vent_list))
+
+table(group_final$cent_group, group_final$cv_sample)
+```
+
+bar plot
+
+```{r}
+group_values <- c("F_diverging"="#9E3D22FF", "F_converging"="#C06636FF", "F_to_F"="#CE9344FF", "F_to_M" ="#E8B960FF", 
+             "M_to_F"="#97B4C4", "M_to_M" = "#4C7F9C", "M_converging"="#3A6178","M_diverging"="#154063")
+
+group_color_scale <- scale_colour_manual(
+  values = group_values,
+  breaks = c("F_diverging", "F_converging", "F_to_F", "F_to_M", 
+             "M_to_F", "M_to_M", "M_converging", "M_diverging"),
+  labels = c("Female Diverging", "Female Converging", "Female U", "Female to Male", 
+             "Male to Female", "Male U", "Male Converging", "Male Diverging"),
+  name = "Group",
+  na.value="gray90"
+)
+
+group_fill_scale <- scale_fill_manual(
+  values = group_values,
+  breaks = c("F_diverging", "F_converging", "F_to_F", "F_to_M", 
+             "M_to_F", "M_to_M", "M_converging", "M_diverging"),
+  labels = c("Female Diverging", "Female Converging", "Female U", "Female to Male", 
+             "Male to Female", "Male U", "Male Converging", "Male Diverging"),
+  name = "Group",
+  na.value="gray90"
+)
+```
+
+```{r}
+group_bar_plt <- group_final %>%
+  group_by(pheno_cat, cv_sample) %>% 
+  mutate(cent_group = as.character(cent_group)) %>%
+  mutate(cent_group = ifelse(sig_fdr ==TRUE, cent_group, NA)) %>%
+  mutate(cent_group = factor(cent_group, levels = names(group_values))) %>%  
+  count(cent_group, pheno_cat, cv_sample) %>% 
+  mutate(perc = n / sum(n)) %>% 
+  ggplot(aes(x=pheno_cat, y=perc, fill=cent_group)) +
+  geom_col(position="fill") +
+  facet_wrap(~cv_sample) +
+  geom_text(aes(label = paste0(scales::percent(perc, accuracy = 0.1), "\n(", n, ")")), 
+            position = position_fill(vjust = 0.5),
+            size = 1.5) +
+  scale_y_continuous(labels = scales::percent) +
+  coord_flip() +
+  theme_linedraw() +
+  theme(axis.title= element_blank(), legend.position = "none",
+        strip.text.x = element_blank(), strip.background.x = element_blank()) +
+  group_fill_scale
+
+group_bar_plt_total <- group_final %>%
+  group_by(cv_sample) %>% 
+  mutate(cent_group = as.character(cent_group)) %>%
+  mutate(cent_group = ifelse(sig_fdr ==TRUE, cent_group, NA)) %>%
+  mutate(cent_group = factor(cent_group, levels = names(group_values))) %>%  
+  count(cent_group, cv_sample) %>% 
+  mutate(perc = n / sum(n)) %>% 
+  ggplot(aes(x="TOTAL", y=perc, fill=cent_group)) +
+  geom_col(position="fill") +
+  facet_wrap(~cv_sample) +
+  geom_text(aes(label = paste0(scales::percent(perc, accuracy = 0.1), "\n(", n, ")")), 
+            position = position_fill(vjust = 0.5),
+            size = 1.5) +
+  coord_flip() +
+  theme_linedraw() +
+  theme(axis.title= element_blank(), axis.text.x=element_blank()) +
+  group_fill_scale
+
+bar_legend <- get_legend(group_bar_plt_total)
+group_bar_plt_total <- group_bar_plt_total + theme(legend.position = "none")
+
+group_bar_plt_all <- plot_grid(
+  plot_grid(
+    group_bar_plt_total, 
+    group_bar_plt,
+    ncol = 1,
+    rel_heights = c(1,4),
+    align = "v",
+    axis = "lr"),
+  bar_legend,
+  ncol=2,
+  rel_widths = c(4,1)
+)
+
+ggsave("figs/supplement/group_bar_plt.png", group_bar_plt_all, dpi=600, height=6, width=10, bg = "white")
+```
+
+brain plots
+
+```{r}
+group_brain_plt <- plot_cv_brain(group_final, cent_group, "Group", fill_limits=levels(group_final$cent_group), height_list=c(1.03, 4.5, .93), return_plt = FALSE, fill_values=group_values)
+
+group_brain_plt[[1]] <- group_brain_plt[[1]] + group_fill_scale
+
+group_brain_plt[[2]] <- group_brain_plt[[2]] + group_fill_scale
+
+group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
+
+#recreate legends
+legend <- get_legend(
+  ggplot(group_final) +
+    geom_bar(aes(x=cv_sample, fill=cent_group)) + group_fill_scale
+  )
+
+plts <- cowplot::plot_grid(
+    group_brain_plt[[1]],
+    group_brain_plt[[2]],
+    group_brain_plt[[3]],
+    ncol = 1,
+    nrow = 3,
+    rel_heights = c(1.03, 4.5, .93),
+    align = "v",
+    axis = "lr",
+    greedy = TRUE
+  ) 
+  
+full_plt_obj <- plot_grid(plts, legend, ncol=2, rel_widths = c(3, 1))
+
+ggsave("figs/supplement/group_brain_plt.png", full_plt_obj, dpi=600, height=8.5, width=8, bg = "white")
+```
+
+
+plot trajectories by group
+
+```{r}
+group_traj_final %>%
+  arrange(pheno, age_days) %>%
+  ggplot(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=cent_group)) +
+  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+  geom_line(aes(alpha=sig_fdr)) +
+  #gghighlight(sig_fdr==TRUE, calculate_per_facet = TRUE) +
+  #facet_grid(cent_group ~ cv_sample, scales="free_y") +
+  ggh4x:::facet_nested(cent_group ~ pheno_cat + cv_sample, scales="free_y") +
+  group_color_scale +
+  scale_alpha_manual(values=c("TRUE"=0.7, "FALSE"=0.1))+
+  theme_bw() +
+  format_x_axis("lifespan_fetal", group_traj_final$age_days)+
+  theme(legend.position="none")
+
+group_traj_final %>%
+  filter(sig_fdr==TRUE) %>%
+  arrange(pheno, age_days) %>%
+  ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
+  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+  geom_line(aes(group=pheno),alpha=.2) +
+  facet_grid(cent_group ~ cv_sample, scales="free_y") +
+  geom_smooth(method = "gam", linewidth=1) +
+  #ggh4x:::facet_nested(cent_group ~ pheno_cat + cv_sample, scales="free_y") +
+  group_color_scale +
+  #scale_alpha_manual(values=c("TRUE"=0.7, "FALSE"=0.1))+
+  theme_linedraw() +
+  format_x_axis("lifespan_fetal", group_traj_final$age_days) +
+  theme(legend.position="none")
+```
+
+within-group median trajectories
+
+```{r}
+sixmo <- 365.25/2 + 280
+oneyr <- 365.25+280
+group_traj_final %>%
+  filter(sig_fdr==TRUE) %>%
+  arrange(pheno, age_days) %>%
+  ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
+  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+  #geom_line(aes(group=pheno),alpha=.1) +
+  facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  geom_smooth(method = "gam", linewidth=1) +
+  #ggh4x:::facet_nested(cent_group ~ pheno_cat + cv_sample, scales="free_y") +
+  group_color_scale +
+  #scale_alpha_manual(values=c("TRUE"=0.7, "FALSE"=0.1))+
+  theme_linedraw() +
+  format_x_axis("lifespan_fetal", group_traj_final$age_days)
+
+uniform_groups <- full_join(group_final, sexdiffs.df.u) %>%
+  filter(sig_fdr==TRUE & age_days >=oneyr) %>%
+  group_by(cv_sample, cent_group, age_days) %>%
+  summarise(median_traj = median(centile_M_minus_F_z, na.rm = TRUE),
+            mean_traj = mean(centile_M_minus_F_z, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+uniform_groups %>% 
+  ggplot(aes(x = age_days, y = median_traj, color = cent_group)) +
+  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
+  geom_smooth(method = "gam") +
+  facet_wrap(~cv_sample, nrow=2) +
+  group_color_scale +
+  group_fill_scale +
+  theme_linedraw() +
+  format_x_axis("lifespan", uniform_groups$age_days) +
+  labs(y="Median Sex-Difference")
+```
+
+####Sigma
+
+```{r}
+ggplot(prop_above_sigma_df) +
+  geom_histogram(aes(x=prop_male)) +
+  geom_vline(xintercept = .1) +
+  geom_vline(xintercept = .9)
+
+table(prop_above_sigma_df$class, prop_above_sigma_df$cv_sample)
+table(prop_above_sigma_df$strict_class, prop_above_sigma_df$cv_sample)
+
+#look at age*sex significance
+prop_above_sigma_df2 <- full_join(prop_above_sigma_df, LR.df_tot)
+prop_above_sigma_df2 %>%
+  group_by(cv_sample, class) %>%
+  summarise(sig_agesex=sum(sig_fdr==TRUE),
+            n=n()) %>%
+  mutate(pct_sig = sig_agesex/n)
+
+#plot trajectories
+sexdiffs_prop_sigma <- full_join(sexdiffs_tbv, prop_above_df2)
+
+sexdiffs_prop_sigma %>%
+    dplyr::select(pheno, logAge_days, pheno_cat, cv_sample, logcv_M_div_F, class) %>%
+    na.omit() %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=logcv_M_div_F, group=pheno, color=pheno_cat)) +
+    facet_grid(class~cv_sample, scales="free_y")
+
+#look at just those with sig. age*sex
+sexdiffs_prop_sigma %>%
+    arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=logcv_M_div_F, group=pheno, color=pheno_cat)) +
+    facet_grid(class~cv_sample, scales="free_y") +
+  gghighlight(sig_fdr==TRUE, calculate_per_facet = TRUE)
+
+#see convergence vs divergence
+prop_above_sigma_df3 <- full_join(prop_above_sigma_df2, sigma_convergence_df) %>%
+  mutate(class = paste(class, overall_trajectory, sep="_"))
+
+prop_above_sigma_df3 %>%
+  filter(sig_fdr==TRUE) %>%
+  group_by(cv_sample, class) %>%
+  summarise(n = n())
+```
+
+
+
+
+what's going on with the mixed phenotypes?
+
+```{r}
+group_sig_cd <- full_join(sexdiffs_tbv, prop_above_sigma_df3)
+
+group_sig_cd %>%
+  filter(sig_fdr==TRUE & (class=="mixed_converging" | class=="mixed_diverging")) %>%
+  arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=logcv_M_div_F, group=pheno, color=pheno)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  theme(legend.position = "none")
+
+#should work to just do m to f and f to m
+group_sig_cd_mix <- group_sig_cd %>%
+  filter(class=="mixed_converging" | class=="mixed_diverging") %>%
+  select(logAge_days, cv_sample, pheno, logcv_M_div_F) %>%
+  arrange(logAge_days) %>%
+  group_by(cv_sample, pheno) %>%
+  slice(c(1,n())) %>%
+  mutate(sex = ifelse(logcv_M_div_F > 0 , "M", "F")) %>%
+  summarise(transition = paste(first(sex), last(sex), sep = "_to_"), .groups = "drop")
+table(group_sig_cd_mix$transition, group_sig_cd_mix$cv_sample)
+
+mixed_sig_plt2 <- full_join(group_sig_cd, group_sig_cd_mix) %>%
+  filter(class=="mixed_converging" | class=="mixed_diverging" & sig_fdr==TRUE) %>%
+  arrange(pheno, logAge_days) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=logcv_M_div_F, group=pheno, color=pheno)) +
+    facet_grid(transition~cv_sample, scales="free_y") +
+  theme(legend.position="none")
+
+ggplotly(mixed_sig_plt2)
+```
+
+sample A rh.CT.lateraloccipital is the only feature thats wiggly, doesn't just transition M-F or vice versa
+
+```{r}
+group_sig_traj_final <- full_join(group_sig_cd, group_sig_cd_mix) %>%
+  mutate(sig_group=case_when(
+    class=="mixed_converging" | class=="mixed_diverging" ~ transition,
+    TRUE ~ class
+  ))
+
+group_sig_final <- group_sig_traj_final %>%
+  select(cv_sample, total, weighted, pheno, pheno_cat, class, prop_male, strict_class, resi, sig_fdr, overall_trajectory, transition, sig_group, label) %>%
+  unique() %>%
+  filter(!(pheno %in% vent_list))
+
+table(group_sig_final$sig_group, group_sig_final$cv_sample)
+```
+
+Plot
+```{r}
+sig_group_brain_plt <- plot_cv_brain(group_sig_final, sig_group, "Group", fill_limits=levels(group_sig_final$sig_group), height_list=c(1.03, 4.5, .93), return_plt = FALSE, fill_values=group_values)
+
+sig_group_brain_plt[[1]] <- sig_group_brain_plt[[1]] + group_fill_scale
+
+sig_group_brain_plt[[2]] <- sig_group_brain_plt[[2]] + group_fill_scale
+
+sig_group_brain_plt[[3]] <- sig_group_brain_plt[[3]] + group_fill_scale
+
+#recreate legends
+legend <- get_legend(
+  ggplot(group_sig_final) +
+    geom_bar(aes(x=cv_sample, fill=sig_group)) + group_fill_scale
+  )
+
+plts <- cowplot::plot_grid(
+    sig_group_brain_plt[[1]],
+    sig_group_brain_plt[[2]],
+    sig_group_brain_plt[[3]],
+    ncol = 1,
+    nrow = 3,
+    rel_heights = c(1.03, 4.5, .93),
+    align = "v",
+    axis = "lr",
+    greedy = TRUE
+  ) 
+  
+full_plt_obj <- plot_grid(plts, legend, ncol=2, rel_widths = c(3, 1))
+
+ggsave("figs/supplement/sigma_group_brain_plt.png", full_plt_obj, dpi=600, height=8.5, width=8, bg = "white")
+```
+
+
+plot trajectories by group
+
+```{r}
+group_sig_traj_final %>%
+  filter(sig_fdr==TRUE) %>%
+  arrange(pheno, age_days) %>%
+  ggplot(aes(x=age_days, y=logcv_M_div_F, color=sig_group)) +
+  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+  geom_line(aes(group=pheno),alpha=.2) +
+  facet_grid(sig_group ~ cv_sample, scales="free_y") +
+  geom_smooth(method = "gam", linewidth=1) +
+  #ggh4x:::facet_nested(cent_group ~ pheno_cat + cv_sample, scales="free_y") +
+  group_color_scale +
+  #scale_alpha_manual(values=c("TRUE"=0.7, "FALSE"=0.1))+
+  theme_linedraw() +
+  format_x_axis("lifespan_fetal", group_sig_traj_final$age_days) +
+  theme(legend.position="none")
+```
+
+
+###Data-Driven Clustering
+
+```{r}
+clust_fun <- function(df, clust_method, clust_var, k){
+  medoids<-NULL
+  #filter df
+  df <- df %>%
+    select(pheno, logAge_days, clust_var, pheno_cat, age_days)
+  
+  #pivot wide - rows = pheno levels, cols = time points
+  ts_wide <- df %>%
+    arrange(pheno, age_days) %>%
+    select(pheno, age_days, clust_var) %>%
+    pivot_wider(
+      names_from  = age_days,
+      values_from = clust_var
+    ) %>%
+    filter(!if_all(.cols = !pheno, ~is.na(.))) %>%
+    select(where(~ !any(is.na(.))))
+  
+  # Store pheno labels, then convert to matrix
+  pheno_labels <- ts_wide$pheno
+  ts_matrix <- ts_wide %>%
+    select(-pheno) %>%
+    as.matrix()
+
+  rownames(ts_matrix) <- pheno_labels
+  
+  #drop any missing vals
+  ts_matrix_complete <- ts_matrix[, colSums(is.na(ts_matrix)) == 0]
+  ts_matrix_complete <- ts_matrix_complete[rowSums(is.na(ts_matrix_complete)) == 0, ]
+  
+  #euclidean distance
+  dist_matrix <- dist(ts_matrix_complete, method = "euclidean")
+  
+  #Cluster
+  if (clust_method == "hierarchical") {
+    hc <- hclust(dist_matrix)
+
+    # Scree / elbow plot
+    wss <- sapply(1:10, function(k_i) {
+      ct <- cutree(hc, k_i)
+      sum(sapply(unique(ct), function(cl) {
+        rows <- ts_matrix_complete[ct == cl, , drop = FALSE]
+        sum(apply(rows, 2, var, na.rm = TRUE)) * (sum(ct == cl) - 1)
+      }))
+    })
+    plot(1:10, wss, type = "b", xlab = "Number of clusters", ylab = "WSS",
+         main = "Hierarchical – Elbow Plot")
+
+    # Cut tree
+    clusters <- cutree(hc, k = k)
+
+  } else if (clust_method == "kmeans") {
+    set.seed(42)
+
+    # Scree / elbow plot
+    print(factoextra:::fviz_nbclust(ts_matrix_complete, kmeans, method = "wss"))
+  
+    # Fit final k-means model
+    km <- kmeans(dist_matrix, centers = k, nstart = 25)
+    clusters <- setNames(km$cluster, rownames(ts_matrix_complete))
+
+  } else if (clust_method == "kmedoids") {
+    set.seed(42)
+  
+    # Elbow plot using average silhouette width (more natural for PAM)
+    print(factoextra:::fviz_nbclust(ts_matrix_complete, cluster:::pam, method = "silhouette"))
+  
+    pm <- cluster:::pam(dist_matrix, k = k, diss = TRUE)
+    clusters <- setNames(pm$clustering, rownames(ts_matrix_complete))
+    
+    medoids <- pm$medoids
+  
+  } else {
+    stop("clust_method must be 'hierarchical', 'kmeans', or 'kmedoids'")
+  }
+  
+  # Add cluster assignments back to original data
+  cluster_df <- tibble(
+    pheno   = names(clusters),
+    cluster = clusters
+  )
+  
+  data_with_clusters <- df %>%
+    left_join(cluster_df, by = "pheno")
+
+#plot time series by cluster
+plt_traj <- data_with_clusters %>%
+  mutate(cluster = factor(cluster)) %>%
+  ggplot(aes(x = age_days, y = !!sym(clust_var),
+             group = pheno, colour = cluster)) +
+  geom_line(alpha = 0.7) +
+  facet_wrap(pheno_cat~cluster) +
+  labs(
+    title = "Pheno Time Series by Cluster",
+    x = "log(Age in days)",
+    y = "Centile M minus F z-score",
+    colour = "Cluster"
+  ) +
+  theme_minimal()
+print(plt_traj)
+
+# plot averages
+print_avg <- data_with_clusters %>%
+  mutate(cluster = factor(cluster)) %>%
+  group_by(cluster, pheno_cat, age_days) %>%
+  summarise(
+    mean_trajectory = mean(!!sym(clust_var), na.rm = TRUE),
+    se_centile = sd(!!sym(clust_var), na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = age_days, y = mean_trajectory, colour = cluster, fill = cluster)) +
+  geom_ribbon(aes(ymin = mean_trajectory - se_centile,
+                  ymax = mean_trajectory + se_centile),
+              alpha = 0.2, colour = NA) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  facet_grid(pheno_cat~cluster, scales='free_y') +
+  labs(
+    title = "Average Trajectory per Cluster",
+    subtitle = "Ribbon = ±1 SE across pheno levels",
+    x = "log(Age in days)",
+    colour = "Cluster",
+    fill = "Cluster"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+print(print_avg)
+
+#plot medoids
+  if (!is.null(medoids)){
+    print(medoids)
+
+    med_plt <- data_with_clusters %>%
+      filter(pheno %in% medoids) %>%
+      mutate(cluster = factor(cluster)) %>%
+      ggplot(aes(x = age_days, y = !!sym(clust_var),
+                 group = pheno, colour = pheno)) +
+      geom_line(alpha = 0.7) +
+      facet_wrap(~cluster) +
+      labs(
+        title = "Pheno Time Series by Cluster",
+        x = "log(Age in days)",
+        y = "Centile M minus F z-score",
+        colour = "Cluster"
+      ) +
+      theme_minimal()
+    print(med_plt)
+  }
+}
+```
+
+prep dfs
+```{r}
+LR.df_tot.u <- full_join(LR.df_tot, sexdiffs.df.u) %>%
+  filter(sig_fdr==TRUE & total==TRUE & weighted==FALSE)
+
+LR.df_tot.uA <- LR.df_tot.u %>%
+  filter(cv_sample=="A")
+
+LR.df_tot.uB <- LR.df_tot.u %>%
+  filter(cv_sample=="B")
+```
+
+```{r}
+clust_fun(LR.df_tot.uB, "hierarchical", "centile_M_minus_F_z", 2)
+clust_fun(LR.df_tot.uB, "kmeans", "centile_M_minus_F_z", 2)
+
+clust_fun(LR.df_tot.uB, "kmedoids", "centile_M_minus_F_z", 2)
+clust_fun(LR.df_tot.uA, "kmedoids", "centile_M_minus_F_z", 2)
+```
+
+####Sigma
+
+```{r}
+#sigma
+clust_fun(LR.df_tot.uB, "kmedoids", "logcv_M_div_F", 2)
+clust_fun(LR.df_tot.uA, "kmedoids", "logcv_M_div_F", 2)
+
+# clust_fun(LR.df_tot.uB, "hierarchical", "logcv_M_div_F", 2)
+# clust_fun(LR.df_tot.uA, "hierarchical", "logcv_M_div_F", 2)
+```
+
+####Deriv
+
+```{r}
+#deriv
+clust_fun(LR.df_tot.uB, "kmedoids", "deriv_M_minus_F_z", 2)
+clust_fun(LR.df_tot.uA, "kmedoids", "deriv_M_minus_F_z", 2)
+
+clust_fun(LR.df_tot.uB, "hierarchical", "deriv_M_minus_F_z", 2)
+clust_fun(LR.df_tot.uA, "hierarchical", "deriv_M_minus_F_z", 2)
+```
+
+try without ventricles
+
+```{r, eval=FALSE}
+LR.df_tot.uB_novent <- LR.df_tot.uB %>%
+  filter(!(pheno %in% vent_list))
+LR.df_tot.uA_novent <- LR.df_tot.uA %>%
+  filter(!(pheno %in% vent_list))
+
+clust_fun(LR.df_tot.uB_novent, "kmedoids", "deriv_M_minus_F_z", 3)
+clust_fun(LR.df_tot.uA_novent, "kmedoids", "deriv_M_minus_F_z", 5)
+
+clust_fun(LR.df_tot.uB_novent, "hierarchical", "deriv_M_minus_F_z", 3)
+clust_fun(LR.df_tot.uA_novent, "hierarchical", "deriv_M_minus_F_z", 2)
+```
+
+
+###Shape Differences
+*At what points in the lifespan are males and females growing differently?*
+difference of first derivatives!
+can also get magnitude differences
+
+int > 0 -> males grow faster than females
+int < 0 -> females grow faster
+int = 0 -> same rate
+
+```{r}
+deriv_df <- sexdiffs_tbv_sq %>%
+  group_by(pheno, cv_sample)%>%
+  arrange(age_days, .by_group = TRUE) %>%
+  na.omit() %>%
+  mutate(faster_rate = case_when(
+    deriv_M_minus_F_z.unlog > 0 ~ "Males",
+    deriv_M_minus_F_z.unlog == 0 ~ "Same",
+    deriv_M_minus_F_z.unlog < 0 ~ "Females",
+  )) %>% 
+  ungroup()
+
+#order by age first increasing
+pheno_order_mean <- deriv_df %>%
+  group_by(pheno, cv_sample) %>%
+  summarize(above_0 = first_above(y = deriv_M_minus_F_z.unlog, x = age_days, 
+                                  threshold = 0, return = "x")) %>%
+  group_by(pheno) %>%
+  summarise(ord = mean(above_0), .groups = "drop") %>%
+  arrange(ord) %>%
+  pull(pheno)
+
+deriv_df %>%
+  mutate(pheno = factor(pheno, levels = pheno_order_mean)) %>%
+  ggplot() +
+  geom_line(aes(x=age_days, y=pheno, color=faster_rate)) +
+  facet_grid(pheno_cat ~ cv_sample, scales="free_y", space="free_y", switch="y") +
+  format_x_axis("lifespan_fetal", deriv_df$age_days) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        strip.placement='outside',
+        strip.background.y=element_blank(), 
+        strip.text.y.left = element_text(angle = 0))
+```
+
+do times with greatest differences in growth rate line up with puberty, menopause, etc? 
+
+```{r}
+peak_deriv_diffs <- sexdiffs_tbv %>%
+  group_by(cv_sample, pheno, pheno_cat) %>%
+  summarise(male_peak = max_gc(deriv_M_minus_F_z, na.rm = TRUE),
+            male_peak_age = extr_val(logAge_days, which_max_gc(deriv_M_minus_F_z)),
+            female_peak = min_gc(deriv_M_minus_F_z, na.rm = TRUE),
+            female_peak_age = extr_val(logAge_days, which_min_gc(deriv_M_minus_F_z))
+            ) %>%
+  #remove peaks that don't correspond to actual bias
+  mutate(male_peak = ifelse(male_peak>0, male_peak, NA),
+         female_peak = ifelse(female_peak<0, female_peak, NA)) %>%
+  pivot_longer(cols = matches("^(male|female)_"),
+    names_to = c("sex", ".value"),
+    names_pattern = "(male|female)_(.*)")
+
+peak_deriv_hist <- peak_deriv_diffs %>%
+  filter(pheno %in% keep_list) %>%
+  mutate(peak_age_yrs = (un_log(peak_age)-280)/365.25) %>%
+  ggplot() +
+  geom_histogram(aes(x=peak_age_yrs, fill=sex), position="identity", alpha=.4) +
+  facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  geom_vline(xintercept = 50, color='gray') +
+  geom_vline(xintercept = 9, color='gray') +
+  geom_vline(xintercept = 18, color='gray') +
+  geom_vline(xintercept = 0, color='gray')
+
+peak_deriv_hist
+
+ggplotly(peak_deriv_hist)
+
+yr_to_logAge_days <- function(x){
+  log((x*365.25 + 280), base=10)
+}
+
+peak_plt_deriv <- sexdiffs_tbv %>%
+    filter(pheno %in% keep_list) %>%
+    ggplot() +
+    geom_line(aes(x=logAge_days, y=deriv_M_minus_F_z, group=pheno, color=pheno)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+    geom_point(data = dplyr::filter(peak_deriv_diffs, pheno %in% keep_list), 
+             aes(x = peak_age, y = peak, color=pheno, shape=sex),
+             size = 2) +
+    theme_linedraw() +
+    theme(legend.position = "none") +
+    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
+    labs(y="50th Centile Sex-Difference") +
+    geom_vline(xintercept = yr_to_logAge_days(50), color='gray') +
+    geom_vline(xintercept = yr_to_logAge_days(9), color='gray') +
+    geom_vline(xintercept = yr_to_logAge_days(18), color='gray') +
+    geom_vline(xintercept = yr_to_logAge_days(0), color='gray')
+
+peak_plt_deriv
+```
+
 ###Cross-sample Consistency
 Get across-sample euclidean distance
 ```{r}
@@ -1223,1009 +2244,4 @@ peak_plt <- sexdiffs_tbv %>%
     labs(y="50th Centile Sex-Difference")
 
 ggplotly(peak_plt)
-```
-
-###Sex-Dominance
-*Which regions on average are bigger/more variable in males vs females and at what points in the lifespan?*
-Now look at sex-dominance with integrals (M-F > or < 0)
-Calculating across age, not log-age, for interpretability
-
-```{r}
-dominance_df <- sexdiffs_tbv %>%
-  group_by(pheno, cv_sample, pheno_cat) %>%
-  arrange(logAge_days, .by_group = TRUE) %>%
-  summarise(centile_int.unlog = rs_integral(logAge_days, centile_M_minus_F_z),
-            sigma_int.unlog =  rs_integral(logAge_days, logcv_M_div_F),
-            age_range = max(age_days) - min(age_days)) %>%
-  # rescaling integrals to 100 years
-  mutate(centile_int_norm.unlog = (centile_int.unlog/age_range)*365.25*100,
-         sigma_int_norm.unlog = (sigma_int.unlog/age_range)*365.25*100) %>%
-  mutate(dominance = case_when(
-    centile_int.unlog == 0 ~ "Balanced",
-    centile_int.unlog < 0 ~ "Female",
-    centile_int.unlog > 0 ~ "Male"
-  ),
-  dominance_norm = case_when(
-    centile_int_norm.unlog == 0 ~ "Balanced",
-    centile_int_norm.unlog < 0 ~ "Female",
-    centile_int_norm.unlog > 0 ~ "Male"
-  ),
-  sigma_dominance = case_when(
-    sigma_int.unlog == 0 ~ "Balanced",
-    sigma_int.unlog < 0 ~ "Female",
-    sigma_int.unlog > 0 ~ "Male"
-  ),
-  sigma_dominance_norm = case_when(
-    sigma_int_norm.unlog == 0 ~ "Balanced",
-    sigma_int_norm.unlog < 0 ~ "Female",
-    sigma_int_norm.unlog > 0 ~ "Male"
-  ))
-
-dominance_df %>%
-  group_by(pheno_cat, cv_sample) %>% 
-  count(dominance, pheno_cat, cv_sample) %>% 
-  mutate(perc = n / sum(n)) %>% 
-  ggplot(aes(x=pheno_cat, y=perc, fill=dominance)) +
-  geom_col(position="fill") +
-  facet_wrap(~cv_sample) +
-    geom_text(aes(label = scales::percent(perc)), position = position_fill(vjust = 0.5)) +
-  coord_flip()
-
-dominance_df %>%
-  group_by(pheno_cat, cv_sample) %>% 
-  count(sigma_dominance, pheno_cat, cv_sample) %>% 
-  mutate(perc = n / sum(n)) %>% 
-  ggplot(aes(x=pheno_cat, y=perc, fill=sigma_dominance)) +
-  geom_col(position="fill") +
-  facet_wrap(~cv_sample) +
-    geom_text(aes(label = scales::percent(perc)), position = position_fill(vjust = 0.5))+
-  coord_flip()
-```
-
-
-```{r}
-dominance_plt_df <- full_join(LR.df_tot_sex, dominance_df %>% dplyr::select(!pheno_cat))
-dominance_plt_df %>%
-  mutate(dominance = ifelse(sig_fdr==TRUE, dominance, "NA")) %>%
-  group_by(cv_sample) %>%
-  summarise(F_dom = sum(dominance=="Female")/n(),
-            M_dom = sum(dominance=="Male")/n())
-```
-
-plot dominance on brain
-
-```{r}
-#removing ventricles for visualization:
-dominance_plt_df_novent <- dominance_plt_df %>%
-  filter(!(pheno %in% vent_list))
-range(dominance_plt_df_novent$centile_int_norm.unlog)
-
-full_dom_plt <- plot_cv_brain(dominance_plt_df_novent, centile_int_norm.unlog, "Normalized\nSex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93), direction=1)
-
-ggsave("figs/supplement/dominance_tbvTRUE.png", full_dom_plt, dpi=600, height=8.5, width=7.5, bg = "white")
-```
-
-How much of the lifespan are phenos male vs female dominant?
-
-```{r}
-#define function
-prop_above <- function(x, y, threshold=0){
-  crosses <- find_threshold_crosses(y, x, threshold, return="x", return_endpoints = FALSE)
-  crosses <- c(crosses, min(x), max(x)) %>% 
-    sort()
-  #overall age modeled
-  total_range <- max(x) - min(x)
-  
-  ranges <- diff(crosses)
-  
-  #if y > threshold at min(x) -> sum odd number ranges
-  odd_indices_logical <- (1:length(ranges)) %% 2 == 1
-  
-  if (y[1] > threshold) {
-    items_at_odd_indices <- ranges[odd_indices_logical]
-    time_above <- sum(items_at_odd_indices)
-  } else {
-    items_at_even_indices <- ranges[!odd_indices_logical]
-    time_above <- sum(items_at_even_indices)
-  }
-  
-  prop_above <- time_above/total_range
-  
-  return(prop_above)
-}
-
-# #test function
-# test <- sexdiffs_tbv %>%
-#   filter(cv_sample =="A" & pheno=="sGMV")
-# prop_above(test$age_days, test$centile_M_minus_F_z)
-# ggplot(test) +
-#   geom_line(aes(x=age_days, y=centile_M_minus_F_z))
-# 
-# test <- sexdiffs_tbv %>%
-#   filter(cv_sample =="A" & pheno=="WMV")
-# prop_above(test$age_days, test$centile_M_minus_F_z)
-# ggplot(test) +
-#   geom_line(aes(x=age_days, y=centile_M_minus_F_z))
-# 
-# test <- sexdiffs_tbv %>%
-#   filter(cv_sample =="A" & pheno=="GMV")
-# prop_above(test$age_days, test$centile_M_minus_F_z)
-# ggplot(test) +
-#   geom_line(aes(x=age_days, y=centile_M_minus_F_z))
-# 
-# test <- sexdiffs_tbv %>%
-#   filter(cv_sample =="B" & pheno=="GMV")
-# prop_above(test$age_days, test$centile_M_minus_F_z)
-# ggplot(test) +
-#   geom_line(aes(x=age_days, y=centile_M_minus_F_z))
-```
-
-```{r}
-prop_above_df <- sexdiffs_tbv %>%
-  group_by(pheno, cv_sample, pheno_cat) %>%
-  arrange(age_days, .by_group = TRUE) %>%
-  summarise(prop_male = prop_above(age_days, centile_M_minus_F_z)) %>%
-  ungroup() %>%
-  mutate(class = case_when(
-    prop_male < .1 ~ "F",
-    prop_male > .9 ~ "M",
-    TRUE ~ "mixed"),
-    strict_class = case_when(
-    prop_male == 0 ~ "F",
-    prop_male == 1 ~ "M",
-    TRUE ~ "mixed")
-  )
-
-#add back sex-effect significance, remove ventricles for visualization
-prop_above_df_novent <- full_join(LR.df_tot_sex, prop_above_df %>% dplyr::select(!pheno_cat)) %>%
-  filter(!(pheno %in% vent_list))
-
-full_above_plt <- plot_cv_brain(prop_above_df_novent, prop_male, "Proportion\nMale-\nDominant", "ggthemes::Orange-Blue Diverging", c(0, 1), c(1.03, 4.5, .93))
-
-ggsave("figs/supplement/prop_male_tbvTRUE.png", full_above_plt, dpi=600, height=8.5, width=7.5, bg = "white")
-```
-
-
-####Grouping
-grouping by M vs F, converging vs diverging
-
-```{r}
-ggplot(prop_above_df) +
-  geom_histogram(aes(x=prop_male)) +
-  geom_vline(xintercept = .1) +
-  geom_vline(xintercept = .9)
-
-table(prop_above_df$class, prop_above_df$cv_sample)
-table(prop_above_df$strict_class, prop_above_df$cv_sample)
-
-#look at age*sex significance
-prop_above_df2 <- full_join(prop_above_df, LR.df_tot)
-prop_above_df2 %>%
-  group_by(cv_sample, class) %>%
-  summarise(sig_agesex=sum(sig_fdr==TRUE),
-            n=n()) %>%
-  mutate(pct_sig = sig_agesex/n)
-
-#plot trajectories
-sexdiffs_tbv3 <- full_join(sexdiffs_tbv, prop_above_df2)
-
-sexdiffs_tbv3 %>%
-    dplyr::select(pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F_z, class) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days) %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno_cat)) +
-    facet_grid(class~cv_sample, scales="free_y")
-
-#look at just those with sig. age*sex
-sexdiffs_tbv3 %>%
-    arrange(pheno, logAge_days) %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno_cat)) +
-    facet_grid(class~cv_sample, scales="free_y") +
-  gghighlight(sig_fdr==TRUE, calculate_per_facet = TRUE)
-
-#see convergence vs divergence
-prop_above_df3 <- full_join(prop_above_df2, convergence_int) %>%
-  mutate(class = paste(class, overall_trajectory, sep="_"))
-
-prop_above_df3 %>%
-  filter(sig_fdr==TRUE) %>%
-  group_by(cv_sample, class) %>%
-  summarise(n = n())
-```
-
-
-
-
-what's going on with the mixed phenotypes?
-
-```{r}
-group_cd <- full_join(sexdiffs_tbv, prop_above_df3)
-
-mixed_plt <- group_cd %>%
-  filter(sig_fdr==TRUE & (class=="mixed_converging" | class=="mixed_diverging")) %>%
-  arrange(pheno, logAge_days) %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y")
-ggplotly(mixed_plt)
-
-#try simple grouping by sign
-group_cd_mix <- group_cd %>%
-  filter(class=="mixed_converging" | class=="mixed_diverging") %>%
-  select(logAge_days, cv_sample, pheno, centile_M_minus_F_z) %>%
-  arrange(logAge_days) %>%
-  group_by(cv_sample, pheno) %>%
-  slice(c(1,n())) %>%
-  mutate(sex = ifelse(centile_M_minus_F_z > 0 , "M", "F")) %>%
-  summarise(transition = paste(first(sex), last(sex), sep = "_to_"), .groups = "drop")
-table(group_cd_mix$transition, group_cd_mix$cv_sample)
-
-mixed_plt2 <- full_join(group_cd, group_cd_mix) %>%
-  filter(class=="mixed_converging" | class=="mixed_diverging" & sig_fdr==TRUE) %>%
-  #filter(pheno != "rh.CT.rostralanteriorcingulate") %>%
-  arrange(pheno, logAge_days) %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
-    facet_grid(transition~cv_sample, scales="free_y") +
-  theme(legend.position="none")
-
-ggplotly(mixed_plt2)
-```
-
-```{r}
-group_traj_final <- full_join(group_cd, group_cd_mix) %>%
-  mutate(group=case_when(
-    class=="mixed_converging" | class=="mixed_diverging" ~ transition,
-    TRUE ~ class
-  ))
-
-group_final <- group_traj_final %>%
-  select(cv_sample, total, weighted, pheno, pheno_cat, class, prop_male, strict_class, resi, sig_fdr, overall_trajectory, transition, group, label) %>%
-  unique()
-```
-
-brain plots
-
-```{r}
-group_color_scale <- scale_colour_manual(
-  values = c("F_diverging"="#9E3D22FF", "F_converging"="#C06636FF", "F_to_F"="#CE9344FF", "F_to_M" ="#E8B960FF", 
-             "M_to_F"="#97B4C4", "M_to_M" = "#4C7F9C", "M_converging"="#365b6f","M_diverging"="#17486FFF"),
-  breaks = c("F_diverging", "F_converging", "F_to_F", "F_to_M", 
-             "M_to_F", "M_to_M", "M_converging", "M_diverging"),
-  labels = c("Female Diverging", "Female Converging", "Female U", "Female to Male", 
-             "Male to Female", "Male U", "Male Converging", "Male Diverging"),
-  name = "Group",
-  na.value="gray90"
-)
-
-group_fill_scale <- scale_fill_manual(
-  values = c("F_diverging"="#9E3D22FF", "F_converging"="#C06636FF", "F_to_F"="#CE9344FF", "F_to_M" ="#E8B960FF", 
-             "M_to_F"="#97B4C4", "M_to_M" = "#4C7F9C", "M_converging"="#365b6f","M_diverging"="#17486FFF"),
-  breaks = c("F_diverging", "F_converging", "F_to_F", "F_to_M", 
-             "M_to_F", "M_to_M", "M_converging", "M_diverging"),
-  labels = c("Female Diverging", "Female Converging", "Female U", "Female to Male", 
-             "Male to Female", "Male U", "Male Converging", "Male Diverging"),
-  name = "Group",
-  na.value="gray90"
-)
-
-group_brain_plt <- plot_cv_brain(group_final, group, "Group", "ggthemes::Classic_Green_Orange_6", levels(group_final$group), c(1.03, 4.5, .93), return_plt = TRUE)
-```
-
-
-####Sigma
-
-```{r}
-range(dominance_plt_df_novent$sigma_int_norm.unlog)
-
-full_dom_plt_sigma <- plot_cv_brain(dominance_plt_df_novent, sigma_int_norm.unlog, "Normalized\nSigma Sex\nDifference", "ggthemes::Orange-Blue Diverging", c(-.03, .03), c(1.03, 4.5, .93))
-
-ggsave("figs/supplement/sigma_dominance_tbvTRUE.png", full_dom_plt_sigma, dpi=600, height=8.5, width=7.5, bg = "white")
-```
-
-```{r}
-prop_above_sigma_df <- sexdiffs_tbv %>%
-  group_by(pheno, cv_sample, pheno_cat) %>%
-  arrange(age_days, .by_group = TRUE) %>%
-  summarise(prop_male = prop_above(age_days, logcv_M_div_F)) %>%
-  ungroup() %>%
-  mutate(class = case_when(
-    prop_male == 0 ~ "all_female",
-    prop_male == 1 ~ "all_male",
-    TRUE ~ "mixed")
-  )
-
-table(prop_above_sigma_df$cv_sample, prop_above_sigma_df$class)
-
-prop_above_sigma_df %>%
-  group_by(cv_sample) %>%
-  summarise(n_female = sum(class=="all_female"),
-            n_male = sum(class=="all_male"),
-            n_mixed = sum(class=="mixed"),
-            n=n()) %>%
-  mutate(pct_female = (n_female/n)*100,
-         pct_male = (n_male/n)*100,
-         pct_mix = (n_mixed/n)*100)
-```
-
-```{r}
-#add back sex-effect significance, remove ventricles for visualization
-prop_above_sigma_df_novent <- full_join(LR.df_tot_sex, prop_above_sigma_df %>% dplyr::select(!pheno_cat)) %>%
-  filter(!(pheno %in% vent_list))
-
-full_above_sig_plt <- plot_cv_brain(prop_above_sigma_df_novent, prop_male, "Proportion\nMale-\nDominant", "ggthemes::Orange-Blue Diverging", c(0, 1), c(1.03, 4.5, .93))
-
-ggsave("figs/supplement/prop_male_sigma_tbvTRUE.png", full_above_sig_plt, dpi=600, height=8.5, width=7.5, bg = "white")
-```
-
-
-Prep for fig 3
-
-```{r}
-dominance_plt_df_B <- dominance_plt_df_novent %>%
-  filter(cv_sample=="B")
-
-#centiles
-full_dom_pltB <- plot_cv_brain(dominance_plt_df_B, centile_int_norm.unlog, "Normalized\nSex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93), return_plt = FALSE)
-full_dom_pltB[[4]] <- get_legend(
-  ggplot(dominance_plt_df_B) +
-    geom_point(aes(x=cv_sample, y=pheno, color=centile_int_norm.unlog)) +
-     paletteer::scale_color_paletteer_c(
-        "ggthemes::Orange-Blue Diverging",
-        name = "Normalized\nSex Difference",
-        limits = c(-0.07, 0.07),
-        direction = -1,
-        na.value = "gray90"
-      )
-  )
-saveRDS(full_dom_pltB, "figs/ggobjs/cent_dom_B.rds")
-
-#sigma
-full_dom_plt_sigmaB <- plot_cv_brain(dominance_plt_df_B, sigma_int_norm.unlog, "Normalized\nSigma Sex\nDifference", "ggthemes::Orange-Blue Diverging", c(-0.07, 0.07), c(1.03, 4.5, .93), return_plt = FALSE)
-saveRDS(full_dom_plt_sigmaB, "figs/ggobjs/sig_dom_B.rds")
-```
-
-###Shape Differences
-*At what points in the lifespan are males and females growing differently?*
-difference of first derivatives!
-can also get magnitude differences
-
-int > 0 -> males grow faster than females
-int < 0 -> females grow faster
-int = 0 -> same rate
-
-```{r}
-deriv_df <- sexdiffs_tbv_sq %>%
-  group_by(pheno, cv_sample)%>%
-  arrange(age_days, .by_group = TRUE) %>%
-  na.omit() %>%
-  mutate(faster_rate = case_when(
-    deriv_M_minus_F_z.unlog > 0 ~ "Males",
-    deriv_M_minus_F_z.unlog == 0 ~ "Same",
-    deriv_M_minus_F_z.unlog < 0 ~ "Females",
-  )) %>% 
-  ungroup()
-
-#order by age first increasing
-pheno_order_mean <- deriv_df %>%
-  group_by(pheno, cv_sample) %>%
-  summarize(above_0 = first_above(y = deriv_M_minus_F_z.unlog, x = age_days, 
-                                  threshold = 0, return = "x")) %>%
-  group_by(pheno) %>%
-  summarise(ord = mean(above_0), .groups = "drop") %>%
-  arrange(ord) %>%
-  pull(pheno)
-
-deriv_df %>%
-  mutate(pheno = factor(pheno, levels = pheno_order_mean)) %>%
-  ggplot() +
-  geom_line(aes(x=age_days, y=pheno, color=faster_rate)) +
-  facet_grid(pheno_cat ~ cv_sample, scales="free_y", space="free_y", switch="y") +
-  format_x_axis("lifespan_fetal", deriv_df$age_days) +
-  theme(axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.y=element_blank(),
-        strip.placement='outside',
-        strip.background.y=element_blank(), 
-        strip.text.y.left = element_text(angle = 0))
-```
-
-do times with greatest differences in growth rate line up with puberty, menopause, etc? 
-
-```{r}
-peak_deriv_diffs <- sexdiffs_tbv %>%
-  group_by(cv_sample, pheno, pheno_cat) %>%
-  summarise(male_peak = max_gc(deriv_M_minus_F_z, na.rm = TRUE),
-            male_peak_age = extr_val(logAge_days, which_max_gc(deriv_M_minus_F_z)),
-            female_peak = min_gc(deriv_M_minus_F_z, na.rm = TRUE),
-            female_peak_age = extr_val(logAge_days, which_min_gc(deriv_M_minus_F_z))
-            ) %>%
-  #remove peaks that don't correspond to actual bias
-  mutate(male_peak = ifelse(male_peak>0, male_peak, NA),
-         female_peak = ifelse(female_peak<0, female_peak, NA)) %>%
-  pivot_longer(cols = matches("^(male|female)_"),
-    names_to = c("sex", ".value"),
-    names_pattern = "(male|female)_(.*)")
-
-peak_deriv_hist <- peak_deriv_diffs %>%
-  filter(pheno %in% keep_list) %>%
-  mutate(peak_age_yrs = (un_log(peak_age)-280)/365.25) %>%
-  ggplot() +
-  geom_histogram(aes(x=peak_age_yrs, fill=sex), position="identity", alpha=.4) +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  geom_vline(xintercept = 50, color='gray') +
-  geom_vline(xintercept = 9, color='gray') +
-  geom_vline(xintercept = 18, color='gray') +
-  geom_vline(xintercept = 0, color='gray')
-
-peak_deriv_hist
-
-ggplotly(peak_deriv_hist)
-
-yr_to_logAge_days <- function(x){
-  log((x*365.25 + 280), base=10)
-}
-
-peak_plt_deriv <- sexdiffs_tbv %>%
-    filter(pheno %in% keep_list) %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=deriv_M_minus_F_z, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-    geom_point(data = dplyr::filter(peak_deriv_diffs, pheno %in% keep_list), 
-             aes(x = peak_age, y = peak, color=pheno, shape=sex),
-             size = 2) +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
-    labs(y="50th Centile Sex-Difference") +
-    geom_vline(xintercept = yr_to_logAge_days(50), color='gray') +
-    geom_vline(xintercept = yr_to_logAge_days(9), color='gray') +
-    geom_vline(xintercept = yr_to_logAge_days(18), color='gray') +
-    geom_vline(xintercept = yr_to_logAge_days(0), color='gray')
-
-peak_plt_deriv
-```
-
-###Grouping
-- Male, becoming more biased
-- Male, becoming less biased
-- Female, becoming more biased
-- Female, becoming less biased
-- Male to Female
-- Female to Male
-
-using integral of deriv of centile diff squared (from convergence vs divergence analyses above)
-
-```{r}
-fifty_yrs <- log((50*365.25)+280, base=10)
-
-#collect info
-group_df <- sexdiffs_tbv %>%
-  mutate(fifty_plus = ifelse(logAge_days >= fifty_yrs, "late", "early")) %>%
-  arrange(age_days) %>%
-  group_by(pheno, pheno_cat, fifty_plus, cv_sample) %>%
-  summarise(centile_int.unlog = rs_integral(logAge_days, centile_M_minus_F_z),
-            sigma_int.unlog = rs_integral(logAge_days, logcv_M_div_F)) %>%
-  mutate(cent_bias = ifelse(centile_int.unlog > 0 , "M", "F"),
-         sigma_bias = ifelse(sigma_int.unlog > 0, "M", "F")) %>%
-  pivot_wider(id_cols=c(pheno, pheno_cat, cv_sample), names_from=fifty_plus, values_from=c(cent_bias, sigma_bias, centile_int.unlog, sigma_int.unlog))
-
-#now categorize
-group_sum <- full_join(group_df, convergence_int) %>%
-  mutate(cent_group = case_when(
-    cent_bias_early == "M" & cent_bias_late == "F" ~ "M_to_F",
-    cent_bias_early == "F" & cent_bias_late == "M" ~ "F_to_M",
-    cent_bias_early == "M" & cent_bias_late == "M" & overall_trajectory == "diverging" ~ "M_increasing",
-    cent_bias_early == "M" & cent_bias_late == "M" & overall_trajectory == "converging" ~ "M_decreasing",
-    cent_bias_early == "F" & cent_bias_late == "F" & overall_trajectory == "diverging" ~ "F_increasing",
-    cent_bias_early == "F" & cent_bias_late == "F" & overall_trajectory == "converging" ~ "F_decreasing",
-  )) %>%
-  mutate(cent_group = factor(cent_group,
-                             levels=c("M_increasing", "M_decreasing", "M_to_F", "F_to_M", "F_decreasing", "F_increasing"),
-                             ordered=TRUE)) %>%
-  dplyr::select(pheno, pheno_cat, cv_sample, cent_group)
-
-group_sum %>%
-  filter(pheno == "rh.GM.supramarginal")
-
-sexdiffs_tbv %>%
-  filter(pheno == "rh.GM.supramarginal" & cv_sample=="B") %>%
-  arrange(age_days) %>%
-  ggplot() +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z)) +
-  geom_vline(xintercept=un_log(fifty_yrs))
-```
-
-```{r}
-ggplot(group_sum) +
-  geom_bar(aes(x=pheno_cat, fill=cent_group)) +
-  facet_wrap(~cv_sample) + coord_flip() +
-  gghighlight(pheno %in% consistent_agesex, calculate_per_facet = TRUE) +
-  group_fill_scale
-
-group_plt_df_all <- inner_join(LR.df_tot, group_sum)
-
-group_bar_plt <- group_plt_df_all %>%
-  group_by(pheno_cat, cv_sample) %>% 
-  mutate(cent_group = as.character(cent_group)) %>%
-  mutate(cent_group = ifelse(sig_fdr ==TRUE, cent_group, NA)) %>%
-  count(cent_group, pheno_cat, cv_sample) %>% 
-  mutate(perc = n / sum(n)) %>% 
-  ggplot(aes(x=pheno_cat, y=perc, fill=cent_group)) +
-  geom_col(position="fill") +
-  facet_wrap(~cv_sample) +
-  geom_text(aes(label = paste0(scales::percent(perc, accuracy = 0.1), "\n(", n, ")")), 
-            position = position_fill(vjust = 0.5),
-            size = 1.5) +
-  scale_y_continuous(labels = scales::percent) +
-  coord_flip() +
-  theme_linedraw() +
-  theme(axis.title= element_blank(), legend.position = "none",
-        strip.text.x = element_blank(), strip.background.x = element_blank()) +
-  group_fill_scale
-
-group_bar_plt_total <- group_plt_df_all %>%
-  group_by(cv_sample) %>% 
-  mutate(cent_group = as.character(cent_group)) %>%
-  mutate(cent_group = ifelse(sig_fdr ==TRUE, cent_group, NA)) %>%
-  count(cent_group, cv_sample) %>% 
-  mutate(perc = n / sum(n)) %>% 
-  ggplot(aes(x="TOTAL", y=perc, fill=cent_group)) +
-  geom_col(position="fill") +
-  facet_wrap(~cv_sample) +
-  geom_text(aes(label = paste0(scales::percent(perc, accuracy = 0.1), "\n(", n, ")")), 
-            position = position_fill(vjust = 0.5),
-            size = 1.5) +
-  coord_flip() +
-  theme_linedraw() +
-  theme(axis.title= element_blank(), axis.text.x=element_blank()) +
-  group_fill_scale
-
-bar_legend <- get_legend(group_bar_plt_total)
-group_bar_plt_total <- group_bar_plt_total + theme(legend.position = "none")
-
-group_bar_plt_all <- plot_grid(
-  plot_grid(
-    group_bar_plt_total, 
-    group_bar_plt,
-    ncol = 1,
-    rel_heights = c(1,4),
-    align = "v",
-    axis = "lr"),
-  bar_legend,
-  ncol=2,
-  rel_widths = c(4,1)
-)
-
-ggsave("figs/supplement/group_bar_plt.png", group_bar_plt_all, dpi=600, height=6, width=10, bg = "white")
-```
-
-visualize trajectories
-
-```{r}
-sexdiffs_tbv_group <- full_join(sexdiffs_tbv, group_sum)
-#median centile
-cent_group_df <- sexdiffs_tbv_group %>%
-  mutate(samp_pheno = paste(cv_sample, pheno, sep="_")) %>%
-  dplyr::select(cent_group, pheno, age_days, pheno_cat, cv_sample, centile_M_minus_F_z, samp_pheno) %>%
-  na.omit() %>%
-  arrange(pheno, age_days)
- 
-cent_group_plt <- cent_group_df %>%
-  ggplot() +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=cent_group)) +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  gghighlight(samp_pheno %in% sig_agesex, calculate_per_facet = TRUE, use_direct_label=FALSE) +
-  theme_linedraw() +
-  format_x_axis("lifespan_fetal", cent_group_df$age_days) +
-  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1)) +
-  group_color_scale +
-  labs(y="Trajectory Sex-Difference")
-
-ggsave("figs/supplement/centile_groupings.png", cent_group_plt, width=9, height=9, dpi=600)
-#ggplotly(cent_group_plt)
-```
-
-also plot just B
-```{r}
-cent_group_pltB <- cent_group_df %>%
-  filter(cv_sample=="B") %>%
-  ggplot() +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=cent_group)) +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  gghighlight(samp_pheno %in% sig_agesex, calculate_per_facet = TRUE, use_direct_label=FALSE) +
-  theme_linedraw() +
-  format_x_axis("lifespan_fetal", cent_group_df$age_days) +
-  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1), strip.text.x = element_blank(), strip.background.x = element_blank()) +
-  group_color_scale +
-  labs(y="50th Centile Sex-Difference")
-saveRDS(cent_group_pltB, "figs/ggobjs/cent_groups_B.rds")
-```
-
-median lines with uniform points
-```{r}
-#add group info
-uniform_groups <- full_join(group_plt_df_all, sexdiffs.df.u) %>%
-  filter(sig_fdr==TRUE) %>%
-  group_by(cv_sample, pheno_cat, cent_group, age_days) %>%
-  summarise(median_traj = median(centile_M_minus_F_z, na.rm = TRUE),
-            mean_traj = mean(centile_M_minus_F_z, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-med_trajectory_plt <- uniform_groups %>% 
-  ggplot(aes(x = age_days, y = median_traj, color = cent_group)) +
-  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
-  geom_smooth(method = "gam") +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  group_color_scale +
-  group_fill_scale +
-  theme_linedraw() +
-  format_x_axis("lifespan", uniform_groups$age_days) +
-  labs(y="Median Sex-Difference")
-ggsave("figs/supplement/med_centile_groupings.png", med_trajectory_plt, width=9, height=9, dpi=600)
-
-#also just B
-med_trajectory_pltB <- uniform_groups %>%
-  filter(cv_sample=="B" & pheno_cat != "Ventricular Vol") %>%
-  ggplot(aes(x = age_days, y = median_traj, color = cent_group)) +
-  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
-  geom_smooth(method = "gam") +
-  facet_wrap(~pheno_cat, scales="free_y", ncol=1) +
-  group_color_scale +
-  group_fill_scale +
-  theme_linedraw() +
-  format_x_axis("lifespan", uniform_groups$age_days) +
-  labs(y="Median Sex-Difference")
-saveRDS(med_trajectory_pltB, "figs/ggobjs/cent_groups_median_B.rds")
-```
-
-trying again with clustering
-
-```{r}
-sexdiffs.df.u_centB <- full_join(LR.df_tot, sexdiffs.df.u) %>%
-  filter(sig_fdr==TRUE & total==TRUE & weighted==FALSE & cv_sample=="B") %>%
-  select(pheno, logAge_days, centile_M_minus_F_z)
-
-
-```
-
-visualize with significance from age*sex effects
-````{r}
-group_plt_df <- group_plt_df_all %>%
-  filter(!(pheno %in% vent_list))
-
-group_brain_plt <- plot_cv_brain(group_plt_df, cent_group, "Group", "ggthemes::Classic_Green_Orange_6", levels(group_plt_df$cent_group), c(1.03, 4.5, .93), return_plt = FALSE)
-
-group_brain_plt[[1]] <- group_brain_plt[[1]] + group_fill_scale
-
-group_brain_plt[[2]] <- group_brain_plt[[2]] + group_fill_scale
-
-group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
-
-#recreate legends
-legend <- get_legend(
-  ggplot(group_plt_df) +
-    geom_bar(aes(x=cv_sample, fill=cent_group)) + group_fill_scale
-  )
-
-plts <- cowplot::plot_grid(
-    group_brain_plt[[1]],
-    group_brain_plt[[2]],
-    group_brain_plt[[3]],
-    ncol = 1,
-    nrow = 3,
-    rel_heights = c(1.03, 4.5, .93),
-    align = "v",
-    axis = "lr",
-    greedy = TRUE
-  ) 
-  
-full_plt_obj <- plot_grid(plts, legend, ncol=2, rel_widths = c(3, 1))
-
-ggsave("figs/supplement/group_brain_plt.png", full_plt_obj, dpi=600, height=8.5, width=8, bg = "white")
-```
-
-plot just B
-
-```{r}
-group_plt_dfB <- group_plt_df %>%
-  filter(cv_sample=="B")
-
-group_brain_pltB <- plot_cv_brain(group_plt_dfB, cent_group, "Group", "ggthemes::Classic_Green_Orange_6", levels(group_plt_dfB$cent_group), c(1.03, 4.5, .93), return_plt = FALSE)
-
-group_brain_pltB[[1]] <- group_brain_pltB[[1]] + group_fill_scale
-
-group_brain_pltB[[2]] <- group_brain_pltB[[2]] + group_fill_scale
-
-group_brain_pltB[[3]] <- group_brain_pltB[[3]] + group_fill_scale
-
-group_brain_pltB[[4]] <- get_legend(
-  ggplot(group_plt_df) +
-    geom_bar(aes(x=cv_sample, fill=cent_group)) + group_fill_scale
-  )
-
-saveRDS(group_brain_pltB, "figs/ggobjs/cent_groups_brain_B.rds")
-```
-
-####Sigma
-
-```{r}
-sigma_group_sum <- inner_join(group_df, sigma_convergence_df) %>%
-  mutate(sigma_group = case_when(
-    sigma_bias_early == "M" & sigma_bias_late == "F" ~ "M_to_F",
-    sigma_bias_early == "F" & sigma_bias_late == "M" ~ "F_to_M",
-    sigma_bias_early == "M" & sigma_bias_late == "M" & overall_trajectory == "diverging" ~ "M_increasing",
-    sigma_bias_early == "M" & sigma_bias_late == "M" & overall_trajectory == "converging" ~ "M_decreasing",
-    sigma_bias_early == "F" & sigma_bias_late == "F" & overall_trajectory == "diverging" ~ "F_increasing",
-    sigma_bias_early == "F" & sigma_bias_late == "F" & overall_trajectory == "converging" ~ "F_decreasing",
-  )) %>%
-  mutate(sigma_group = factor(sigma_group,
-                             levels=c("M_increasing", "M_decreasing", "M_to_F", "F_to_M", "F_decreasing", "F_increasing"),
-                             ordered=TRUE)) %>%
-  dplyr::select(pheno, pheno_cat, cv_sample, sigma_group)
-```
-
-```{r}
-sexdiffs_tbv_sigma_group <- inner_join(sexdiffs_tbv, sigma_group_sum)
-
-sigma_group_df <- sexdiffs_tbv_sigma_group %>%
-  mutate(samp_pheno = paste(cv_sample, pheno, sep="_")) %>%
-  dplyr::select(sigma_group, pheno, age_days, pheno_cat, cv_sample, logcv_M_div_F, samp_pheno) %>%
-  na.omit() %>%
-  arrange(pheno, age_days)
- 
-sigma_group_plt <- sigma_group_df %>%
-  ggplot() +
-  geom_line(aes(x=age_days, y=logcv_M_div_F, group=pheno, color=sigma_group)) +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  gghighlight(samp_pheno %in% sig_agesex, calculate_per_facet = TRUE, use_direct_label=FALSE) +
-  theme_linedraw() +
-  format_x_axis("lifespan_fetal", sigma_group_df$age_days) +
-  group_color_scale +
-  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1))+
-  labs(y="log CV Ratio")
-ggsave("figs/supplement/sigma_groupings.png", sigma_group_plt, width=9, height=9, dpi=600)
-
-#ggplotly(sigma_group_plt)
-```
-
-
-```{r}
-sigma_group_pltB <- sigma_group_df %>%
-  filter(cv_sample=="B") %>%
-  ggplot() +
-  geom_line(aes(x=age_days, y=logcv_M_div_F, group=pheno, color=sigma_group)) +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  gghighlight(samp_pheno %in% sig_agesex, calculate_per_facet = TRUE, use_direct_label=FALSE) +
-  theme_linedraw() +
-  format_x_axis("lifespan_fetal", sigma_group_df$age_days) +
-  group_color_scale +
-  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1), strip.text.x = element_blank(), strip.background.x = element_blank())+
-  labs(y="log CV Ratio")
-saveRDS(sigma_group_pltB, "figs/ggobjs/sig_groups_B.rds")
-```
-
-median lines with uniform points
-```{r}
-#add group info
-sigma_uniform_groups <- sigma_group_df %>%
-  filter(samp_pheno %in% sig_agesex) %>%
-  group_by(cv_sample, pheno_cat, sigma_group, age_days) %>%
-  summarise(median_traj = median(logcv_M_div_F, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-med_trajectory_plt <- sigma_uniform_groups %>% 
-  ggplot(aes(x = age_days, y = median_traj, color = sigma_group)) +
-  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
-  geom_smooth(method = "gam") +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  group_color_scale +
-  group_fill_scale +
-  theme_linedraw() +
-  format_x_axis("lifespan", sigma_uniform_groups$age_days) +
-  labs(y="Median Sex-Difference")
-ggsave("figs/supplement/med_sigma_groupings.png", med_trajectory_plt, width=9, height=9, dpi=600)
-
-#also just B
-med_trajectory_pltB <- sigma_uniform_groups %>%
-  filter(cv_sample=="B" & pheno_cat != "Ventricular Vol") %>%
-  ggplot(aes(x = age_days, y = median_traj, color = sigma_group)) +
-  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
-  geom_smooth(method = "gam") +
-  facet_wrap(~pheno_cat, scales="free_y", ncol=1) +
-  group_color_scale +
-  group_fill_scale +
-  theme_linedraw() +
-  format_x_axis("lifespan", sigma_uniform_groups$age_days) +
-  labs(y="Median Sex-Difference")
-saveRDS(med_trajectory_pltB, "figs/ggobjs/sigma_groups_median_B.rds")
-```
-
-visualize with significance from age*sex effects
-
-````{r}
-sigma_group_plt_df <- inner_join(LR.df_tot, sigma_group_df) %>%
-  filter(!(pheno %in% vent_list))
-
-sigma_group_plt <- plot_cv_brain(sigma_group_plt_df, sigma_group, "Group", "ggthemes::Classic_Green_Orange_6", levels(sigma_group_plt_df$sigma_group), c(1.03, 4.5, .93), return_plt = FALSE)
-
-sigma_group_plt[[1]] <- sigma_group_plt[[1]] + group_fill_scale
-
-sigma_group_plt[[2]] <- sigma_group_plt[[2]] + group_fill_scale
-
-sigma_group_plt[[3]] <- sigma_group_plt[[3]] + group_fill_scale
-
-sig.plts <- cowplot::plot_grid(
-    sigma_group_plt[[1]],
-    sigma_group_plt[[2]],
-    sigma_group_plt[[3]],
-    ncol = 1,
-    nrow = 3,
-    rel_heights = c(1.03, 4.5, .93),
-    align = "v",
-    axis = "lr",
-    greedy = TRUE
-  ) 
-  
-sig.full_plt_obj <- plot_grid(sig.plts, legend, ncol=2, rel_widths = c(3, 1))
-
-ggsave("figs/supplement/sigma_group_brain_plt.png", sig.full_plt_obj, dpi=600, height=8.5, width=8, bg = "white")
-```
-
-####Derivative
-
-```{r}
-deriv_group_df <- sexdiffs_tbv %>%
-  na.omit() %>%
-  mutate(fifty_plus = ifelse(logAge_days >= fifty_yrs, "late", "early")) %>%
-  arrange(age_days) %>%
-  group_by(pheno, pheno_cat, fifty_plus, cv_sample) %>%
-  summarise(deriv_int.unlog = rs_integral(logAge_days, deriv_M_minus_F_z)) %>%
-  mutate(deriv_bias = ifelse(deriv_int.unlog > 0 , "M", "F")) %>%
-  pivot_wider(id_cols=c(pheno, pheno_cat, cv_sample), names_from=fifty_plus, values_from=c(deriv_bias, deriv_int.unlog))
-
-deriv_group_sum <- inner_join(deriv_group_df, deriv_convergence_df) %>%
-  mutate(deriv_group = case_when(
-    deriv_bias_early == "M" & deriv_bias_late == "F" ~ "M_to_F",
-    deriv_bias_early == "F" & deriv_bias_late == "M" ~ "F_to_M",
-    deriv_bias_early == "M" & deriv_bias_late == "M" & overall_trajectory == "diverging" ~ "M_increasing",
-    deriv_bias_early == "M" & deriv_bias_late == "M" & overall_trajectory == "converging" ~ "M_decreasing",
-    deriv_bias_early == "F" & deriv_bias_late == "F" & overall_trajectory == "diverging" ~ "F_increasing",
-    deriv_bias_early == "F" & deriv_bias_late == "F" & overall_trajectory == "converging" ~ "F_decreasing",
-  )) %>%
-  mutate(deriv_group = factor(deriv_group,
-                             levels=c("M_increasing", "M_decreasing", "M_to_F", "F_to_M", "F_decreasing", "F_increasing"),
-                             ordered=TRUE)) %>%
-  dplyr::select(pheno, pheno_cat, cv_sample, deriv_group)
-```
-
-```{r}
-sexdiffs_tbv_deriv_group <- inner_join(sexdiffs_tbv, deriv_group_sum)
-
-deriv_group_df <- sexdiffs_tbv_deriv_group %>%
-  mutate(samp_pheno = paste(cv_sample, pheno, sep="_")) %>%
-  dplyr::select(deriv_group, pheno, age_days, pheno_cat, cv_sample, deriv_M_minus_F_z, samp_pheno) %>%
-  na.omit() %>%
-  arrange(pheno, age_days)
- 
-deriv_group_plt <- deriv_group_df %>%
-  ggplot() +
-  geom_line(aes(x=age_days, y=deriv_M_minus_F_z, group=pheno, color=deriv_group)) +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  theme_linedraw() +
-  format_x_axis("lifespan_fetal", deriv_group_df$age_days) +
-    gghighlight(samp_pheno %in% sig_agesex, calculate_per_facet = TRUE, use_direct_label=FALSE) +
-  group_color_scale +
-  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1))+
-  labs(y="Male-Female Derivative")
-
-#testing
-test_plt <- deriv_group_df %>%
-  filter(pheno %in% ct_list) %>%
-  ggplot() +
-  geom_line(aes(x=age_days, y=deriv_M_minus_F_z, group=pheno, color=deriv_group)) +
-  facet_grid(deriv_group~cv_sample, scales="free_y") +
-  theme_linedraw() +
-  format_x_axis("lifespan_fetal", deriv_group_df$age_days) +
-    gghighlight(samp_pheno %in% sig_agesex, calculate_per_facet = TRUE, use_direct_label=FALSE) +
-  group_color_scale +
-  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust=1))+
-  labs(y="Male-Female Derivative")
-
-ggplotly(test_plt)
-```
-
-
-median lines with uniform points
-```{r}
-#add group info
-deriv_uniform_groups <- deriv_group_df %>%
-  filter(samp_pheno %in% sig_agesex) %>%
-  group_by(cv_sample, pheno_cat, deriv_group, age_days) %>%
-  summarise(median_traj = median(deriv_M_minus_F_z, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-med_trajectory_plt <- deriv_uniform_groups %>% 
-  ggplot(aes(x = age_days, y = median_traj, color = deriv_group)) +
-  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
-  geom_smooth(method = "gam") +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  group_color_scale +
-  group_fill_scale +
-  theme_linedraw() +
-  format_x_axis("lifespan", deriv_uniform_groups$age_days) +
-  labs(y="Derivative Sex-Difference")
-ggsave("figs/supplement/med_deriv_groupings.png", med_trajectory_plt, width=9, height=9, dpi=600)
-
-#also just B
-med_trajectory_pltB <- deriv_uniform_groups %>%
-  filter(cv_sample=="B" & pheno_cat != "Ventricular Vol") %>%
-  ggplot(aes(x = age_days, y = median_traj, color = deriv_group)) +
-  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
-  geom_smooth(method = "gam") +
-  facet_wrap(~pheno_cat, scales="free_y", ncol=1) +
-  group_color_scale +
-  group_fill_scale +
-  theme_linedraw() +
-  format_x_axis("lifespan", deriv_uniform_groups$age_days) +
-  labs(y="Derivative Sex-Difference")
-saveRDS(med_trajectory_pltB, "figs/ggobjs/deriv_groups_median_B.rds")
-```
-
-
-````{r}
-deriv_group_plt_df <- inner_join(LR.df_tot, deriv_group_df) %>%
-  filter(!(pheno %in% vent_list))
-
-deriv_group_plt <- plot_cv_brain(deriv_group_plt_df, deriv_group, "Group", "ggthemes::Classic_Green_Orange_6", levels(deriv_group_plt_df$deriv_group), c(1.03, 4.5, .93), return_plt = FALSE)
-
-deriv_group_plt[[1]] <- deriv_group_plt[[1]] + group_fill_scale
-
-deriv_group_plt[[2]] <- deriv_group_plt[[2]] + group_fill_scale
-
-deriv_group_plt[[3]] <- deriv_group_plt[[3]] + group_fill_scale
-
-sig.plts <- cowplot::plot_grid(
-    deriv_group_plt[[1]],
-    deriv_group_plt[[2]],
-    deriv_group_plt[[3]],
-    ncol = 1,
-    nrow = 3,
-    rel_heights = c(1.03, 4.5, .93),
-    align = "v",
-    axis = "lr",
-    greedy = TRUE
-  ) 
-  
-sig.full_plt_obj <- plot_grid(sig.plts, legend, ncol=2, rel_widths = c(3, 1))
-
-ggsave("figs/supplement/deriv_group_brain_plt.png", sig.full_plt_obj, dpi=600, height=8.5, width=8, bg = "white")
-```
-
-plot just B
-
-```{r}
-deriv_group_plt_dfB <- deriv_group_plt_df %>%
-  filter(cv_sample=="B")
-
-deriv_group_pltB <- plot_cv_brain(deriv_group_plt_dfB, deriv_group, "Group", "ggthemes::Classic_Green_Orange_6", levels(deriv_group_plt_dfB$cent_group), c(1.03, 4.5, .93), return_plt = FALSE)
-
-deriv_group_pltB[[1]] <- deriv_group_pltB[[1]] + group_fill_scale
-
-deriv_group_pltB[[2]] <- deriv_group_pltB[[2]] + group_fill_scale
-
-deriv_group_pltB[[3]] <- deriv_group_pltB[[3]] + group_fill_scale
-
-deriv_group_pltB[[4]] <- get_legend(
-  ggplot(deriv_group_plt_dfB) +
-    geom_bar(aes(x=cv_sample, fill=deriv_group)) + group_fill_scale +
-    theme(legend.position="bottom")
-  )
-
-saveRDS(deriv_group_pltB, "figs/ggobjs/deriv_groups_brain_B.rds")
 ```
