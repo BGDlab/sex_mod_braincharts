@@ -637,9 +637,10 @@ sum_cols <- setdiff(names(sexdiffs.df.u), c("logAge_days", "cv_sample", "total",
 
 glob_mean <- sexdiffs.df.u %>%
   filter(pheno %in% global_list & total==TRUE) %>%
-  mutate(age_days = round(age_days, digits=0)) %>%
   group_by(pheno, age_days) %>%
-  summarise(across(all_of(sum_cols), mean, na.rm = TRUE)) %>%
+  #filtering outliers
+  filter(age_days >= 370) %>%
+  summarise(across(all_of(sum_cols), mean)) %>%
   #rescale
   group_by(pheno) %>%
   mutate(centile_M_minus_F_z = centile_M_minus_F_z / max(abs(centile_M_minus_F_z)) * 100) %>%
@@ -684,10 +685,23 @@ ages_long <- glob_mean_sums %>%
 
 glob_mean_sums_long <- left_join(values_long, ages_long, by = c("pheno", "metric"))
 
+
+#reformat x to keep birth label
+reformat_x <- function(x_values){
+  tickLabels <- c()
+  tickMarks <- c()
+  for (year in seq(0, 100, by = 10)) {
+    tickMarks <- append(tickMarks, year * 365.25 + 280)
+  }
+  tickLabels <- c("Birth", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100")
+  unit_lab <- "(years)"
+  list(scale_x_continuous(breaks = tickMarks, labels = tickLabels), labs(x = paste("Age at Scan", unit_lab)))
+}
+
 cent_plt_pct_mean <- glob_mean %>%
   ggplot() +
-  geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
-  geom_smooth(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
   geom_point(
     data = glob_mean_sums_long,
     aes(x = age, y = value, color = pheno, shape = metric),
@@ -697,18 +711,40 @@ cent_plt_pct_mean <- glob_mean %>%
     values = c(
       "max_sex_diff" = 19,
       "min_sex_diff" = 15,
-      "max_deriv" = 18,
+      "max_deriv"    = 18,
       "max_M"        = 2,
       "max_F"        = 6,
       "max_deriv_M"  = 3,
       "max_deriv_F"  = 4
-    )
+    ),
+    labels = c(
+      "max_sex_diff" = "Max Sex Diff",
+      "min_sex_diff" = "Min Sex Diff",
+      "max_deriv"    = "Max Change Sex Diff",
+      "max_M"        = "Max Male",
+      "max_F"        = "Max Female",
+      "max_deriv_M"  = "Max Change Male",
+      "max_deriv_F"  = "Max Change Female"
+    ),
+    name = "Metric"
+  ) +
+  scale_color_discrete(
+    labels = c(
+      "total.SA" = "Total SA",
+      "mean.CT"  = "Mean CT",
+      "CBV"      = "Cerebellum",
+      "CSF"      = "CSF",
+      "GMV"      = "Cortical GM",
+      "sGMV"     = "Subcortical GM",
+      "WMV"      = "WM"
+    ),
+    name = "Pheno"
   ) +
   theme_linedraw() +
-  format_x_axis("lifespan", sexdiffs_tbv_glob$age_days) +
-  facet_wrap(~pheno, scales="free_y") +
+  reformat_x(glob_mean$age_days) +
   labs(y="% Maximum Sex-Difference")
-cent_plt_pct_mean
+saveRDS(cent_plt_pct_mean, "figs/ggobjs/glob_trajectories.rds")
+ggsave("figs/supplement/glob_trajectories.png", cent_plt_pct_mean, dpi=600)
 ```
 
 ```{r}
@@ -761,7 +797,6 @@ top_agesex_plt <- full_join(sexdiffs_tbv, biggest_agesex_resi) %>%
 
 ggsave("figs/misc/top_sexdiffs_centiles.png", top_sex_plt)
 ggsave("figs/misc/top_agesexdiffs_derivs.png", top_agesex_plt)
-
 ```
 
 compare derivatives with chain rule
