@@ -7,11 +7,14 @@ data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 
+rerun="FALSE"
+
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --total) total="$2"; shift 2 ;;
     --log_age) log_age="$2"; shift 2 ;;
+    --rerun) rerun="$2"; shift 2 ;;
     *) echo "Unknown parameter: $1"; exit 1 ;;
   esac
 done
@@ -30,13 +33,18 @@ do
   echo "prepping: $split"
   
     #make config file dir or remove old file if necessary
-    config_file=$config_path/cv_sample_${split}_total${total}_logAge${log_age}_weighted_test_config.txt
-    if ! [ -d $config_path ]
-    then
-      mkdir $config_path
-    elif [ -f $config_file ]
-    then
-      rm -rf $config_file
+    if [[ "$rerun" == "TRUE" ]]; then
+      date_tag=$(date +%Y%m%d)
+      config_file=$config_path/cv_sample_${split}_total${total}_logAge${log_age}_weighted_test_rerun${date_tag}_config.txt
+    else
+      config_file=$config_path/cv_sample_${split}_total${total}_logAge${log_age}_weighted_test_config.txt
+      if ! [ -d $config_path ]
+      then
+        mkdir $config_path
+      elif [ -f $config_file ]
+      then
+        rm -rf $config_file
+      fi
     fi
   
     touch $config_file
@@ -95,6 +103,15 @@ do
       #LOOP THROUGH BESTMODS
       while read -r pheno_line
       do
+        
+        #skip already tested models if rerunning
+        if [[ "$rerun" == "TRUE" ]]; then
+            test_csv=$(ls ${save_path}/model_sums/${pheno_line}*_LRtest.csv 2>/dev/null | head -n 1 || true)
+            if [[ -n "$test_csv" ]]; then
+              echo "Skipping $pheno_line (LR test found)"
+              continue
+            fi
+        fi
         
         # find training BestModel from model selection
         mapfile -t matches < <(find $search_path -type f -name "${pheno_line}_*weighted.rds")
