@@ -129,9 +129,6 @@ gamlss_lambda_rep <- function(og_mod,
   pheno <- paste0(og_mod$mu.formula)[[2]]
   fam <- og_mod$family[1]
   null_mod <- match.arg(null_mod)
-  
-  #test specifying k
-  gaic_k_str <- format(log(nrow(df)), digits = 15, trim = TRUE)
 
   #define formulas for each moment
   
@@ -162,8 +159,6 @@ gamlss_lambda_rep <- function(og_mod,
                      paste0("lambda =", mu_lambdas[4]), mu_base)
     }
   }
-  
-  mu_base <- gsub("log\\(nrow\\(df\\)\\)", gaic_k_str, mu_base)
   
   if (is.null(weight)){
     mu_form <- paste0("safe_gamlss_old(formula =", pheno, "~", mu_base)
@@ -201,8 +196,6 @@ gamlss_lambda_rep <- function(og_mod,
     }
   }
   
-  sig_base <- gsub("log\\(nrow\\(df\\)\\)", gaic_k_str, sig_base)
-  
   sig_form <- paste0("sigma.formula = ~", sig_base)
   
   #NU
@@ -217,8 +210,6 @@ gamlss_lambda_rep <- function(og_mod,
     #remove sex intercept
     nu_base <- sub('+ sexMale', '', nu_base)
   }
-  
-  nu_base <- gsub("log\\(nrow\\(df\\)\\)", gaic_k_str, nu_base)
   
   nu_form <- paste0("nu.formula = ~", nu_base)
   
