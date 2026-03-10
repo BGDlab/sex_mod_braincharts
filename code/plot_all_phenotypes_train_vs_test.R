@@ -5,8 +5,8 @@ library(patchwork)
 library(ggplot2)
 
 # Directories (edit as needed)
-train_dir <- "cv_sample_A_train/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods/replots"
-test_dir  <- "cv_sample_B_test/global_vols_totalFALSE_logPhenoTRUE_logAgeTRUE_pbmods/replots"
+train_dir <- "cv_sample_A_train/global_vols_totalTRUE_logPhenoTRUE_logAgeTRUE_pbmods/replots"
+test_dir  <- "cv_sample_B_test/global_vols_totalTRUE_logPhenoTRUE_logAgeTRUE_pbmods/replots"
 
 # List all plot files
 train_plots <- list.files(train_dir, pattern = "_plot\\.rds$", full.names = TRUE)

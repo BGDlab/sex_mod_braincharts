@@ -36,7 +36,6 @@ vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventric
 library(ggsegTissue)
 ```
 
-#ggseg plotting functions and atlas definitions
 ```{r}
 source("code/plot_cv_brain.R")
 ```
@@ -687,13 +686,21 @@ glob_mean_sums_long <- left_join(values_long, ages_long, by = c("pheno", "metric
 
 
 #reformat x to keep birth label
-reformat_x <- function(x_values){
+reformat_x <- function(x_values, simplified=FALSE){
   tickLabels <- c()
   tickMarks <- c()
-  for (year in seq(0, 100, by = 10)) {
-    tickMarks <- append(tickMarks, year * 365.25 + 280)
+  if(simplified==TRUE){
+    for (year in c(0, 25, 50, 75, 100)) {
+     tickMarks <- append(tickMarks, year * 365.25 + 280)
+    }
+    tickLabels <- c("Birth", "25", "50", "75", "100")
+  } else {
+    for (year in seq(0, 100, by = 10)) {
+      tickMarks <- append(tickMarks, year * 365.25 + 280)
+    }
+    tickLabels <- c("Birth", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100")
   }
-  tickLabels <- c("Birth", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100")
+  
   unit_lab <- "(years)"
   list(scale_x_continuous(breaks = tickMarks, labels = tickLabels), labs(x = paste("Age at Scan", unit_lab)))
 }
@@ -744,7 +751,7 @@ cent_plt_pct_mean <- glob_mean %>%
   reformat_x(glob_mean$age_days) +
   labs(y="% Maximum Sex-Difference")
 saveRDS(cent_plt_pct_mean, "figs/ggobjs/glob_trajectories.rds")
-ggsave("figs/supplement/glob_trajectories.png", cent_plt_pct_mean, dpi=600)
+ggsave("figs/supplement/glob_trajectories.png", cent_plt_pct_mean, dpi=600, width=11, height=5)
 ```
 
 ```{r}
@@ -1427,7 +1434,8 @@ group_traj_final <- full_join(group_cd, group_cd_mix) %>%
 group_final <- group_traj_final %>%
   select(cv_sample, total, weighted, pheno, pheno_cat, class, prop_male, strict_class, resi, sig_fdr, overall_trajectory, transition, cent_group, label) %>%
   unique() %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% vent_list)) %>%
+  mutate(cent_group = ifelse(sig_fdr==FALSE, "NS", cent_group))
 
 table(group_final$cent_group, group_final$cv_sample)
 ```
@@ -1436,14 +1444,15 @@ bar plot
 
 ```{r}
 group_values <- c("F_diverging"="#9E3D22FF", "F_converging"="#C06636FF", "F_to_F"="#CE9344FF", "F_to_M" ="#E8B960FF", 
-             "M_to_F"="#97B4C4", "M_to_M" = "#4C7F9C", "M_converging"="#3A6178","M_diverging"="#154063")
+             "M_to_F"="#9FB9C8", "M_to_M" = "#528AA9", "M_converging"="#3A6178","M_diverging"="#154063",
+             "NS" = "gray")
 
 group_color_scale <- scale_colour_manual(
   values = group_values,
   breaks = c("F_diverging", "F_converging", "F_to_F", "F_to_M", 
-             "M_to_F", "M_to_M", "M_converging", "M_diverging"),
+             "M_to_F", "M_to_M", "M_converging", "M_diverging", "NS"),
   labels = c("Female Diverging", "Female Converging", "Female U", "Female to Male", 
-             "Male to Female", "Male U", "Male Converging", "Male Diverging"),
+             "Male to Female", "Male U", "Male Converging", "Male Diverging", "NS"),
   name = "Group",
   na.value="gray90"
 )
@@ -1451,9 +1460,9 @@ group_color_scale <- scale_colour_manual(
 group_fill_scale <- scale_fill_manual(
   values = group_values,
   breaks = c("F_diverging", "F_converging", "F_to_F", "F_to_M", 
-             "M_to_F", "M_to_M", "M_converging", "M_diverging"),
+             "M_to_F", "M_to_M", "M_converging", "M_diverging", "NS"),
   labels = c("Female Diverging", "Female Converging", "Female U", "Female to Male", 
-             "Male to Female", "Male U", "Male Converging", "Male Diverging"),
+             "Male to Female", "Male U", "Male Converging", "Male Diverging", "NS"),
   name = "Group",
   na.value="gray90"
 )
@@ -1624,6 +1633,66 @@ uniform_groups %>%
   labs(y="Median Sex-Difference")
 ```
 
+also just plot B
+```{r}
+##BRAIN PLOT
+group_finalB <- group_final %>% filter(cv_sample=="B")
+group_brain_plt <- plot_cv_brain(group_finalB, cent_group, "Group", fill_limits=levels(group_finalB$cent_group), height_list=c(1.03, 4.5, .93), return_plt = FALSE, fill_values=group_values)
+
+group_brain_plt[[1]] <- group_brain_plt[[1]] + group_fill_scale
+
+group_brain_plt[[2]] <- group_brain_plt[[2]] + group_fill_scale
+
+group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
+
+#recreate legends
+group_brain_plt[[4]] <- get_legend(
+  ggplot(group_finalB) +
+    geom_bar(aes(x=cv_sample, fill=cent_group)) +
+    group_fill_scale +
+    theme(legend.position = "bottom") +
+    guides(fill = guide_legend(nrow = 1)),
+  legend="bottom"
+  )
+saveRDS(group_brain_plt, "figs/ggobjs/cent_groups_brain_B.rds")
+
+##TRAJECTORIES
+# Create label data with counts per facet
+n_labels <- group_traj_final %>%
+  filter(sig_fdr == TRUE & cv_sample == "B") %>%
+  group_by(cent_group, cv_sample) %>%
+  summarise(n = n_distinct(pheno), .groups = "drop") %>%
+  mutate(label = paste0("n=", n))
+
+group_traj_plt_B <- group_traj_final %>%
+  filter(sig_fdr==TRUE & cv_sample=="B") %>%
+  arrange(pheno, age_days) %>%
+  ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
+  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+  geom_line(aes(group=pheno), alpha=.2) +
+  facet_grid(cent_group ~ cv_sample, scales="free_y",
+             labeller = labeller(
+               cent_group = c("F_diverging" = "Female\nDiverging", "M_diverging" = "Male\nDiverging",
+                              "F_converging" = "Female\nConverging", "M_converging" = "Male\nConverging",
+                              "F_to_M" = "Female to Male", "M_to_F" = "Male to Female",
+                              "F_to_F" = "Female U", "M_to_M" = "Male U")
+             )) +
+  geom_smooth(method = "gam", linewidth=1) +
+  # Add n= labels
+  geom_text(data = n_labels,
+            aes(label = label),
+            x = Inf, y = Inf,        # top-right corner
+            hjust = 1.1, vjust = 1.5, # nudge inward from edge
+            color = "grey30", size = 3,
+            inherit.aes = FALSE) +
+  group_color_scale +
+  reformat_x(group_traj_final$age_days) +
+  theme_linedraw() +
+  theme(legend.position="none") +
+  labs(y="Scaled Median Sex Difference")
+saveRDS(group_traj_plt_B, "figs/ggobjs/cent_groups_traj_B.rds")
+```
+
 ####Sigma
 
 ```{r}
@@ -1672,9 +1741,6 @@ prop_above_sigma_df3 %>%
   summarise(n = n())
 ```
 
-
-
-
 what's going on with the mixed phenotypes?
 
 ```{r}
@@ -1722,7 +1788,8 @@ group_sig_traj_final <- full_join(group_sig_cd, group_sig_cd_mix) %>%
 group_sig_final <- group_sig_traj_final %>%
   select(cv_sample, total, weighted, pheno, pheno_cat, class, prop_male, strict_class, resi, sig_fdr, overall_trajectory, transition, sig_group, label) %>%
   unique() %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% vent_list))  %>%
+  mutate(sig_group = ifelse(sig_fdr==FALSE, "NS", sig_group))
 
 table(group_sig_final$sig_group, group_sig_final$cv_sample)
 ```
@@ -1780,6 +1847,63 @@ group_sig_traj_final %>%
   theme(legend.position="none")
 ```
 
+also just plot B
+```{r}
+##BRAIN PLOT
+group_sig_finalB <- group_sig_final %>% filter(cv_sample=="B")
+group_brain_plt <- plot_cv_brain(group_sig_finalB, sig_group, "Group", fill_limits=levels(group_sig_finalB$sig_group), height_list=c(1.03, 4.5, .93), return_plt = FALSE, fill_values=group_values)
+
+group_brain_plt[[1]] <- group_brain_plt[[1]] + group_fill_scale
+
+group_brain_plt[[2]] <- group_brain_plt[[2]] + group_fill_scale
+
+group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
+
+#recreate legends
+group_brain_plt[[4]] <- get_legend(
+  ggplot(group_sig_finalB) +
+    geom_bar(aes(x=cv_sample, fill=sig_group)) + group_fill_scale
+  )
+
+
+saveRDS(group_brain_plt, "figs/ggobjs/sig_groups_brain_B.rds")
+
+##TRAJECTORIES
+n_labels <- group_sig_traj_final %>%
+  filter(sig_fdr == TRUE & cv_sample == "B") %>%
+  group_by(sig_group, cv_sample) %>%
+  summarise(n = n_distinct(pheno), .groups = "drop") %>%
+  mutate(label = paste0("n=", n))
+
+group_sig_traj_plt_B <- group_sig_traj_final %>%
+  filter(sig_fdr==TRUE & cv_sample=="B") %>%
+  arrange(pheno, age_days) %>%
+  ggplot(aes(x=age_days, y=logcv_M_div_F, color=sig_group)) +
+  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+  geom_line(aes(group=pheno),alpha=.2) +
+  facet_grid(sig_group ~ cv_sample, scales="free_y",
+             labeller = labeller(
+    sig_group = c("F_diverging" = "Female\nDiverging", "M_diverging" = "Male\nDiverging",
+                   "F_converging" = "Female\nConverging", "M_converging" = "Male\nConverging",
+                   "F_to_M" = "Female to Male", "M_to_F" = "Male to Female",
+                   "F_to_F" = "Female U", "M_to_M" = "Male U")
+  )) +
+  geom_smooth(method = "gam", linewidth=1) +
+  group_color_scale +
+  reformat_x(group_sig_traj_final$age_days) +
+  # Add n= labels
+  geom_text(data = n_labels,
+            aes(label = label),
+            x = Inf, y = Inf,        # top-right corner
+            hjust = 1.1, vjust = 1.5, # nudge inward from edge
+            color = "grey30", size = 3,
+            inherit.aes = FALSE) +
+  theme_linedraw() +
+  theme(legend.position="none") +
+  labs(y="Variance Ratio")
+saveRDS(group_sig_traj_plt_B, "figs/ggobjs/sig_groups_traj_B.rds")
+```
+
 
 ###Data-Driven Clustering
 
@@ -1828,8 +1952,9 @@ clust_fun <- function(df, clust_method, clust_var, k){
         sum(apply(rows, 2, var, na.rm = TRUE)) * (sum(ct == cl) - 1)
       }))
     })
-    plot(1:10, wss, type = "b", xlab = "Number of clusters", ylab = "WSS",
+    elbow_plt <- plot(1:10, wss, type = "b", xlab = "Number of clusters", ylab = "WSS",
          main = "Hierarchical – Elbow Plot")
+    print(elbow_plt)
 
     # Cut tree
     clusters <- cutree(hc, k = k)
@@ -1838,7 +1963,8 @@ clust_fun <- function(df, clust_method, clust_var, k){
     set.seed(42)
 
     # Scree / elbow plot
-    print(factoextra:::fviz_nbclust(ts_matrix_complete, kmeans, method = "wss"))
+    elbow_plt <- factoextra:::fviz_nbclust(ts_matrix_complete, kmeans, method = "wss")
+    print(elbow_plt)
   
     # Fit final k-means model
     km <- kmeans(dist_matrix, centers = k, nstart = 25)
@@ -1848,7 +1974,8 @@ clust_fun <- function(df, clust_method, clust_var, k){
     set.seed(42)
   
     # Elbow plot using average silhouette width (more natural for PAM)
-    print(factoextra:::fviz_nbclust(ts_matrix_complete, cluster:::pam, method = "silhouette"))
+    elbow_plt <- factoextra:::fviz_nbclust(ts_matrix_complete, cluster:::pam, method = "silhouette")
+    print(elbow_plt)
   
     pm <- cluster:::pam(dist_matrix, k = k, diss = TRUE)
     clusters <- setNames(pm$clustering, rownames(ts_matrix_complete))
@@ -1877,15 +2004,14 @@ plt_traj <- data_with_clusters %>%
   facet_wrap(pheno_cat~cluster) +
   labs(
     title = "Pheno Time Series by Cluster",
-    x = "log(Age in days)",
-    y = "Centile M minus F z-score",
     colour = "Cluster"
   ) +
+  reformat_x(data_with_clusters$age_days, simplified=TRUE) +
   theme_minimal()
 print(plt_traj)
 
 # plot averages
-print_avg <- data_with_clusters %>%
+plt_avg <- data_with_clusters %>%
   mutate(cluster = factor(cluster)) %>%
   group_by(cluster, pheno_cat, age_days) %>%
   summarise(
@@ -1903,34 +2029,34 @@ print_avg <- data_with_clusters %>%
   labs(
     title = "Average Trajectory per Cluster",
     subtitle = "Ribbon = ±1 SE across pheno levels",
-    x = "log(Age in days)",
     colour = "Cluster",
     fill = "Cluster"
   ) +
+  reformat_x(data_with_clusters$age_days, simplified=TRUE) +
   theme_minimal() +
   theme(legend.position = "none")
-print(print_avg)
+print(plt_avg)
+
+#plot list
+plt_list <- c(elbow_plt, plt_traj, plt_avg)
 
 #plot medoids
   if (!is.null(medoids)){
-    print(medoids)
-
     med_plt <- data_with_clusters %>%
       filter(pheno %in% medoids) %>%
       mutate(cluster = factor(cluster)) %>%
       ggplot(aes(x = age_days, y = !!sym(clust_var),
-                 group = pheno, colour = pheno)) +
+                 group = pheno, colour = cluster)) +
       geom_line(alpha = 0.7) +
-      facet_wrap(~cluster) +
-      labs(
-        title = "Pheno Time Series by Cluster",
-        x = "log(Age in days)",
-        y = "Centile M minus F z-score",
-        colour = "Cluster"
+      facet_wrap(~pheno) +
+      labs(title = "Cluster Medoid"
       ) +
+  reformat_x(data_with_clusters$age_days, simplified=TRUE) +
       theme_minimal()
     print(med_plt)
+    plt_list <- c(plt_list, med_plt)
   }
+return(plt_list)
 }
 ```
 
@@ -1950,19 +2076,89 @@ LR.df_tot.uB <- LR.df_tot.u %>%
 clust_fun(LR.df_tot.uB, "hierarchical", "centile_M_minus_F_z", 2)
 clust_fun(LR.df_tot.uB, "kmeans", "centile_M_minus_F_z", 2)
 
-clust_fun(LR.df_tot.uB, "kmedoids", "centile_M_minus_F_z", 2)
+cent_clust_plt_B <- clust_fun(LR.df_tot.uB, "kmedoids", "centile_M_minus_F_z", 2)
 clust_fun(LR.df_tot.uA, "kmedoids", "centile_M_minus_F_z", 2)
+```
+
+plots
+```{r}
+cent_clust_plt_B[[2]] <- cent_clust_plt_B[[2]] +
+  labs(y="Scaled Median Sex Difference") +
+  theme(legend.position="none")
+
+cent_clust_plt_B[[3]] <- cent_clust_plt_B[[3]] +
+  labs(y="Scaled Median Sex Difference") +
+  theme(legend.position="bottom")
+
+#get legend
+clust_legend <- get_legend(cent_clust_plt_B[[3]], "bottom")
+cent_clust_plt_B[[3]] <- cent_clust_plt_B[[3]] + theme(legend.position = "none")
+
+cent_clust_plt_B[[4]] <- cent_clust_plt_B[[4]] +
+  labs(y="Scaled Median Sex Difference") +
+  theme(legend.position="none")
+
+cent_clust_wrap <- plot_grid(
+  plot_grid(
+    plot_grid(
+      cent_clust_plt_B[[1]],
+      cent_clust_plt_B[[4]],
+      ncol=1), 
+  cent_clust_plt_B[[2]],
+  cent_clust_plt_B[[3]],
+  ncol = 3,
+  rel_widths = c(1.5, 2, 2)),
+  clust_legend,
+  nrow = 2,
+  rel_heights = c(1, 0.02)
+)
+ggsave("figs/supplement/cent_kmedoid_B.png", cent_clust_wrap, dpi=600, height=9, width=16, bg = "white")
 ```
 
 ####Sigma
 
 ```{r}
 #sigma
-clust_fun(LR.df_tot.uB, "kmedoids", "logcv_M_div_F", 2)
+sig_clust_plt_B <- clust_fun(LR.df_tot.uB, "kmedoids", "logcv_M_div_F", 2)
 clust_fun(LR.df_tot.uA, "kmedoids", "logcv_M_div_F", 2)
 
 # clust_fun(LR.df_tot.uB, "hierarchical", "logcv_M_div_F", 2)
 # clust_fun(LR.df_tot.uA, "hierarchical", "logcv_M_div_F", 2)
+```
+
+plots
+```{r}
+sig_clust_plt_B[[2]] <- sig_clust_plt_B[[2]] +
+  labs(y="Variance Ratio") +
+  theme(legend.position="none")
+
+sig_clust_plt_B[[3]] <- sig_clust_plt_B[[3]] +
+  labs(y="Variance Ratio") +
+  theme(legend.position="bottom")
+
+#get legend
+clust_legend <- get_legend(sig_clust_plt_B[[3]], "bottom")
+sig_clust_plt_B[[3]] <- sig_clust_plt_B[[3]] + theme(legend.position = "none")
+
+sig_clust_plt_B[[4]] <- sig_clust_plt_B[[4]] +
+  labs(y="Variance Ratio") +
+  theme(legend.position="none")
+
+sig_clustwrap <- plot_grid(
+  plot_grid(
+    plot_grid(
+      sig_clust_plt_B[[1]],
+      sig_clust_plt_B[[4]],
+      ncol=1), 
+  sig_clust_plt_B[[2]],
+  sig_clust_plt_B[[3]],
+  ncol = 3,
+  rel_widths = c(1.5, 2, 2)),
+  clust_legend,
+  nrow = 2,
+  rel_heights = c(1, 0.02)
+)
+ggsave("figs/supplement/sig_kmedoid_B.png", sig_clustwrap, dpi=600, height=9, width=16, bg = "white")
 ```
 
 ####Deriv

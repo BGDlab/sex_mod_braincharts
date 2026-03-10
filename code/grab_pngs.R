@@ -5,7 +5,7 @@ library(tools)
 
 # Define root directory
 #root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/figs/")
-root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*/centile_plots/")
+root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_train/weighted*/centile_plots/")
 
 args <- commandArgs(trailingOnly=TRUE)
 fname <- as.character(args[1])
