@@ -26,8 +26,7 @@ fread_filt <- function(f){
 }
 
 for (grp in c("CN", "PT")){
-  sum_df_grp <- data.frame()
-  diffs_df_grp <- data.frame()
+  all_diffs <- data.frame()
   denom_grp <- data.frame()
   
   for (pheno in pheno_list){
@@ -35,6 +34,8 @@ for (grp in c("CN", "PT")){
     if (length(f) == 0) {
       warning(paste("No file found for pheno:", pheno))
       next
+    } else {
+      print(paste(length(f), "pheno files found for", dx_val, grp))
     }
     
     cent_csv <- rbindlist(lapply(f, fread_filt)) %>%
@@ -50,29 +51,42 @@ for (grp in c("CN", "PT")){
         value >= 0.05 & value <= 0.95 ~ "mid",
         TRUE ~ NA))
     
-    # summaries per pheno
-    sum_df_grp <- rbind(sum_df_grp, cent_csv %>%
-                          count(dx_recode, pheno, model, sex, ext))
+    sum_df <- rbind(sum_df, cent_csv %>%
+                      count(dx_recode, pheno, model, sex, ext))
     
-    diffs_df_grp <- rbind(diffs_df_grp, cent_csv %>%
-                            group_by(INDEX.ID, pheno, sex, ext) %>%
-                            summarise(models = n_distinct(model), .groups = "drop") %>%
-                            filter(models == 1) %>%
-                            group_by(sex, ext) %>%
-                            summarise(n_change = n_distinct(INDEX.ID), .groups = "drop") %>%
-                            filter(ext != "mid"))
+    # collect subject-level disagreements across phenos
+    all_diffs <- rbind(all_diffs, cent_csv %>%
+                         group_by(INDEX.ID, dx_recode, sex, ext) %>%
+                         summarise(models = n_distinct(model), .groups = "drop") %>%
+                         filter(models == 1, ext != "mid"))
     
     denom_grp <- rbind(denom_grp, rbindlist(lapply(f, fread_filt)) %>%
-                         count(dx_recode, sex))
+                         distinct(INDEX.ID, dx_recode, sex))
   }
   
-  diffs_df_grp <- full_join(diffs_df_grp, denom_grp %>%
-                              group_by(dx_recode, sex) %>%
-                              summarise(n = sum(n), .groups = "drop"), by = c("sex")) %>%
-    mutate(pct_change = (n_change / n) * 100)
+  # summarise changes once across all phenos
+  csv_diffs_df <- all_diffs %>%
+    group_by(dx_recode, sex, ext) %>%
+    summarise(n_change = n_distinct(INDEX.ID), .groups = "drop")
   
-  sum_df <- rbind(sum_df, sum_df_grp)
-  diffs_df <- rbind(diffs_df, diffs_df_grp)
+  
+  # finalize demographics
+  denom_final <- denom_grp %>%
+    distinct(INDEX.ID, dx_recode, sex) %>%
+    count(dx_recode, sex) %>%
+    rename(n_total=n)
+  
+  #add counts
+  csv_diffs_df <- full_join(csv_diffs_df, denom_final, by = c("dx_recode", "sex")) %>%
+    mutate(pct_change = (n_change / n_total) * 100)
+  
+  diffs_df <- rbind(diffs_df, csv_diffs_df)
+  
+  #add counts
+  sum_df_final <- full_join(sum_df, denom_final, by = c("dx_recode", "sex"), 
+                            relationship = "many-to-many") %>%
+    mutate(pct = (n / n_total)*100)
+  
 }
 
 
