@@ -22,10 +22,10 @@ filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("train", "test", filename_no_ext)
 file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
 
-#check if this pheno is already run, and if so, end
-if (file.exists(paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))){
-  stop("Already tested, skipping pheno")
-}
+# #check if this pheno is already run, and if so, end
+# if (file.exists(paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))){
+#   stop("Already tested, skipping pheno")
+# }
 
 ##### READ INFO #####
 base_mod$call$data <- "df"
@@ -59,10 +59,27 @@ if (total == "FALSE"){
 }
 
 ##### FIT TEST MODEL #####
-model <- gamlss_lambda_rep(base_mod, 
-                           null_mod="false",
-                           keep_lambdas=TRUE,
-                           weight="weight")
+#check if this pheno is already run, and if so, load
+model <- NULL
+
+if (file.exists(file_full)){
+  print("loading pre-fit model")
+  model <- tryCatch({readRDS(file_full)
+  }, error = function(e){
+    message(e$message, "- trying again")
+    tryCatch({readRDS(file_full)
+    }, error = function(e){
+      message(e$message, "- refit")
+      NULL
+    })
+  })
+}
+if (is.null(model)){
+  model <- gamlss_lambda_rep(base_mod, 
+                             null_mod="false",
+                             keep_lambdas=TRUE,
+                             weight="weight")
+}
 
 #if model isn't fit, skip to next loop
 if (is.null(model)) {
@@ -170,7 +187,7 @@ test_df <- data.frame(
 
 ##################
 #FIT NULL MODEL WITH NO SEX-EFFECT FOR TBV-CORRECTED MODELS
-if (total == TRUE) {
+if (total != FALSE) {
   print("fitting null model of all sex effects")
   null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex", weight="weight")
   
