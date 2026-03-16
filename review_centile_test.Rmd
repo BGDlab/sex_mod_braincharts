@@ -396,50 +396,198 @@ ggsave("figs/tmp.png", dx_brain_plt, width=18, height=7, dpi=600, bg = "white")
 saveRDS(dx_brain_plt, "figs/ggobjs/dx_brain_plt.rds")
 ```
 
-
-playing with logistic regression
+##Exteremeness
+Are patients more or less likely to have extreme centiles?
 
 ```{r}
-scz_test <- cent_df_uncor %>%
-  filter(dx_tested=="SCZ") %>%
-  filter(!is.na(mean.CT_std_score_full)) %>%
-  mutate(control = ifelse(control=="CN",1,0))
+# Use Sys.glob to expand wildcard paths
+paths <- Sys.glob(file.path("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test", "*_extcent_sum.csv"))
 
-test1 <- glm(control ~ mean.CT_std_score_full, data = scz_test, family = "binomial")
-test2 <- glm(control ~ mean.CT_std_score_null, data = scz_test, family = "binomial")
+# Read all matching CSVs
+ext_cent_sum <- lapply(paths, function(p) {
+  fread(p) %>%
+    mutate(cv_sample = stringr::str_extract(p, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+           dx_tested  = sub("CN_", "", dx_recode),
+           dx = ifelse(grepl("^CN_", dx_recode), "CN", "PT"))
+})
 
-# Extract ROCs
-fit1.roc <- pROC::roc(scz_test$control, test1$fitted.values)
-fit2.roc <- pROC::roc(scz_test$control, test2$fitted.values)
+ext_cent_sum_df <- ext_cent_sum %>%
+  reduce(full_join)
+```
 
-# Convert each ROC to a data frame
-roc_to_df <- function(roc_obj, model_name) {
-  data.frame(
-    specificity = roc_obj$specificities,
-    sensitivity = roc_obj$sensitivities,
-    model = model_name
-  )
-}
+```{r}
+ext_cent_means <- ext_cent_sum_df %>%
+  filter(ext != "mid") %>%
+  group_by(cv_sample, dx_tested, model, sex, ext, dx) %>%
+  summarise(mean_pct = mean(pct, na.rm=T))
 
-roc_df <- rbind(
-  roc_to_df(fit1.roc, paste0("Full (AUC = ", round(fit1.roc$auc, 3), ")")),
-  roc_to_df(fit2.roc, paste0("Null (AUC = ", round(fit2.roc$auc, 3), ")"))
+#signifigance testing
+comparisons <- list(
+  c("PT_full",  "PT_null"),
+  c("CN_full",  "PT_full"),
+  c("CN_null",  "PT_null")
 )
 
-# Plot
-ggplot(roc_df, aes(x = 1 - specificity, y = sensitivity, color = model)) +
-  geom_line(linewidth = 1) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
-  scale_color_manual(values = c("steelblue", "tomato")) +
-  labs(
-    title = "ROC Curves",
-    x = "False Positive Rate (1 - Specificity)",
-    y = "True Positive Rate (Sensitivity)",
-    color = "Model"
+ttest_results <- ext_cent_sum_df %>%
+  filter(ext != "mid") %>%
+  mutate(dx_model = paste(dx, model, sep = "_")) %>%
+  group_by(cv_sample, dx_tested, ext, sex) %>%
+  summarise(
+    map_dfr(comparisons, function(comp) {
+      grp       <- cur_data()
+      g1_vals   <- grp %>% filter(dx_model == comp[1]) %>% arrange(pheno) %>% pull(pct)
+      g2_vals   <- grp %>% filter(dx_model == comp[2]) %>% arrange(pheno) %>% pull(pct)
+
+      # shared phenotypes only (required for pairing)
+      shared    <- intersect(
+        grp %>% filter(dx_model == comp[1]) %>% pull(pheno),
+        grp %>% filter(dx_model == comp[2]) %>% pull(pheno)
+      )
+      g1 <- grp %>% filter(dx_model == comp[1], pheno %in% shared) %>% arrange(pheno) %>% pull(pct)
+      g2 <- grp %>% filter(dx_model == comp[2], pheno %in% shared) %>% arrange(pheno) %>% pull(pct)
+
+      if (length(g1) < 2) {
+        tibble(comparison = paste(comp, collapse = " vs "), p_value = NA_real_,
+               statistic = NA_real_, mean_diff = NA_real_, n_pairs = length(g1))
+      } else {
+        res <- t.test(g1, g2, paired = TRUE)
+        tibble(
+          comparison = paste(comp, collapse = " vs "),
+          p_value    = res$p.value,
+          statistic  = as.numeric(res$statistic),
+          mean_diff  = as.numeric(res$estimate),   # mean of (g1 - g2)
+          n_pairs    = length(g1)
+        )
+      }
+    }),
+    .groups = "drop"
+  ) %>%
+  # FDR correction within cv_sample
+  group_by(cv_sample) %>%
+  mutate(
+    p_fdr = p.adjust(p_value, method = "fdr"),
+    sig   = case_when(
+      p_fdr < 0.05  ~ "*",
+      TRUE          ~ "ns"
+    )
+  )
+
+
+# ── 2. Build significance bracket positions ───────────────────────────────────
+# Map each comparison to (left dx_model, right dx_model) x-positions within
+# each facet. The boxplot uses position_dodge, so we need nudged x positions.
+
+# dx_model levels that actually appear (adjust if your data differs)
+dm_levels <- c("CN_full", "CN_null", "PT_full", "PT_null")
+
+# x-position of each dx_model within a given dx_tested group
+# ggplot dodge width default = 0.75; 4 groups → spacing ≈ 0.75/4 * index
+dodge_positions <- function(levels, width = 0.75) {
+  n   <- length(levels)
+  seq(-(n - 1) / 2, (n - 1) / 2, length.out = n) * (width / n) * (n / (n - 1))
+}
+
+dm_offsets <- setNames(dodge_positions(dm_levels), dm_levels)
+
+# dx_tested gets integer x positions (1, 2, …) in ggplot
+dx_tested_levels <- unique(ext_cent_sum_df$dx_tested)
+dx_x             <- setNames(seq_along(dx_tested_levels), dx_tested_levels)
+
+comp_map <- tibble(
+  comparison = c("PT_full vs PT_null", "CN_full vs PT_full", "CN_null vs PT_null"),
+  left_dm    = c("PT_full",            "CN_full",            "CN_null"),
+  right_dm   = c("PT_null",            "PT_full",            "PT_null"),
+  bracket_y_offset = c(0, 3, 6)   # stack brackets vertically
+)
+
+sig_plot_df <- ttest_results %>%
+  left_join(comp_map, by = "comparison") %>%
+  mutate(
+    x_base  = dx_x[dx_tested],
+    x_left  = x_base + dm_offsets[left_dm],
+    x_right = x_base + dm_offsets[right_dm]
+  )
+
+
+# ── 3. Plot ───────────────────────────────────────────────────────────────────
+
+plot_df <- ext_cent_sum_df %>%
+  filter(ext != "mid") %>%
+  mutate(dx_model = paste(dx, model, sep = "_"))
+
+# compute a per-facet y-max to anchor brackets just above the boxes
+facet_ymax <- plot_df %>%
+  group_by(cv_sample, sex, dx_tested, ext) %>%
+  summarise(y_max = max(pct, na.rm = TRUE), .groups = "drop")
+
+sig_plot_df <- sig_plot_df %>%
+  left_join(facet_ymax, by = c("cv_sample", "sex", "dx_tested", "ext")) %>%
+  mutate(
+    y_bracket = y_max * 1.05 + bracket_y_offset,
+    y_label   = y_bracket + 0.5
+  )
+
+ggplot(plot_df) +
+  geom_hline(yintercept = 5, color = "darkgray", linetype = "dashed") +
+  geom_boxplot(aes(x = dx_tested, y = pct, fill = dx_model), position = "dodge") +
+
+  # bracket segments: left arm
+  geom_segment(
+    data = sig_plot_df,
+    aes(x = x_left, xend = x_left, y = y_bracket - 0.3, yend = y_bracket),
+    inherit.aes = FALSE, linewidth = 0.35
   ) +
-  theme_classic() +
-  theme(legend.position = c(0.7, 0.2))
+  # bracket segments: right arm
+  geom_segment(
+    data = sig_plot_df,
+    aes(x = x_right, xend = x_right, y = y_bracket - 0.3, yend = y_bracket),
+    inherit.aes = FALSE, linewidth = 0.35
+  ) +
+  # bracket segments: horizontal bar
+  geom_segment(
+    data = sig_plot_df,
+    aes(x = x_left, xend = x_right, y = y_bracket, yend = y_bracket),
+    inherit.aes = FALSE, linewidth = 0.35
+  ) +
+  # significance label
+  geom_text(
+    data = sig_plot_df,
+    aes(x = (x_left + x_right) / 2, y = y_label, label = sig),
+    inherit.aes = FALSE, size = 3
+  ) +
+  ggh4x::facet_nested(ext ~ cv_sample + sex, scales = "free_y") +
+  theme_linedraw() +
+  scale_fill_manual(values = c("CN_full" = "#F9E011FF", "CN_null" ="#D9B523FF", "PT_full" ="#DDDAEFFF", "PT_null"="#796D9DFF"),
+  name = "Group"
+)
+
 ```
+how many subjects change between full and null models?
+
+```{r}
+# Use Sys.glob to expand wildcard paths
+paths <- Sys.glob(file.path("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test", "*_extcent_diffs.csv"))
+
+# Read all matching CSVs
+ext_cent_diff <- lapply(paths, function(p) {
+  fread(p) %>%
+    mutate(cv_sample = stringr::str_extract(p, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+           dx_tested  = sub("CN_", "", dx_recode),
+           dx = ifelse(grepl("^CN_", dx_recode), "CN", "PT"))
+})
+
+ext_cent_diff_df <- ext_cent_diff %>%
+  reduce(full_join)
+```
+
+```{r}
+ext_cent_diff_df %>%
+  filter(dx=="PT") %>%
+  ggplot() +
+  geom_col(aes(x=dx_tested, y=pct_change, fill=sex), position="dodge") +
+  facet_grid(ext~cv_sample)
+```
+
 ##Patient Sex-Differences
 
 ```{r}
