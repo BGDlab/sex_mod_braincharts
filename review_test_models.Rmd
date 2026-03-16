@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, sf, cowplot, subcortexVisualizationR, rstatix)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, sf, cowplot, subcortexVisualizationR, rstatix, freesurferformats)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -34,6 +34,11 @@ vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventric
 # install.packages("remotes")
 #remotes::install_github("BGDlab/ggsegTissue", force=TRUE)
 library(ggsegTissue)
+
+#source spin test
+source("https://raw.githubusercontent.com/frantisekvasa/rotate_parcellation/refs/heads/master/R/perm.sphere.p.R")
+source("https://raw.githubusercontent.com/frantisekvasa/rotate_parcellation/refs/heads/master/R/rotate.parcellation.R")
+fs_path <- "/mnt/isilon/bgdlab_processing/code/freesurfer-6.0/subjects/fsaverage/"
 ```
 
 ```{r}
@@ -502,7 +507,7 @@ LR.df_plot %>%
 
 #find phenos where both weighted and unweighted are significant
 LR.df_agree <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  dplyr::filter(total==TRUE & effect=="sex_all") %>%
   group_by(cv_sample, pheno) %>%
   filter(
     all(sig_fdr == TRUE) &        # all rows must be sig
@@ -516,7 +521,7 @@ LR.df_agree %>%
 
 #test resi
 stat_results <- LR.df_agree %>%
-  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  dplyr::filter(total==TRUE & effect=="sex_all") %>%
   group_by(cv_sample, pheno_cat) %>%
   t_test(sig_resi ~ weighted, var.equal = FALSE, paired=TRUE) %>%
   group_by(cv_sample) %>%
@@ -552,23 +557,23 @@ LR.df_agree %>%
 
 # plot all (not just overlapping phenos)
 LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  dplyr::filter(total==TRUE & effect=="sex_all") %>%
   ggplot() +
   geom_boxplot(aes(y = sig_resi, x = pheno_cat, fill = weighted)) +
   guides(x = guide_axis(angle = 45)) +
   facet_wrap(~cv_sample)
 ```
-more regions are significant in weighted analyses
+RESIs and n significant regions are basically identical across weighted and unweighted models 
 
 ```{r}
 #removing ventricles for visualization:
 LR.df_w_novent <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age" & weighted==TRUE) %>%
+  dplyr::filter(total==TRUE & effect=="sex_all" & weighted==TRUE) %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
-full_plt_uncor <- plot_cv_brain(LR.df_w_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1.03, 4.5, .93), direction=-1) #keeping same scale from unweighted models
+full_plt_uncor <- plot_cv_brain(LR.df_w_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.2), c(1.03, 4.5, .93), direction=-1) #keeping same scale from unweighted models
 
-ggsave("figs/supplement/resi_tbv_weight.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
+ggsave("figs/supplement/resi_tbv_allsex_weight.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
 
 
@@ -1371,7 +1376,7 @@ dominance_df <- sexdiffs_tbv %>%
 
 dominance_df %>%
   group_by(pheno_cat, cv_sample) %>% 
-  count(dominance, pheno_cat, cv_sample) %>% 
+  dplyr::count(dominance, pheno_cat, cv_sample) %>% 
   mutate(perc = n / sum(n)) %>% 
   ggplot(aes(x=pheno_cat, y=perc, fill=dominance)) +
   geom_col(position="fill") +
@@ -1381,7 +1386,7 @@ dominance_df %>%
 
 dominance_df %>%
   group_by(pheno_cat, cv_sample) %>% 
-  count(sigma_dominance, pheno_cat, cv_sample) %>% 
+  dplyr::count(sigma_dominance, pheno_cat, cv_sample) %>% 
   mutate(perc = n / sum(n)) %>% 
   ggplot(aes(x=pheno_cat, y=perc, fill=sigma_dominance)) +
   geom_col(position="fill") +
@@ -1574,6 +1579,114 @@ full_dom_plt_sigmaB <- plot_cv_brain(dominance_plt_df_B, sigma_int_norm.unlog, "
 saveRDS(full_dom_plt_sigmaB, "figs/ggobjs/sig_dom_B.rds")
 ```
 
+####Spin Test
+
+Check whether sex-dominance in trajectories is associated with sex-dominance in variance
+
+setup based on code from Val and claude AI
+
+```{r}
+#read in files
+sphere.lh <- read.fs.surface(file.path(fs_path, "/surf/lh.sphere"))
+sphere.rh <- read.fs.surface(file.path(fs_path, "/surf/rh.sphere"))
+annot.lh <- freesurfer:::read_annotation(file.path(fs_path, "/label/lh.aparc.annot"))
+annot.rh <- freesurfer:::read_annotation(file.path(fs_path, "/label/rh.aparc.annot"))
+
+# Compute centroid (except for medial wall)
+rm <- which(annot.lh$colortable$label %in% c("unknown", "corpuscallosum"))
+#left hemisphere
+lhcoords <- t(sapply(c(1:length(annot.lh$colortable$label))[-rm], function(x) 
+  colMeans(sphere.lh$vertices[which(annot.lh$label == annot.lh$colortable$code[x]), ])
+))
+rownames(lhcoords) <- annot.lh$colortable$label[-rm]
+#right hemisphere
+rhcoords <- t(sapply(c(1:length(annot.rh$colortable$label))[-rm], function(x) 
+  colMeans(sphere.rh$vertices[which(annot.rh$label == annot.rh$colortable$code[x]), ])
+))
+rownames(rhcoords) <- annot.rh$colortable$label[-rm]
+```
+
+spin permutations
+```{r}
+perm_file <- "spin_perms_DK68_n10000.rds"
+ 
+if (file.exists(perm_file)) {
+  message("Loading existing permutations from ", perm_file)
+  perm.id <- readRDS(perm_file)
+} else {
+  message("Generating 10,000 spin permutations (this may take a few minutes)...")
+  perm.id <- rotate.parcellation(lhcoords, rhcoords, nrot = 10000, method = "hungarian")
+  saveRDS(perm.id, perm_file)
+  message("Permutations saved to ", perm_file)
+}
+```
+
+prep dominance dfs
+
+```{r}
+spin_prep <- dominance_df %>%
+  filter(pheno %in% c(sa_list, ct_list, vol_list)) %>%
+  select(pheno, cv_sample, pheno_cat, centile_int_norm.unlog, sigma_int_norm.unlog) %>%
+  mutate(hemi = stringr::str_extract(pheno, "(lh|rh)"),
+         pheno = str_extract(pheno, "(?<=\\.)[^.]+$"))
+
+#check pheno names match
+stopifnot(all(unique(spin_prep$pheno[spin_prep$hemi == "lh"]) %in% rownames(lhcoords)))
+stopifnot(all(unique(spin_prep$pheno[spin_prep$hemi == "rh"]) %in% rownames(rhcoords)))
+#check region counts = 34
+region_counts <- spin_prep %>%
+  group_by(cv_sample, pheno_cat, hemi) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  filter(n != 34)
+```
+
+run spin test
+```{r}
+spin_prep %>%
+  group_by(cv_sample, pheno_cat) %>%
+  group_modify(~ {
+    # Order LH and RH rows to match coordinate matrices
+    lh_data <- .x %>%
+      filter(hemi == "lh") %>%
+      arrange(match(pheno, rownames(lhcoords)))
+
+    rh_data <- .x %>%
+      filter(hemi == "rh") %>%
+      arrange(match(pheno, rownames(rhcoords)))
+
+    # Subset coordinate matrices to only regions present in this group
+    lhcoords_sub <- lhcoords[rownames(lhcoords) %in% lh_data$pheno, , drop = FALSE]
+    rhcoords_sub <- rhcoords[rownames(rhcoords) %in% rh_data$pheno, , drop = FALSE]
+
+    # Re-order data to match subsetted coordinate matrices
+    lh_data <- lh_data %>% arrange(match(pheno, rownames(lhcoords_sub)))
+    rh_data <- rh_data %>% arrange(match(pheno, rownames(rhcoords_sub)))
+
+    # Generate group-specific permutations if regions are missing
+    n_regions <- nrow(lh_data) + nrow(rh_data)
+    if (n_regions < 68) {
+      message("Group ", unique(.x$cv_sample[1]), " / ", unique(.x$pheno_cat[1]),
+              ": only ", n_regions, " regions — generating group-specific permutations")
+      perm.id_group <- rotate.parcellation(lhcoords_sub, rhcoords_sub,
+                                           nrot = 10000, method = "hungarian")
+    } else {
+      perm.id_group <- perm.id
+    }
+
+    # Build map vectors
+    map_centile <- c(lh_data$centile_int_norm.unlog, rh_data$centile_int_norm.unlog)
+    map_sigma   <- c(lh_data$sigma_int_norm.unlog,   rh_data$sigma_int_norm.unlog)
+
+    obs_r  <- cor(map_centile, map_sigma, method = "spearman")
+    p_spin <- perm.sphere.p(map_centile, map_sigma, perm.id_group, corr.type = "spearman")
+
+    tibble(obs_r = obs_r, p_spin = p_spin, n_regions = n_regions)
+  }) %>%
+  ungroup()
+
+```
+
+no significant association between mean and variance dominance
 
 ###Grouping
 grouping by M vs F, converging vs diverging
