@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, sf, cowplot, subcortexVisualizationR)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, sf, cowplot, subcortexVisualizationR, rstatix)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -226,6 +226,78 @@ LR.df_uncor_novent_B <- LR.df_uncor_novent %>%
 B_plt_uncor <- plot_cv_brain(LR.df_uncor_novent_B, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1, , 1.5), return_plt=FALSE, direction=-1)
 saveRDS(B_plt_uncor, "figs/ggobjs/agebysex_B.rds")
 ```
+###Weighted
+Sensitivity analyses with inverse weighting by euler
+
+```{r}
+LR.df_plot %>%
+  dplyr::filter(total==FALSE) %>%
+  group_by(cv_sample, weighted) %>%
+  summarise(n_sig = sum(sig_fdr==TRUE),
+            n=n()) %>%
+  mutate(pct_sig = (n_sig/n)*100)
+
+#find phenos where both weighted and unweighted are significant
+LR.df_agree <- LR.df_plot %>%
+  dplyr::filter(total == FALSE) %>%
+  group_by(cv_sample, pheno) %>%
+  filter(
+    all(sig_fdr == TRUE) &        # all rows must be sig
+    n_distinct(weighted) == 2     # both levels of weighted must be present
+  ) %>%
+  ungroup()
+
+LR.df_agree %>%
+  group_by(cv_sample) %>%
+  summarise(n=n()/2)
+
+#test resi
+stat_results <- LR.df_agree %>%
+  dplyr::filter(total == FALSE) %>%
+  group_by(cv_sample, pheno_cat) %>%
+  t_test(sig_resi ~ weighted, var.equal = FALSE, paired=TRUE) %>%
+  group_by(cv_sample) %>%
+  adjust_pvalue(method = "fdr") %>%
+  add_significance("p.adj")
+
+# manually add y positions based on data max
+y_positions <- LR.df_agree %>%
+  group_by(cv_sample, pheno_cat) %>%
+  summarise(y.position = max(sig_resi, na.rm = TRUE) * 1.05, .groups = "drop")
+
+pheno_levels <- levels(factor(LR.df_agree$pheno_cat))
+dodge_width <- 0.75
+stat_results <- stat_results %>%
+  left_join(y_positions, by = c("cv_sample", "pheno_cat")) %>%
+  mutate(
+    x_center = match(pheno_cat, pheno_levels),
+    xmin = x_center - dodge_width / 4,
+    xmax = x_center + dodge_width / 4
+  )
+
+# plot
+LR.df_agree %>%
+  ggplot() +
+  geom_boxplot(aes(y = sig_resi, x = pheno_cat, fill = weighted)) +
+  ggpubr::stat_pvalue_manual(
+    stat_results,
+    label = "p.adj.signif",
+    tip.length = 0.01
+  ) +
+  guides(x = guide_axis(angle = 45)) +
+  facet_wrap(~cv_sample)
+```
+
+```{r}
+#removing ventricles for visualization:
+LR.df_w_novent <- LR.df_plot %>%
+  filter(total==FALSE & weighted==TRUE) %>%
+  filter(!(pheno %in% vent_list))
+range(LR.df_w_novent$resi)
+full_plt_uncor <- plot_cv_brain(LR.df_w_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1.03, 4.5, .93), direction=-1) #keeping same scale from unweighted models
+
+ggsave("figs/supplement/resi_uncorrected_weight.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
+```
 
 #TBV-Corrected Models
 
@@ -261,6 +333,89 @@ full_plt_tot <- plot_cv_brain(LR.df_tot_novent, resi, "RESI", "grDevices::Greens
 
 ggsave("figs/supplement/resi_tbv.png", full_plt_tot, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
+
+###Weighted
+Sensitivity analyses with inverse weighting by euler
+
+```{r}
+LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  group_by(cv_sample, weighted) %>%
+  summarise(n_sig = sum(sig_fdr==TRUE),
+            n=n()) %>%
+  mutate(pct_sig = (n_sig/n)*100)
+
+#find phenos where both weighted and unweighted are significant
+LR.df_agree <- LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  group_by(cv_sample, pheno) %>%
+  filter(
+    all(sig_fdr == TRUE) &        # all rows must be sig
+    n_distinct(weighted) == 2     # both levels of weighted must be present
+  ) %>%
+  ungroup()
+
+LR.df_agree %>%
+  group_by(cv_sample) %>%
+  summarise(n=n()/2)
+
+#test resi
+stat_results <- LR.df_agree %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  group_by(cv_sample, pheno_cat) %>%
+  t_test(sig_resi ~ weighted, var.equal = FALSE, paired=TRUE) %>%
+  group_by(cv_sample) %>%
+  adjust_pvalue(method = "fdr") %>%
+  add_significance("p.adj")
+
+# manually add y positions based on data max
+y_positions <- LR.df_agree %>%
+  group_by(cv_sample, pheno_cat) %>%
+  summarise(y.position = max(sig_resi, na.rm = TRUE) * 1.05, .groups = "drop")
+
+pheno_levels <- levels(factor(LR.df_agree$pheno_cat))
+dodge_width <- 0.75
+stat_results <- stat_results %>%
+  left_join(y_positions, by = c("cv_sample", "pheno_cat")) %>%
+  mutate(
+    x_center = match(pheno_cat, pheno_levels),
+    xmin = x_center - dodge_width / 4,
+    xmax = x_center + dodge_width / 4
+  )
+
+# plot
+LR.df_agree %>%
+  ggplot() +
+  geom_boxplot(aes(y = sig_resi, x = pheno_cat, fill = weighted)) +
+  ggpubr::stat_pvalue_manual(
+    stat_results,
+    label = "p.adj.signif",
+    tip.length = 0.01
+  ) +
+  guides(x = guide_axis(angle = 45)) +
+  facet_wrap(~cv_sample)
+
+# plot all (not just overlapping phenos)
+LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  ggplot() +
+  geom_boxplot(aes(y = sig_resi, x = pheno_cat, fill = weighted)) +
+  guides(x = guide_axis(angle = 45)) +
+  facet_wrap(~cv_sample)
+```
+more regions are significant in weighted analyses
+
+```{r}
+#removing ventricles for visualization:
+LR.df_w_novent <- LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_age" & weighted==TRUE) %>%
+  filter(!(pheno %in% vent_list))
+range(LR.df_w_novent$resi)
+full_plt_uncor <- plot_cv_brain(LR.df_w_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1.03, 4.5, .93), direction=-1) #keeping same scale from unweighted models
+
+ggsave("figs/supplement/resi_tbv_weight.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
+```
+
 
 ##Sex Effect
 
@@ -333,6 +488,90 @@ sig_sex <- LR.df_tot_sex %>%
   filter(sig_fdr==TRUE) %>%
   pull(samp_pheno)
 ```
+
+###Weighted
+Sensitivity analyses with inverse weighting by euler
+
+```{r}
+LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_all") %>%
+  group_by(cv_sample, weighted) %>%
+  summarise(n_sig = sum(sig_fdr==TRUE),
+            n=n()) %>%
+  mutate(pct_sig = (n_sig/n)*100)
+
+#find phenos where both weighted and unweighted are significant
+LR.df_agree <- LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  group_by(cv_sample, pheno) %>%
+  filter(
+    all(sig_fdr == TRUE) &        # all rows must be sig
+    n_distinct(weighted) == 2     # both levels of weighted must be present
+  ) %>%
+  ungroup()
+
+LR.df_agree %>%
+  group_by(cv_sample) %>%
+  summarise(n=n()/2)
+
+#test resi
+stat_results <- LR.df_agree %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  group_by(cv_sample, pheno_cat) %>%
+  t_test(sig_resi ~ weighted, var.equal = FALSE, paired=TRUE) %>%
+  group_by(cv_sample) %>%
+  adjust_pvalue(method = "fdr") %>%
+  add_significance("p.adj")
+
+# manually add y positions based on data max
+y_positions <- LR.df_agree %>%
+  group_by(cv_sample, pheno_cat) %>%
+  summarise(y.position = max(sig_resi, na.rm = TRUE) * 1.05, .groups = "drop")
+
+pheno_levels <- levels(factor(LR.df_agree$pheno_cat))
+dodge_width <- 0.75
+stat_results <- stat_results %>%
+  left_join(y_positions, by = c("cv_sample", "pheno_cat")) %>%
+  mutate(
+    x_center = match(pheno_cat, pheno_levels),
+    xmin = x_center - dodge_width / 4,
+    xmax = x_center + dodge_width / 4
+  )
+
+# plot
+LR.df_agree %>%
+  ggplot() +
+  geom_boxplot(aes(y = sig_resi, x = pheno_cat, fill = weighted)) +
+  ggpubr::stat_pvalue_manual(
+    stat_results,
+    label = "p.adj.signif",
+    tip.length = 0.01
+  ) +
+  guides(x = guide_axis(angle = 45)) +
+  facet_wrap(~cv_sample)
+
+# plot all (not just overlapping phenos)
+LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  ggplot() +
+  geom_boxplot(aes(y = sig_resi, x = pheno_cat, fill = weighted)) +
+  guides(x = guide_axis(angle = 45)) +
+  facet_wrap(~cv_sample)
+```
+more regions are significant in weighted analyses
+
+```{r}
+#removing ventricles for visualization:
+LR.df_w_novent <- LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_age" & weighted==TRUE) %>%
+  filter(!(pheno %in% vent_list))
+range(LR.df_w_novent$resi)
+full_plt_uncor <- plot_cv_brain(LR.df_w_novent, resi, "RESI", "grDevices::Greens 2", c(0,0.1), c(1.03, 4.5, .93), direction=-1) #keeping same scale from unweighted models
+
+ggsave("figs/supplement/resi_tbv_weight.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
+```
+
+
 
 ##Trajectories
 Read in sexdiff csvs

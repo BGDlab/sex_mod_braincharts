@@ -91,5 +91,5 @@ for (grp in c("CN", "PT")){
 
 
 #save
-fwrite(sum_df, paste0(base_path, "cv_sample_", cv_sample, "_test/", dx_val, "_extcent_sum.csv"))
+fwrite(sum_df_final, paste0(base_path, "cv_sample_", cv_sample, "_test/", dx_val, "_extcent_sum.csv"))
 fwrite(diffs_df, paste0(base_path, "cv_sample_", cv_sample, "_test/", dx_val, "_extcent_diffs.csv"))
