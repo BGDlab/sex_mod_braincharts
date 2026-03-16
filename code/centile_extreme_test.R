@@ -48,18 +48,34 @@ for (grp in c("CN", "PT")){
   
   full_df <- rbindlist(lapply(file_list, fread_filt), fill=TRUE)
   
-  cent_csv <- full_df %>%
-    pivot_longer(
-      cols = contains("centile"),
-      names_to = c("pheno", "model"),
-      names_pattern = "(.+)_centile_(full|null)"
-    ) %>%
-    filter(!is.na(value)) %>%
-    mutate(ext = case_when(
-      value < 0.05 ~ "low",
-      value > 0.95 ~ "high",
-      value >= 0.05 & value <= 0.95 ~ "mid",
-      TRUE ~ NA))
+  # --- CHUNKED pivot_longer to avoid vec_interleave_indices() size limit ---
+  chunk_size <- 50  # number of files per chunk; tune down if still hitting the limit
+  
+  cent_cols <- grep("centile", names(full_df), value = TRUE)
+  id_cols   <- c("INDEX.ID", "sex", "dx_recode")
+  phenos_in_data <- unique(sub("_centile_(full|null)$", "", cent_cols))
+  
+  chunks <- split(phenos_in_data, ceiling(seq_along(phenos_in_data) / chunk_size))
+  
+  cent_csv <- rbindlist(lapply(chunks, function(pheno_chunk) {
+    cols_chunk <- cent_cols[sub("_centile_(full|null)$", "", cent_cols) %in% pheno_chunk]
+    sub_df <- full_df[, c(id_cols, cols_chunk), with = FALSE]
+    
+    sub_df %>%
+      pivot_longer(
+        cols = all_of(cols_chunk),
+        names_to = c("pheno", "model"),
+        names_pattern = "(.+)_centile_(full|null)"
+      ) %>%
+      filter(!is.na(value)) %>%
+      mutate(ext = case_when(
+        value < 0.05  ~ "low",
+        value > 0.95  ~ "high",
+        value >= 0.05 & value <= 0.95 ~ "mid",
+        TRUE ~ NA
+      ))
+  }), fill = TRUE)
+  # -------------------------------------------------------------------------
   
   #summarise counts within each pheno
   sum_df_grp <- cent_csv %>%
