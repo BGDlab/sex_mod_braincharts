@@ -583,6 +583,11 @@ ext_cent_diff_df <- ext_cent_diff %>%
 ```{r}
 ext_cent_diff_df %>%
   filter(dx=="PT") %>%
+  summarise(min_pct = min(pct_change),
+            max_pct = max(pct_change))
+
+ext_cent_diff_df %>%
+  filter(dx=="PT") %>%
   ggplot() +
   geom_col(aes(x=dx_tested, y=pct_change, fill=sex), position="dodge") +
   facet_grid(ext~cv_sample)
