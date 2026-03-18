@@ -77,18 +77,27 @@ for (grp in c("CN", "PT")){
   }), fill = TRUE)
   # -------------------------------------------------------------------------
   
-  #summarise counts within each pheno
+  #summarize counts within each pheno
   sum_df_grp <- cent_csv %>%
     count(dx_recode, pheno, model, sex, ext)
   
-  #summarise how many change across phenos
+  #summarize
   diffs_df_grp <- cent_csv %>%
     group_by(INDEX.ID, pheno, sex, ext) %>%
     summarise(models = n_distinct(model), .groups = "drop") %>%
     filter(models == 1) %>% #subjects where just ONE model (sex-mod or sex-int) is extreme for that subj and pheno
     filter(ext != "mid") %>% #ignore when changes to/from mid so we're not double counting
-    group_by(sex, ext) %>%
-    summarise(n_change = n_distinct(INDEX.ID), .groups = "drop") #how many unique subjects have a change in at least one pheno?
+    #how many phenos changed for a given subject?
+    group_by(INDEX.ID, sex) %>%
+    summarise(n_pheno_change = n_distinct(pheno), .groups = "drop") %>%
+    group_by(sex) %>%
+    summarise(n_change = n_distinct(INDEX.ID), #how many unique subjects have a change in at least one pheno?
+              n_pheno_change_total = sum(n_pheno_change), #how many phenos change at all?
+              #of subjects who changed in at least one pheno, how many phenos changed?
+              min_phenos = min(n_pheno_change),
+              max_phenos = max(n_pheno_change),
+              mean_phenos = mean(n_pheno_change),
+              .groups = "drop") 
   
   #get denominator - how many subjects per dx and sex were tested?  
   denom_grp <- full_df %>%
@@ -98,7 +107,8 @@ for (grp in c("CN", "PT")){
     rename(n_total = n)
   
   diffs_df_grp <- full_join(diffs_df_grp, denom_grp, by = c("sex")) %>%
-    mutate(pct_change = (n_change / n_total) * 100)
+    mutate(pct_change = (n_change / n_total) * 100,
+           pct_pheno_change = (n_pheno_change_total/(n_total*length(pheno_list)))*100)
   
   sum_df_grp <- full_join(sum_df_grp, denom_grp, by = c("dx_recode", "sex")) %>%
     mutate(pct = (n / n_total) * 100)
