@@ -1,6 +1,7 @@
 library(tidyr)
 library(data.table)
 library(dplyr)
+library(purrr)
 
 #simplified version of centile_extreme_test.R to make sure denominators are calculated correctly
 
@@ -111,7 +112,8 @@ for (grp in c("CN", "PT")){
            pct_pheno_change = (n_pheno_change_total/(n_total*length(pheno_list)))*100)
   
   sum_df_grp <- full_join(sum_df_grp, denom_grp, by = c("dx_recode", "sex")) %>%
-    mutate(pct = (n / n_total) * 100)
+    mutate(pct = (n / n_total) * 100,
+           dx = grp)
   
   sum_df <- rbind(sum_df, sum_df_grp)
   diffs_df <- rbind(diffs_df, diffs_df_grp)
@@ -119,5 +121,48 @@ for (grp in c("CN", "PT")){
 
 
 #save
+sum_df$dx_tested <- dx_val
+sum_df$cv_sample <- cv_sample
+diffs_df$dx_tested <- dx_val
+diffs_df$cv_sample <- cv_sample
+
 fwrite(sum_df, paste0(base_path, "cv_sample_", cv_sample, "_test/", dx_val, "_extcent_sum.csv"))
 fwrite(diffs_df, paste0(base_path, "cv_sample_", cv_sample, "_test/", dx_val, "_extcent_diffs.csv"))
+
+#SIGNIFICANCE TESTING using Fisher's Exact test of proportions
+run_fisher <- function(n_CN, n_PT, n_total_CN, n_total_PT) {
+  twoSamplePermutationTestProportion(
+    x = c(n_CN, n_PT),
+    y = c(n_total_CN, n_total_PT),
+    x.and.y = "Number Successes and Trials",
+    alternative = "two.sided"
+  )
+}
+
+#prep df
+fisher_df <- sum_df %>%
+  filter(ext != "mid") %>%
+  pivot_wider(id_cols=c(pheno, model, sex, ext), names_from=dx, values_from=c(n, n_total)) %>%
+  #collapsing across sex for now
+  group_by(pheno, model, ext) %>%
+  summarise(n_CN = sum(n_CN),
+            n_PT = sum(n_PT),
+            n_total_CN = sum(n_total_CN),
+            n_total_PT = sum(n_total_PT)) 
+#run stats
+fisher_results <- pmap(
+  list(fisher_df$n_CN, fisher_df$n_PT, fisher_df$n_total_CN, fisher_df$n_total_PT),
+  run_fisher
+)
+
+fisher_final <- fisher_df %>%
+  ungroup() %>%
+  mutate(
+    fisher_stat = map_dbl(fisher_results, ~ .x$statistic),
+    fisher_p    = map_dbl(fisher_results, ~ .x$p.value)
+  )
+
+fisher_final$dx_tested <- dx_val
+fisher_final$cv_sample <- cv_sample
+
+fwrite(fisher_final, paste0(base_path, "cv_sample_", cv_sample, "_test/", dx_val, "_extcent_fisher.csv"))
