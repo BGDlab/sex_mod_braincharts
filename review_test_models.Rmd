@@ -751,50 +751,6 @@ deriv_plt <- sexdiffs_tbv %>%
 ggplotly(deriv_plt)
 ```
 
-plot just sGMV B
-```{r}
-sgmv_centB <- sexdiffs_tbv %>%
-  filter(cv_sample=="B" & pheno=="sGMV") %>%
-  dplyr::select(centile_M_minus_F_z, pheno, logAge_days, pheno_cat, cv_sample) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days) %>%
-    ggplot() +
-  geom_hline(yintercept=0, color="gray", linetype = "dashed") +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno), color="#4C7F58FF") +
-    format_x_axis("log_lifespan_fetal", sexdiffs_tbv$logAge_days) +
-    labs(y="50th Centile\nSex-Difference") +
-    theme_linedraw() +
-    theme(legend.position = "none", axis.title.x= element_blank())
-
-sgmv_derivB <- sexdiffs_tbv %>%
-  filter(cv_sample=="B" & pheno=="sGMV") %>%
-  dplyr::select(deriv_M_minus_F_z, pheno, logAge_days, pheno_cat, cv_sample) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days) %>%
-    ggplot() +
-      geom_hline(yintercept=0, color="gray", linetype = "dashed") +
-    geom_line(aes(x=logAge_days, y=deriv_M_minus_F_z, group=pheno), color="#4C7F58FF") +
-    format_x_axis("log_lifespan_fetal", sexdiffs_tbv$logAge_days) +
-    labs(y="Sex-Difference\nDerivative") +
-    theme_linedraw() +
-    theme(legend.position = "none")
-
-sgmv_sigmaB <- sexdiffs_tbv %>%
-  filter(cv_sample=="B" & pheno=="sGMV") %>%
-  dplyr::select(logcv_M_div_F, pheno, logAge_days, pheno_cat, cv_sample) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days) %>%
-    ggplot() +
-      geom_hline(yintercept=0, color="gray", linetype = "dashed") +
-    geom_line(aes(x=logAge_days, y=logcv_M_div_F, group=pheno), color="#4C7F58FF") +
-    format_x_axis("log_lifespan_fetal", sexdiffs_tbv$logAge_days) +
-    labs(y="log CV Ratio") +
-    theme_linedraw() +
-    theme(legend.position = "none", axis.title.x= element_blank())
-
-sGMV_B_plots <- list(sgmv_centB, sgmv_sigmaB, sgmv_derivB)
-saveRDS(sGMV_B_plots, "figs/ggobjs/sGMV_B_trajectories.rds")
-```
 
 ```{r}
 sexdiffs_tbv_glob <- sexdiffs_tbv %>%
@@ -870,7 +826,7 @@ cent_plt_pct <- sexdiffs_tbv_glob %>%
   facet_wrap(~pheno, scales="free_y") +
   labs(y="Normalized Sex-Difference")
 cent_plt_pct
-saveRDS(cent_plt_pct, "figs/ggobjs/sGMV_B_trajectories.rds")
+saveRDS(cent_plt_pct, "figs/ggobjs/glob_sexdiffs_by_split.rds")
 ```
 
 Try averaging across splits
