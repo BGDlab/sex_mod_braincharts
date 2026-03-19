@@ -74,14 +74,14 @@ glob_border$data <- aseg_all_clean$data |>
 
 ### plotting helpers ###
 
-plot_cortex <- function(df, fill_var, show_cv_facet_labels = FALSE, margin_top=5) {
+plot_cortex <- function(df, fill_var, facet_var, show_cv_facet_labels = FALSE, margin_top=5) {
   p <- df |>
     dplyr::filter(
       pheno_cat == "Regional Vol" |
         pheno_cat == "Regional SA" |
         pheno_cat == "Regional CT"
     ) |>
-    dplyr::group_by(cv_sample, pheno_cat) |>
+    dplyr::group_by(!!rlang::sym(facet_var), pheno_cat) |>
     ggplot2::ggplot() +
     ggplot2::theme_linedraw(base_size = 12) +
     ggseg::geom_brain(
@@ -118,18 +118,21 @@ plot_cortex <- function(df, fill_var, show_cv_facet_labels = FALSE, margin_top=5
       guide = "none"
     )
 
-  if (show_cv_facet_labels) {
-    p <- p + ggplot2::facet_grid(pheno_cat ~ cv_sample, labeller = ggplot2::labeller(cv_sample = c("A" = "Split A", "B" = "Split B")))
+  if (show_cv_facet_labels & facet_var=="cv_sample") {
+    p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)),
+                                 labeller = ggplot2::labeller(cv_sample = c("A" = "Split A", "B" = "Split B")))
+  } else if (show_cv_facet_labels){
+    p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)))
   } else {
-    p <- p + ggplot2::facet_grid(pheno_cat ~ cv_sample)
+    p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)))
   }
   p
 }
 
-plot_subcortex <- function(df, fill_var) {
+plot_subcortex <- function(df, fill_var, facet_var) {
   p <- df |>
     dplyr::filter(pheno_cat == "Subcortical Vol") |>
-    dplyr::group_by(cv_sample, pheno_cat) |>
+    dplyr::group_by(!!rlang::sym(facet_var), pheno_cat) |>
     ggplot2::ggplot() +
     ggplot2::theme_linedraw(base_size = 12) +
     ggseg::geom_brain(
@@ -163,15 +166,15 @@ plot_subcortex <- function(df, fill_var) {
       na.value = 0,
       guide = "none"
     ) +
-    ggplot2::facet_grid(pheno_cat ~ cv_sample)
+    ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)))
 
   p
 }
 
-plot_global <- function(df, fill_var) {
-  df |>
+plot_global <- function(df, fill_var, facet_var) {
+  p <- df |>
     dplyr::select(-dplyr::any_of(c("geometry", "tissue_class"))) |>
-    dplyr::group_by(cv_sample, pheno_cat) |>
+    dplyr::group_by(!!rlang::sym(facet_var), pheno_cat) |>
     dplyr::filter(pheno_cat == "Global Vol") |>
     ggplot2::ggplot() +
     ggplot2::theme_linedraw(base_size = 12) +
@@ -207,9 +210,17 @@ plot_global <- function(df, fill_var) {
       guide = "none"
     ) +
     ggplot2::facet_grid(
-      pheno_cat ~ cv_sample,
+      pheno_cat ~ !!sym(facet_var),
       labeller = ggplot2::labeller(cv_sample = c("A" = "Split A", "B" = "Split B"))
     )
+  
+  if (facet_var=="cv_sample") {
+    p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)),
+                                 labeller = ggplot2::labeller(cv_sample = c("A" = "Split A", "B" = "Split B")))
+  } else {
+    p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)) )
+  }
+  p
 }
 
 format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limits, direction, fill_values = NULL) {
@@ -253,7 +264,8 @@ plot_cv_brain <- function(df,
                           fill_var, 
                           fill_name, 
                           fill_color, 
-                          fill_limits, 
+                          fill_limits,
+                          facet_var= "cv_sample",
                           height_list=c(1.03, 4.5, .93), 
                           return_plt = TRUE, 
                           include_global = TRUE, 
@@ -263,17 +275,17 @@ plot_cv_brain <- function(df,
   show_cv_labels <- !include_global
 
   cortex_plt <- plot_cortex(
-    df, {{ fill_var }},
+    df, {{ fill_var }}, facet_var,
     show_cv_facet_labels = show_cv_labels,
     margin_top = if (include_global) 5 else 0
   )
   cortex_plt <- format_fill_var(df, {{ fill_var }}, cortex_plt, fill_name, fill_color, fill_limits, direction, fill_values)
 
-  subcort_plt <- plot_subcortex(df, {{ fill_var }})
+  subcort_plt <- plot_subcortex(df, {{ fill_var }}, facet_var)
   subcort_plt <- format_fill_var(df, {{ fill_var }}, subcort_plt, fill_name, fill_color, fill_limits, direction, fill_values)
 
   if (include_global) {
-    glob_plt <- plot_global(df, {{ fill_var }})
+    glob_plt <- plot_global(df, {{ fill_var }}, facet_var)
     glob_plt <- format_fill_var(df, {{ fill_var }}, glob_plt, fill_name, fill_color, fill_limits, direction, fill_values)
     legend <- cowplot::get_legend(glob_plt)
     glob_plt <- glob_plt + ggplot2::theme(legend.position = "none")
