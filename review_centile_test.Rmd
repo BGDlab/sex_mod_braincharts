@@ -758,7 +758,7 @@ high_plt <- plot_cv_brain(df = dx_high,
                           fill_limits = sym_range,
                           facet_var = "dx_tested",
                           height_list=c(5,1.1), 
-                          return_plt = TRUE, 
+                          return_plt = FALSE, 
                           include_global = FALSE,
                           rel_widths = c(6,.5))
 low_plt <- plot_cv_brain(df = dx_low, 
@@ -768,10 +768,9 @@ low_plt <- plot_cv_brain(df = dx_low,
                           fill_limits = sym_range,
                           facet_var = "dx_tested",
                           height_list=c(5,1.1), 
-                          return_plt = TRUE, 
+                          return_plt = FALSE, 
                           include_global = FALSE,
                           rel_widths = c(6,.5))
-ggsave("figs/tmp.png", dx_brain_plt, width=30, height=6.5, dpi=600, bg = "white")
 saveRDS(high_plt, "figs/ggobjs/dx_exthigh_brain_plt.rds")
 saveRDS(low_plt, "figs/ggobjs/dx_extlow_brain_plt.rds")
 ```
@@ -858,7 +857,7 @@ fisher_final <- fisher_df %>%
       method = "fdr"
     )) %>%
   ungroup() %>%
-  mutate(sig_fdr = ifelse(p_fdr <=0.05, TRUE, FALSE))
+  mutate(sig_fdr = ifelse(p_fdr <= 0.05, TRUE, FALSE))
 
 table(fisher_final$dx_tested, fisher_final$sig_fdr)
 ```
@@ -886,14 +885,16 @@ plot_df <- ext_cent_diff_df %>%
 
 # separate df to position brackets just above the highest error bar per facet/x group
 bracket_df <- plot_df %>%
-  group_by(cv_sample, dx_tested) %>%
+  filter(cv_sample=="B") %>%
+  group_by(dx_tested) %>%
   summarise(
     bracket_y = max(ci_upper) * 1.05,  # just above highest error bar
     sig_label = first(sig_label),
     .groups = "drop"
   )
 
-plot_df %>%
+change_barplt <- plot_df %>%
+  filter(cv_sample=="B") %>%
   ggplot(aes(x = dx_tested, y = pct_change/100, fill = sex)) +
   geom_col(position = "dodge") +
   geom_errorbar(
@@ -909,9 +910,14 @@ plot_df %>%
   ) +
   theme_linedraw() +
   scale_y_continuous(labels = scales::percent) +
-  facet_wrap(~cv_sample) +
-  labs(y="Percentage Discordant Patients",
+  scale_fill_manual(
+    values = c('F' = "#c05f0d", 'M' = "#38688D"),
+    breaks = c("F", "M"),
+    labels = c("Female", "Male"),
+    name = "Sex") +
+  labs(y="Discordant Patients",
        x="Diagnosis")
+saveRDS(change_barplt, "figs/ggobjs/change_barpltB.rds")
 ```
 
 ##Patient Sex-Differences

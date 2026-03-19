@@ -137,7 +137,10 @@ sGMV_fan_tbv <- make_centile_fan(gamlssModel=test_mod,
                  color_name = "Sex",
                  color_labels = c("Female", "Male"))  +
     theme_linedraw() +
-  theme(legend.position= "bottom", plot.title = element_blank()) +
+  theme(legend.position= "bottom", 
+        plot.title = element_blank(), 
+        legend.title = element_blank(),
+        legend.box.spacing = unit(0, "pt")) +
     labs(x ="Age (years)",
          y="sGMV (mm3)") +
     guides(fill=FALSE) +
@@ -347,22 +350,76 @@ ggsave("figs/fig3.png", grp_plt, width=17, height=9, dpi=600, bg = "white")
 #FIGURE 4: Case-Control Differences
 
 ```{r}
-dx_bxpltB <- readRDS("figs/ggobjs/dx_bxpltB.rds")
-dx_brain_plt <- readRDS("figs/ggobjs/dx_brain_plt.rds")
+ext_low <- readRDS("figs/ggobjs/dx_extlow_brain_plt.rds")
+ext_low[[1]] <- ext_low[[1]] +
+  theme(
+  strip.text.x = element_text(color = "white"),
+  strip.background.x = element_rect(fill = "white", color = "white")
+)
+
+ext_high <- readRDS("figs/ggobjs/dx_exthigh_brain_plt.rds")
+ext_change <- readRDS("figs/ggobjs/change_barpltB.rds")
 ```
 
-combine
+prep brain plots
+
+```{r}
+#upper plot
+upper_combo <- plot_grid(
+  ext_high[[1]], ext_high[[2]],
+  ncol = 1,
+  align = "v",
+  rel_heights = c(5, 1.1)
+)
+
+upper_combo_labeled <- ggdraw() +
+  draw_plot(upper_combo, x = 0.02, y = 0, width = 0.97, height = 1) +
+  draw_grob(
+    grid::rectGrob(gp = grid::gpar(fill = "#EBEBEB", col = NA)),
+    x = 0, y = 0.01, width = 0.02, height = 0.95
+  ) +
+  draw_label("Centiles > 95%", x = 0.01, y = 0.5, angle = 90, size = 10)
+
+#lower plot
+lower_combo <- plot_grid(
+  ext_low[[1]], ext_low[[2]],
+  ncol = 1,
+  align = "v",
+  rel_heights = c(5, 1.1)
+)
+
+lower_combo_labeled <- ggdraw() +
+  draw_plot(lower_combo, x = 0.02, y = 0, width = 0.97, height = 1) +
+  draw_grob(
+    grid::rectGrob(gp = grid::gpar(fill = "#EBEBEB", col = NA)),
+    x = 0, y = 0.01, width = 0.02, height = 0.95
+  ) +
+  draw_label("Centiles < 5%", x = 0.01, y = 0.5, angle = 90, size = 10)
+
+ext_brain_plt <- plot_grid(
+  plot_grid(
+  upper_combo_labeled,
+  lower_combo_labeled,
+  ncol=1,
+  align="v"),
+  ext_low[[3]],
+  ncol=2,
+  rel_widths=c(10,1)
+)
+```
+
+add in bar plot
 
 ```{r}
 dx_plt <- plot_grid(
-  dx_bxpltB,
-  NULL,
-  dx_brain_plt,
-  ncol=3,
-  rel_widths=c(1.2,.06, 4),
-  labels=c("A", "B", "")
+  ext_brain_plt,
+  ext_change,
+  ncol=1,
+  rel_heights = c(4,1),
+  labels=c("A", "B")
 )
-ggsave("figs/fig4.png", dx_plt, width=21, height=6.5, dpi=600, bg = "white")
+
+ggsave("figs/fig4.png", dx_plt, width=18, height=17.5, dpi=600, bg = "white")
 ```
 
 #FIGURE 5: sex-differences across the lifespan
