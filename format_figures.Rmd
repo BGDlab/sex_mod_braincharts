@@ -281,6 +281,20 @@ ggsave("figs/fig2.png", fig2, width=19, height=8, dpi=600, bg = "white")
 
 #FIGURE 3: Sex Effects Over the Lifespan
 
+barplot
+
+```{r}
+barplot_final <-readRDS("figs/ggobjs/cent_groups_barplt_B.rds")
+barplot_final <- barplot_final + theme(legend.position = "none")
+```
+
+median group trajectories
+
+```{r}
+cent_traj_group <- readRDS("figs/ggobjs/cent_groups_traj_B.rds")
+```
+
+
 median group
 ```{r}
 cent_group <- readRDS("figs/ggobjs/cent_groups_brain_B.rds")
@@ -298,10 +312,20 @@ cent_group_wrap <- plot_grid(
 )
 ```
 
-median group trajectories
+try just combining median results
 
 ```{r}
-cent_traj_group <- readRDS("figs/ggobjs/cent_groups_traj_B.rds") + theme(strip.text.x = element_blank(), strip.background.x = element_blank())
+med_plt <-plot_grid(
+  plot_grid(
+    barplot_final, 
+    cent_traj_group, 
+    nrow=2, 
+    rel_heights = c(2,3),
+    labels = c("A", "B")),
+  cent_group_wrap,
+  labels = c("", "C"),
+  ncol=2,
+  rel_widths = c(3,2))
 ```
 
 sigma group
