@@ -253,8 +253,12 @@ labels=c("E", "F"),
 label_size = 12,
 align="vh")
 
-#add legend
-sex_dom_wrap2 <- plot_grid(sex_dom_wrap, sex_dom[[4]],
+#try adding legend label
+legend_labeled <- ggdraw(sex_dom[[4]]) +
+  draw_label("Male",   x = 0.41, y = .53, size = 9, hjust = 0, fontface = "italic") +
+  draw_label("Female", x = 0.41, y = .39, size = 9, hjust = 0, fontface = "italic")
+
+sex_dom_wrap2 <- plot_grid(sex_dom_wrap, legend_labeled,
                            ncol = 2,
                            rel_widths = c(1, .2))
 ```
