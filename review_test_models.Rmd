@@ -246,7 +246,7 @@ B_plt_uncor <- plot_cv_brain(df = LR.df_uncor_novent_B,
                           fill_limits =  c(0,0.1),
                           facet_var= "cv_sample",
                           height_list=c(1.03, 4.5, .93), 
-                          return_plt = TRUE, 
+                          return_plt = FALSE, 
                           include_global = TRUE, 
                           rel_widths = c(3, .6),
                           direction = -1,
@@ -1901,6 +1901,19 @@ group_fill_scale <- scale_fill_manual(
   name = "Group",
   na.value="gray90"
 )
+
+#alternate version with different spacing for labels
+group_fill_scale2 <- scale_fill_manual(
+  values = group_values,
+  breaks = c("F_diverging", "F_converging", "F_to_M", 
+             "M_to_F", "M_converging", "M_diverging", 
+             "other", "NS"),
+  labels = c("Female\nDiverging", "Female\nConverging", "Female to\nMale Bias", 
+             "Male to\nFemale Bias", "Male\nConverging", "Male\nDiverging", 
+             "Other", "Stable"),
+  name = "Group",
+  na.value="gray90"
+)
 ```
 
 ```{r}
@@ -1991,7 +2004,7 @@ barplt_final <- group_final %>%
   guides(x = guide_axis(angle = 45)) +
   labs(y="Count") +
   theme_linedraw() +
-  theme(axis.title.x = element_blank())
+  theme(axis.title.x = element_blank(), legend.position = "bottom")
 saveRDS(barplt_final, "figs/ggobjs/cent_groups_barplt_B.rds")
 ```
 
@@ -2092,8 +2105,9 @@ group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
 group_brain_plt[[4]] <- get_legend(
   ggplot(group_finalB) +
     geom_bar(aes(x=cv_sample, fill=cent_group)) +
-    group_fill_scale +
-    theme(legend.position = "bottom") +
+    group_fill_scale2 +
+    theme(legend.position = "bottom",
+          legend.text = element_text(margin = margin(r = .5, unit = "cm"))) +
     guides(fill = guide_legend(nrow = 1)),
   legend="bottom"
   )
@@ -2429,7 +2443,7 @@ plt_traj <- data_with_clusters %>%
   ggplot(aes(x = age_days, y = !!sym(clust_var),
              group = pheno, colour = cluster)) +
   geom_line(alpha = 0.7) +
-  facet_wrap(pheno_cat~cluster) +
+  facet_wrap(~cluster) +
   labs(
     title = "Pheno Time Series by Cluster",
     colour = "Cluster"
@@ -2475,8 +2489,9 @@ plt_list <- c(elbow_plt, plt_traj, plt_avg)
       mutate(cluster = factor(cluster)) %>%
       ggplot(aes(x = age_days, y = !!sym(clust_var),
                  group = pheno, colour = cluster)) +
+      geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
       geom_line(alpha = 0.7) +
-      facet_wrap(~pheno) +
+      facet_wrap(~pheno, nrow=2) +
       labs(title = "Cluster Medoid"
       ) +
   reformat_x(data_with_clusters$age_days, simplified=TRUE) +
@@ -2500,88 +2515,104 @@ LR.df_tot.uB <- LR.df_tot.u %>%
   filter(cv_sample=="B")
 ```
 
+cluster and plot - wrapping for simplicity
 ```{r}
-cent_clust_plt_B <- clust_fun(LR.df_tot.uB, "kmedoids", "centile_M_minus_F_z", 2)
-clust_fun(LR.df_tot.uA, "kmedoids", "centile_M_minus_F_z", 2)
-```
+for (df in list(LR.df_tot.uA, LR.df_tot.uB)){
+  cv_sample <- unique(df[["cv_sample"]])
+  
+  #Cluster
+  cent_clust_plt <- clust_fun(df, "kmedoids", "centile_M_minus_F_z", 2)
+  
+  #also save just skree plt
+  rds_name <- paste0("figs/ggobjs/cent_elbow_", cv_sample, ".rds")
+  saveRDS(cent_clust_plt[[1]], rds_name)
 
-plots
-```{r}
-cent_clust_plt_B[[2]] <- cent_clust_plt_B[[2]] +
+  #update plots
+  cent_clust_plt[[2]] <- cent_clust_plt[[2]] +
   labs(y="Scaled Median Sex Difference") +
   theme(legend.position="none")
 
-cent_clust_plt_B[[3]] <- cent_clust_plt_B[[3]] +
+  cent_clust_plt[[3]] <- cent_clust_plt[[3]] +
   labs(y="Scaled Median Sex Difference") +
   theme(legend.position="bottom")
 
-#get legend
-clust_legend <- get_legend(cent_clust_plt_B[[3]], "bottom")
-cent_clust_plt_B[[3]] <- cent_clust_plt_B[[3]] + theme(legend.position = "none")
-
-cent_clust_plt_B[[4]] <- cent_clust_plt_B[[4]] +
-  labs(y="Scaled Median Sex Difference") +
-  theme(legend.position="none")
-
-cent_clust_wrap <- plot_grid(
-  plot_grid(
+  #get legend
+  clust_legend <- get_legend(cent_clust_plt[[3]], "bottom")
+  cent_clust_plt[[3]] <- cent_clust_plt[[3]] + theme(legend.position = "none")
+  
+  cent_clust_plt[[4]] <- cent_clust_plt[[4]] +
+    labs(y="Scaled Median Sex Difference") +
+    theme(legend.position="none")
+  #also save just medoid plt
+  rds_name <- paste0("figs/ggobjs/cent_kmedoid_", cv_sample, ".rds")
+  saveRDS(cent_clust_plt[[4]], rds_name)
+  
+  cent_clust_wrap <- plot_grid(
     plot_grid(
-      cent_clust_plt_B[[1]],
-      cent_clust_plt_B[[4]],
-      ncol=1), 
-  cent_clust_plt_B[[2]],
-  cent_clust_plt_B[[3]],
-  ncol = 3,
-  rel_widths = c(1.5, 2, 2)),
-  clust_legend,
-  nrow = 2,
-  rel_heights = c(1, 0.02)
-)
-ggsave("figs/supplement/cent_kmedoid_B.png", cent_clust_wrap, dpi=600, height=9, width=16, bg = "white")
+    cent_clust_plt[[1]],
+    cent_clust_plt[[4]],
+    cent_clust_plt[[2]],
+    cent_clust_plt[[3]]),
+    clust_legend,
+    ncol=1,
+    rel_heights = c(10,1)
+  )
+  
+  file_name <- paste0("figs/supplement/cent_kmedoid_", cv_sample, ".png")
+  ggsave(file_name, cent_clust_wrap, dpi=600, height=9, width=16, bg = "white")
+}
 ```
 
 ####Sigma
 
-```{r}
-#sigma
-sig_clust_plt_B <- clust_fun(LR.df_tot.uB, "kmedoids", "logcv_M_div_F", 2)
-clust_fun(LR.df_tot.uA, "kmedoids", "logcv_M_div_F", 2)
-```
 
-plots
 ```{r}
-sig_clust_plt_B[[2]] <- sig_clust_plt_B[[2]] +
+for (df in list(LR.df_tot.uA, LR.df_tot.uB)){
+  cv_sample <- unique(df[["cv_sample"]])
+  
+  #Cluster
+  sigma_clust_plt <- clust_fun(df, "kmedoids", "logcv_M_div_F", 2)
+  
+  #also save just skree plt
+  rds_name <- paste0("figs/ggobjs/sigma_elbow_", cv_sample, ".rds")
+  saveRDS(sigma_clust_plt[[1]], rds_name)
+
+  #update plots
+  sigma_clust_plt[[2]] <- sigma_clust_plt[[2]] +
   labs(y="Variance Ratio") +
   theme(legend.position="none")
 
-sig_clust_plt_B[[3]] <- sig_clust_plt_B[[3]] +
+  sigma_clust_plt[[3]] <- sigma_clust_plt[[3]] +
   labs(y="Variance Ratio") +
   theme(legend.position="bottom")
 
-#get legend
-clust_legend <- get_legend(sig_clust_plt_B[[3]], "bottom")
-sig_clust_plt_B[[3]] <- sig_clust_plt_B[[3]] + theme(legend.position = "none")
-
-sig_clust_plt_B[[4]] <- sig_clust_plt_B[[4]] +
-  labs(y="Variance Ratio") +
-  theme(legend.position="none")
-
-sig_clustwrap <- plot_grid(
-  plot_grid(
+  #get legend
+  clust_legend <- get_legend(sigma_clust_plt[[3]], "bottom")
+  sigma_clust_plt[[3]] <- sigma_clust_plt[[3]] + theme(legend.position = "none")
+  
+  sigma_clust_plt[[4]] <- sigma_clust_plt[[4]] +
+    labs(y="Variance Ratio") +
+    theme(legend.position="none")
+  #also save just medoid plt
+  rds_name <- paste0("figs/ggobjs/sigma_kmedoid_", cv_sample, ".rds")
+  saveRDS(sigma_clust_plt[[4]], rds_name)
+  
+  sigma_clust_wrap <- plot_grid(
     plot_grid(
-      sig_clust_plt_B[[1]],
-      sig_clust_plt_B[[4]],
-      ncol=1), 
-  sig_clust_plt_B[[2]],
-  sig_clust_plt_B[[3]],
-  ncol = 3,
-  rel_widths = c(1.5, 2, 2)),
-  clust_legend,
-  nrow = 2,
-  rel_heights = c(1, 0.02)
-)
-ggsave("figs/supplement/sig_kmedoid_B.png", sig_clustwrap, dpi=600, height=9, width=16, bg = "white")
+    sigma_clust_plt[[1]],
+    sigma_clust_plt[[4]],
+    sigma_clust_plt[[2]],
+    sigma_clust_plt[[3]]),
+    clust_legend,
+    ncol=1,
+    rel_heights = c(10,1)
+  )
+  
+  file_name <- paste0("figs/supplement/sigma_kmedoid_", cv_sample, ".png")
+  ggsave(file_name, sigma_clust_wrap, dpi=600, height=9, width=16, bg = "white")
+}
 ```
+
 
 ###Cross-sample Consistency
 Get across-sample euclidean distance
