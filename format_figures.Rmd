@@ -349,52 +349,6 @@ med_plt <-plot_grid(
 ggsave("figs/tmp.png", med_plt, width=16, height=8, dpi=600, bg = "white")
 ```
 
-sigma group
-
-```{r}
-sigma_group <- readRDS("figs/ggobjs/sig_groups_brain_B.rds")
-
-sigma_group[[1]] <- sigma_group[[1]] + theme(strip.text.x = element_blank(), strip.background.x = element_blank())
-
-sigma_group_wrap <- plot_grid(
-  sigma_group[[1]],
-  sigma_group[[2]], 
-  sigma_group[[3]],
-  ncol = 1,
-  rel_heights = c(.85, 4.5, .93),
-  align = "v",
-  axis = "lr"
-)
-```
-
-
-```{r}
-sigma_traj_group <- readRDS("figs/ggobjs/sig_groups_traj_B.rds") +
-  theme(legend.position = "none") + theme(strip.text.x = element_blank(), strip.background.x = element_blank())
-```
-
-combine
-```{r}
-grp_plt <- plot_grid(
-  plot_grid(
-    NULL,
-  cent_group_wrap,
-  cent_traj_group,
-  NULL,
-  sigma_group_wrap,
-  sigma_traj_group,
-  ncol=6,
-  rel_widths=c(.1, 1.3, 2, .1, 1.3, 2),
-  labels=c("A", "", "B", "C", "", "D"),
-  align="h",
-  axis="tb"
-),
-cent_group[[4]],
-nrow=2,
-rel_heights=c(1, .06)
-)
-ggsave("figs/fig3.png", grp_plt, width=17, height=9, dpi=600, bg = "white")
-```
 
 #FIGURE 4: Case-Control Differences
 
