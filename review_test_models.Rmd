@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, sf, cowplot, subcortexVisualizationR, rstatix, freesurferformats)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, sf, cowplot, subcortexVisualizationR, rstatix, freesurferformats, mgcv)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -1855,6 +1855,7 @@ group_traj_final <- full_join(group_cd, group_cd_mix) %>%
     TRUE ~ cent_group_full
   )) %>%
   mutate(parent_group = case_when(
+    sig_fdr==FALSE ~ "Stable",
     cent_group == "F_diverging" | cent_group == "M_diverging" ~ "Diverging",
     cent_group == "F_converging" | cent_group == "M_converging" ~ "Converging",
     cent_group == "M_to_F" | cent_group == "F_to_M" ~ "Flip",
@@ -1914,29 +1915,19 @@ group_fill_scale2 <- scale_fill_manual(
   name = "Group",
   na.value="gray90"
 )
+
+bottom_group_legend <- get_legend(
+  ggplot(group_finalB) +
+    geom_bar(aes(x=cv_sample, fill=cent_group)) +
+    group_fill_scale2 +
+    theme(legend.position = "bottom",
+          legend.text = element_text(margin = margin(r = .5, unit = "cm"))) +
+    guides(fill = guide_legend(nrow = 1)),
+  legend="bottom"
+  )
 ```
 
 ```{r}
-group_bar_plt <- group_final %>%
-  group_by(pheno_cat, cv_sample) %>% 
-  mutate(cent_group = as.character(cent_group)) %>%
-  mutate(cent_group = ifelse(sig_fdr ==TRUE, cent_group, NA)) %>%
-  mutate(cent_group = factor(cent_group, levels = names(group_values))) %>%  
-  dplyr::count(cent_group, pheno_cat, cv_sample) %>% 
-  mutate(perc = n / sum(n)) %>% 
-  ggplot(aes(x=pheno_cat, y=perc, fill=cent_group)) +
-  geom_col(position="fill") +
-  facet_wrap(~cv_sample) +
-  geom_text(aes(label = n), 
-            position = position_fill(vjust = 0.5),
-            size = 1.5) +
-  scale_y_continuous(labels = scales::percent) +
-  coord_flip() +
-  theme_linedraw() +
-  theme(axis.title= element_blank(), legend.position = "none",
-        strip.text.x = element_blank(), strip.background.x = element_blank()) +
-  group_fill_scale
-
 group_bar_plt_total <- group_final %>%
   group_by(cv_sample) %>% 
   mutate(cent_group = as.character(cent_group)) %>%
@@ -1950,44 +1941,46 @@ group_bar_plt_total <- group_final %>%
   geom_text(aes(label = n), 
             position = position_fill(vjust = 0.5),
             size = 1.5) +
-  coord_flip() +
+  scale_y_continuous(labels=scales::percent) +
+  labs(y="Percentage") +
   theme_linedraw() +
-  theme(axis.title= element_blank(), axis.text.x=element_blank()) +
+  theme(legend.position = "none",
+        axis.title.x= element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
   group_fill_scale
 
-bar_legend <- get_legend(group_bar_plt_total)
-group_bar_plt_total <- group_bar_plt_total + theme(legend.position = "none")
-
-group_bar_plt_all <- plot_grid(
-  plot_grid(
-    group_bar_plt_total, 
-    group_bar_plt,
-    ncol = 1,
-    rel_heights = c(1,4),
-    align = "v",
-    axis = "lr"),
-  bar_legend,
-  ncol=2,
-  rel_widths = c(4,1)
-)
-
-ggsave("figs/supplement/group_bar_plt.png", group_bar_plt_all, dpi=600, height=6, width=10, bg = "white")
-```
-
-trying different formatting
-
-```{r}
-group_final %>%
-  filter(sig_fdr==TRUE & pheno_cat != "Global Vol") %>%
+group_bar_plt <- group_final %>%
+  #filter(sig_fdr==TRUE & pheno_cat != "Global Vol") %>%
   ggplot() +
   geom_bar(aes(x=parent_group, fill=cent_group)) +
   facet_grid(pheno_cat~cv_sample, scales="free_y") +
   group_fill_scale +
   guides(x = guide_axis(angle = 45)) +
   labs(y="Count") +
-  theme_bw() +
-  theme(axis.title.x = element_blank())
+  theme_linedraw() +
+  theme(axis.title.x = element_blank(),
+        legend.position = "none")
 
+group_bar_plt_all <- plot_grid(
+  plot_grid(
+    group_bar_plt_total, 
+    group_bar_plt,
+    ncol = 2,
+    rel_widths = c(1,4),
+    align = "hv",
+    axis = "lr",
+    labels=c("A", "B")),
+  bottom_group_legend,
+  ncol=1,
+  rel_heights = c(4,1)
+)
+
+ggsave("figs/supplement/group_bar_plt.png", group_bar_plt_all, dpi=600, height=8, width=10, bg = "white")
+```
+
+
+```{r}
 #just plot B
 barplt_final <- group_final %>%
   filter(sig_fdr==TRUE & cv_sample=="B") %>%
@@ -1997,12 +1990,17 @@ barplt_final <- group_final %>%
     cent_group == "M_to_F" | cent_group == "F_to_M" ~ "Flip",
     TRUE ~ str_to_title(cent_group)
   )) %>%
+  dplyr::count(pheno_cat, parent_group, cent_group) %>%
+  group_by(pheno_cat) %>%
+  mutate(pct = n / sum(n)) %>%
+  ungroup() %>%
   ggplot() +
-  geom_bar(aes(x=parent_group, fill=cent_group)) +
+  geom_bar(aes(x=parent_group, y=pct, fill=cent_group), stat="identity") +
   facet_wrap(~pheno_cat, nrow=1) +
+  scale_y_continuous(labels=scales::percent) +
   group_fill_scale +
   guides(x = guide_axis(angle = 45)) +
-  labs(y="Count") +
+  labs(y="Percentage") +
   theme_linedraw() +
   theme(axis.title.x = element_blank(), legend.position = "bottom")
 saveRDS(barplt_final, "figs/ggobjs/cent_groups_barplt_B.rds")
@@ -2073,20 +2071,20 @@ group_traj_final %>%
   format_x_axis("lifespan_fetal", group_traj_final$age_days)+
   theme(legend.position="none")
 
-group_traj_final %>%
-  filter(sig_fdr==TRUE) %>%
+group_traj_full <- group_traj_final %>%
+  filter(sig_fdr==TRUE & cent_group != "other") %>%
   arrange(pheno, age_days) %>%
   ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(group=pheno),alpha=.2) +
-  facet_grid(cent_group ~ cv_sample, scales="free_y") +
-  geom_smooth(method = "gam", linewidth=1) +
-  #ggh4x:::facet_nested(cent_group ~ pheno_cat + cv_sample, scales="free_y") +
+  geom_line(aes(group=pheno), alpha=.1) +
+  facet_grid(parent_group ~ cv_sample, scales="free_y") +
+  geom_smooth(method = "gam") +
   group_color_scale +
-  #scale_alpha_manual(values=c("TRUE"=0.7, "FALSE"=0.1))+
+  reformat_x(group_traj_final$age_days) +
   theme_linedraw() +
-  format_x_axis("lifespan_fetal", group_traj_final$age_days) +
-  theme(legend.position="none")
+  theme(legend.position="none") +
+  labs(y="Scaled Median Sex Difference")
+ggsave("figs/supplement/group_traj_plt.png", group_traj_full, dpi=600, height=8, width=10, bg = "white")
 ```
 
 also just plot B
@@ -2102,40 +2100,18 @@ group_brain_plt[[2]] <- group_brain_plt[[2]] + group_fill_scale
 group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
 
 #recreate legends
-group_brain_plt[[4]] <- get_legend(
-  ggplot(group_finalB) +
-    geom_bar(aes(x=cv_sample, fill=cent_group)) +
-    group_fill_scale2 +
-    theme(legend.position = "bottom",
-          legend.text = element_text(margin = margin(r = .5, unit = "cm"))) +
-    guides(fill = guide_legend(nrow = 1)),
-  legend="bottom"
-  )
+group_brain_plt[[4]] <- bottom_group_legend
 saveRDS(group_brain_plt, "figs/ggobjs/cent_groups_brain_B.rds")
 
 ##TRAJECTORIES
-# Create label data with counts per facet
-n_labels <- group_traj_final %>%
-  filter(sig_fdr == TRUE & cv_sample == "B" & cent_group != "other") %>%
-  group_by(cent_group, cv_sample) %>%
-  summarise(n = n_distinct(pheno), .groups = "drop") %>%
-  mutate(label = paste0("n=", n))
-
 group_traj_plt_B <- group_traj_final %>%
   filter(sig_fdr==TRUE & cv_sample=="B" & cent_group != "other") %>%
   arrange(pheno, age_days) %>%
   ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(group=pheno), alpha=.2) +
-  facet_wrap(~parent_group, nrow=3, scales="free_y") +
-  geom_smooth(method = "gam", linewidth=1) +
-  # Add n= labels
-  # geom_text(data = n_labels,
-  #           aes(label = label),
-  #           x = Inf, y = Inf,        # top-right corner
-  #           hjust = 1.1, vjust = 1.5, # nudge inward from edge
-  #           color = "grey30", size = 3,
-  #           inherit.aes = FALSE) +
+  #geom_line(aes(group=pheno), alpha=.2) +
+  facet_wrap(~parent_group, nrow=3) +
+  geom_smooth(method = "gam") +
   group_color_scale +
   reformat_x(group_traj_final$age_days) +
   theme_linedraw() +
@@ -2240,6 +2216,7 @@ group_sig_traj_final <- full_join(group_sig_cd, group_sig_cd_mix) %>%
     TRUE ~ sig_group
   )) %>%
   mutate(parent_group = case_when(
+    sig_fdr == FALSE ~ "Stable",
     sig_group == "F_diverging" | sig_group == "M_diverging" ~ "Diverging",
     sig_group == "F_converging" | sig_group == "M_converging" ~ "Converging",
     sig_group == "M_to_F" | sig_group == "F_to_M" ~ "Flip",
@@ -2253,6 +2230,60 @@ group_sig_final <- group_sig_traj_final %>%
   mutate(sig_group = ifelse(sig_fdr==FALSE, "NS", sig_group))
 
 table(group_sig_final$sig_group, group_sig_final$cv_sample)
+```
+
+bar plot
+
+```{r}
+sig_group_bar_plt_total <- group_sig_final %>%
+  group_by(cv_sample) %>% 
+  mutate(sig_group = as.character(sig_group)) %>%
+  mutate(sig_group = ifelse(sig_fdr ==TRUE, sig_group, NA)) %>%
+  mutate(sig_group = factor(sig_group, levels = names(group_values))) %>%  
+  dplyr::count(sig_group, cv_sample) %>% 
+  mutate(perc = n / sum(n)) %>% 
+  ggplot(aes(x="TOTAL", y=perc, fill=sig_group)) +
+  geom_col(position="fill") +
+  facet_wrap(~cv_sample) +
+  geom_text(aes(label = n), 
+            position = position_fill(vjust = 0.5),
+            size = 1.5) +
+  scale_y_continuous(labels=scales::percent) +
+  labs(y="Percentage") +
+  theme_linedraw() +
+  theme(legend.position = "none",
+        axis.title.x= element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  group_fill_scale
+
+sig_group_bar_plt <- group_sig_final %>%
+  #filter(sig_fdr==TRUE & pheno_cat != "Global Vol") %>%
+  ggplot() +
+  geom_bar(aes(x=parent_group, fill=sig_group)) +
+  facet_grid(pheno_cat~cv_sample, scales="free_y") +
+  group_fill_scale +
+  guides(x = guide_axis(angle = 45)) +
+  labs(y="Count") +
+  theme_linedraw() +
+  theme(axis.title.x = element_blank(),
+        legend.position = "none")
+
+sig_group_bar_plt_all <- plot_grid(
+  plot_grid(
+    sig_group_bar_plt_total, 
+    sig_group_bar_plt,
+    ncol = 2,
+    rel_widths = c(1,4),
+    align = "hv",
+    axis = "lr",
+    labels=c("A", "B")),
+  bottom_group_legend,
+  ncol=1,
+  rel_heights = c(4,1)
+)
+
+ggsave("figs/supplement/sig_group_bar_plt.png", sig_group_bar_plt_all, dpi=600, height=8, width=10, bg = "white")
 ```
 
 Plot
@@ -2292,20 +2323,20 @@ ggsave("figs/supplement/sigma_group_brain_plt.png", full_plt_obj, dpi=600, heigh
 plot trajectories by group
 
 ```{r}
-group_sig_traj_final %>%
-  filter(sig_fdr==TRUE) %>%
+group_sig_traj_full <- group_sig_traj_final %>%
+  filter(sig_fdr==TRUE & sig_group != "other") %>%
   arrange(pheno, age_days) %>%
   ggplot(aes(x=age_days, y=logcv_M_div_F, color=sig_group)) +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(group=pheno),alpha=.2) +
-  facet_grid(sig_group ~ cv_sample, scales="free_y") +
-  geom_smooth(method = "gam", linewidth=1) +
-  #ggh4x:::facet_nested(cent_group ~ pheno_cat + cv_sample, scales="free_y") +
+  geom_line(aes(group=pheno), alpha=.1) +
+  facet_grid(parent_group ~ cv_sample, scales="free_y") +
+  geom_smooth(method = "gam") +
   group_color_scale +
-  #scale_alpha_manual(values=c("TRUE"=0.7, "FALSE"=0.1))+
+  reformat_x(group_sig_traj_final$age_days) +
   theme_linedraw() +
-  format_x_axis("lifespan_fetal", group_sig_traj_final$age_days) +
-  theme(legend.position="none")
+  theme(legend.position="none") +
+  labs(y="Scaled Median Sex Difference")
+ggsave("figs/supplement/group_sig_traj_plt.png", group_sig_traj_full, dpi=600, height=8, width=10, bg = "white")
 ```
 
 also just plot B

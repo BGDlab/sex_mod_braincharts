@@ -324,7 +324,7 @@ elbow <- elbow + theme(title=element_blank())
 medoid <- medoid +
   scale_color_manual(values=c('2'="#FA9A16", '1' ="#1676FA")) +
   theme_linedraw() +
-  theme(title=element_blank(), legend.position = "none")
+  theme(plot.title=element_blank(), legend.position = "none")
 ```
 
 try just combining median results
