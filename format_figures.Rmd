@@ -320,7 +320,9 @@ elbow <- readRDS("figs/ggobjs/cent_elbow_B.rds")
 medoid <- readRDS("figs/ggobjs/cent_kmedoid_B.rds")
 
 #update colors, etc
-elbow <- elbow + theme(title=element_blank())
+elbow <- elbow + theme(plot.title=element_blank()) +
+  labs(y="Average\nSilhouette Width", 
+       x="Number of Clusters")
 medoid <- medoid +
   scale_color_manual(values=c('2'="#FA9A16", '1' ="#1676FA")) +
   theme_linedraw() +
