@@ -8,12 +8,23 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 ```
 
 ```{r, warning=FALSE}}
+set.seed(5678)
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr, pwr)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr, pwr, gt)
 #devtools::install_github("BGDlab/gamlssTools", force = TRUE) 
 library(gamlssTools)
+```
+
+```{r, eval=FALSE}
+df_clean <- fread("./data/v3_CN_cleaned.csv", stringsAsFactors=T)
+glob_vol_list <- readRDS("./pheno_lists/global_vols.rds")
+gmv_list <- readRDS("./pheno_lists/cortical_vols.rds")
+subcort_list <- readRDS("./pheno_lists/subcortical_vols.rds")
+ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
+sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
+pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
 ```
 
 load data - prelim version of LBCC 3.0, waiting on Lena to look into missing sex info
@@ -443,10 +454,10 @@ df_filt1 %>%
             n_subj = n_unique(INDEX.ID),
             n_study = n_unique(study))
 
-nrow(df_filt1)
+nrow(df_filt1) #starting scan count
 n_unique(df_filt1$study)
 
-
+#keep just Male or Female, define new cols
 df_filt <- df_filt1 %>%
   dplyr::filter(sex != "intersex" & sex != "Unknown") %>%
   mutate(sexMale = ifelse(sex=="male" | sex == "Male", 1, 0),
@@ -488,10 +499,17 @@ qc_df <- df_select %>%
          QC.RCA = ifelse(is.na(QC.RCA), FALSE, TRUE),
          SurfaceHoles = ifelse(is.na(SurfaceHoles), FALSE, TRUE))
 
+#how many studies have SS QC
 table(qc_df$fs_version, qc_df$QC.SS)
 table(qc_df$fs_version, qc_df$QC.RCA)
 
-#euler filt
+qc_df %>%
+  filter(grepl("^synthseg", fs_version)) %>%
+  pull(study) %>%
+  unique() %>%
+  length()
+
+## euler filt
 study_mad <- df_select %>%
   filter(is.na(QC.SS) & is.na(QC.RCA)) %>% #only use euler for non-ss
   drop_na(SurfaceHoles) %>%
@@ -500,7 +518,7 @@ study_mad <- df_select %>%
             study_euler_median = median(SurfaceHoles)) %>%
   mutate(euler_threshold = study_euler_median+(4*study_euler_mad))
 
-n_unique(study_mad$study)
+n_unique(study_mad$study) #n studies with euler
 
 left_join(df_select, study_mad) %>%
   mutate(scan_pass = ifelse(SurfaceHoles <= euler_threshold, "yes", "no")) %>%
@@ -524,9 +542,7 @@ left_join(df_select, study_mad) %>%
   geom_point(aes(x=study, y=(study_euler_median+4*study_euler_mad)), color="red") +
   theme(axis.text.x = element_text(angle=90, hjust=0.5))
 
-ss <- df_select %>%
-  filter(QC.SS <= 0.65 | QC.RCA <= 0.65)
-
+## FILTER
 df_qc_filt <- left_join(df_select, study_mad) %>%
   mutate(has_qc = ifelse(is.na(SurfaceHoles) & is.na(QC.SS) & is.na(QC.RCA),
                         FALSE, TRUE)) %>%
@@ -534,30 +550,6 @@ df_qc_filt <- left_join(df_select, study_mad) %>%
 
 nrow(df_select) - nrow(df_qc_filt)
 ```
-
-```{r}
-both_qc <- df_select %>%
-  filter(!is.na(QC.SS) & !is.na(QC.RCA))
-nrow(both_qc)
-
-unique(both_qc$study)
-unique(both_qc$fs_version)
-
-both_qc %>% 
-  filter(QC.SS > 0.65 & QC.RCA <= 0.65) %>%
-  nrow()
-
-both_qc %>% 
-  filter(QC.SS <= 0.65 & QC.RCA > 0.65) %>%
-  nrow()
-
-both_qc %>%
-  pivot_longer(cols=c(QC.SS, QC.RCA), values_to = "QC", names_to = "type") %>%
-  ggplot() +
-  geom_histogram(aes(x=QC, fill=type), position="identity", alpha=.6) +
-  geom_vline(xintercept=0.65)
-```
-
 
 look at IDPs=0
 ```{r}
@@ -573,47 +565,28 @@ ggplot(df_zeros) +
   theme(legend.position="none")
 ```
 
-Going to remove all subjects with 0s
+Remove all subjects with 0s
 
 ```{r}
 df_nozero <- df_qc_filt %>%
   filter(if_all(pheno_list, ~ is.na(.) | . != 0))
 stopifnot((nrow(df_qc_filt) - nrow(df_nozero)) == nrow(df_zeros))
+nrow(df_zeros)
 ```
-
-
-Look into scans w/o standard QC metrics to see if there are other measures to use
-
-```{r}
-no_qc <- df_nozero %>%
-  filter(has_qc == FALSE)
-(nrow(no_qc)/nrow(df_nozero))*100 # % subjects w/o QC scores
-
-unique(no_qc$study)
-
-#studies with QC missing from at least 50% subjects
-df_nozero %>%
-  group_by(study) %>%
-  summarise(pct_noqc = sum(has_qc==FALSE)/n()) %>%
-  filter(pct_noqc > .5)
-```
-
-```{r}
-ggplot(df_nozero) +
-  geom_histogram(aes(x=age_days, fill=has_qc))
-```
-
 
 ### Final Filtering
 
 filter to just controls, single scan per subject, drop sites with fewer than 5 ppl
 
 ```{r}
-unique(df_nozero$dx)[grep("cn|control|none", unique(df_nozero$dx), ignore.case=TRUE)]
-
+#remove subjects >= 100 yrs
 df_clean1 <- df_nozero %>% 
   dplyr::filter(age_days <= (100*365.25+280))
 nrow(df_nozero) - nrow(df_clean1)
+
+#ID control dx
+unique(df_nozero$dx)[grep("cn|control|none", unique(df_nozero$dx), ignore.case=TRUE)]
+sum(is.na(df_clean1$dx))
 
 df_clean2 <- df_clean1 %>%
   tidyr::drop_na(dx) %>%
@@ -623,31 +596,22 @@ n_unique(df_clean2$INDEX.ID)
 
 #fwrite(df_clean2, "./data/euler_tmp.csv")
 
-df_clean <- df_clean2 %>%
+df_clean3 <- df_clean2 %>%
   group_by(INDEX.ID) %>% #remove duplicate participants
   slice_sample() %>%
-  ungroup() %>%
-  group_by(study_site) %>%
-  filter(n_distinct(INDEX.ID) >=5) %>% #remove sites with < 5 ppl
   ungroup() %>%
 #remove SA from dHCP due to segmentation issues
   mutate(across(
     contains("SA."),
     ~ if_else(study == "dHCP-fetal", NA_real_, .x)
   ))
-```
+nrow(df_clean2) - nrow(df_clean3)
 
-
-basic demographics
-
-```{r}
-nrow(df_clean)
-table(df_clean$sexMale)
-table(df_clean$sexMale)[[1]] -> n_female
-n_female/nrow(df_clean) * 100
-
-min(df_clean$age_days)
-(max(df_clean$age_days) - 280)/365.25 #yrs from birth
+#save out full df before splitting, just in case
+df_clean <- df_clean3 %>%
+  group_by(study_site) %>%
+  filter(n_distinct(INDEX.ID) >=5) %>% #remove sites with < 5 ppl
+  ungroup() 
 ```
 
 
@@ -666,22 +630,6 @@ for (pheno in pheno_list){
 }
 ```
 
-
-```{r}
-df_clean %>%
-  filter(CSF > 2e5) %>%
-  summarise(study = unique(study))
-
-df_clean %>%
-  filter(logAge_days > 3 & CBV < 50000) %>%
-  summarise(study=unique(study))
-
-df_clean %>%
-  mutate(is.study = ifelse(study=="OpenNeuro_Wang", TRUE, FALSE)) %>%
-  ggplot() +
-  geom_point(aes(x=logAge_days, y=CBV, color=is.study))
-```
-
 write out full dataframe
 ```{r}
 #fwrite(df_clean, "./data/v3_CN_cleaned.csv")
@@ -692,13 +640,13 @@ write out full dataframe
 Splitting data into 50-50 train and testing, stratified by site and sex. Using this [reference](https://stackoverflow.com/questions/74573270/stratified-data-splitting-in-r).
 
 ```{r, eval=FALSE}
-table(df_clean$study_site, df_clean$sexMale)
+table(df_clean3$study_site, df_clean3$sexMale)
 ```
 
 going to drop small sites (<10 subjects per sex) for now, but alternatives could be grouping small sites together? 
 
 ```{r}
-valid_sites <- df_clean %>%
+valid_sites <- df_clean3 %>%
   mutate(sex=as.factor(sexMale)) %>%
   group_by(study_site, sex) %>%
   summarise(n = n(), .groups = "drop") %>%
@@ -710,12 +658,12 @@ valid_sites <- df_clean %>%
   filter(valid) %>%
   pull(study_site)
 
-df_clean_sites <- df_clean %>%
+df_clean_sites <- df_clean3 %>%
   filter(study_site %in% valid_sites)
 
-nrow(df_clean) - nrow(df_clean_sites)
+nrow(df_clean3) - nrow(df_clean_sites)
 
-ggplot(df_clean) +
+ggplot(df_clean3) +
   geom_histogram(aes(x=age_days, fill=as.factor(sexMale)))
 ggplot(df_clean_sites) +
   geom_histogram(aes(x=age_days, fill=as.factor(sexMale)))
@@ -723,7 +671,22 @@ ggplot(df_clean_sites) +
 #table(df_filt$study_site, df_filt$sexMale)
 ```
 
-Still have almost 100k subjects, proceeding to divide into A and B samples
+basic demographics
+
+```{r}
+nrow(df_clean_sites)
+table(df_clean_sites$sexMale)
+table(df_clean_sites$sexMale)[[1]] -> n_female
+n_female/nrow(df_clean_sites) * 100
+
+n_unique(df_clean_sites$study_site)
+n_unique(df_clean_sites$study)
+
+min(df_clean_sites$age_days)
+(max(df_clean_sites$age_days) - 280)/365.25 #yrs from birth
+```
+
+Still have 100k subjects, proceeding to divide into A and B samples
 
 ```{r}
 set.seed(5678)
@@ -758,65 +721,43 @@ save
 #fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
 ```
 
-
-###Subdivide by Feature Category
-
-Write out separate csvs for each pheno category. These will be further subdivided into separate CSVs with maximally complete data in order to ComBat features (`subjobs_datasplit.sh` and `split_data_for_combat.R`), so for each feature (target feature to ComBat) keep as many other features as possible (as priors) without including any NAs.
+demographics by split
 
 ```{r}
-#save out QC separately since these would only be used for sensitivity analyses
-df_covars <- df_clean %>%
-  dplyr::select(all_of(covar_list))
-#fwrite(df_covars, file="./data/v3_CN_covars.csv")
-
-covar_subset <- c("INDEX.ID", "session", "run", "dx", "study", "sexMale", "sexMale_x_age", 
-                  "age_days", "logAge_days", "sexMale_x_logAge", "study_site")
-
-#global vols
-df_global <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, glob_vol_list, 
-                         "fs_version", "fs_version_SA", "fs_version_CT", "fs_version_GM", 
-                         "eTIV", "TBV"))) %>%
-  filter_at(glob_vol_list, any_vars(complete.cases(.)))
-#fwrite(df_global, "./data/csvs_by_pheno/global_vols.csv")
-
-#regional gmv
-df_gmv <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, gmv_list, "fs_version_GM", "eTIV")))%>%
-  filter_at(gmv_list, any_vars(complete.cases(.)))
-#fwrite(df_gmv, "./data/csvs_by_pheno/cortical_vols.csv")
-
-#regional sa
-df_sa <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, sa_list, "fs_version_SA", "total.SA")))%>%
-  filter_at(sa_list, any_vars(complete.cases(.)))
-#fwrite(df_sa, "./data/csvs_by_pheno/cortical_surf.csv")
-
-#regional ct
-df_ct <- df_clean %>%
-  dplyr::select(all_of(c(covar_subset, ct_list, "fs_version_CT", "mean.CT")))%>%
-  filter_at(ct_list, any_vars(complete.cases(.)))
-#fwrite(df_ct, "./data/csvs_by_pheno/cortical_thickness.csv")
-
-#subcortical vols
-df_sub <- df_clean %>%
-  dplyr::select(any_of(c(covar_subset, subcort_list, "fs_version_GM", "eTIV")))%>%
-  filter_at(vars(any_of(subcort_list)), any_vars(complete.cases(.)))
-#fwrite(df_sub, "./data/csvs_by_pheno/subcortical_vols.csv")
+cv_demo_table <- full_df %>%
+  group_by(sample) %>%
+  summarise(
+    N = n(),
+    n_female = sum(sexMale == 0),
+    pct_female = (sum(sexMale == 0) / n()) * 100,
+    n_studies = n_distinct(study),
+    mean_age = mean((age_days - 280) / 365.25, na.rm = TRUE),
+    sd_age = sd((age_days - 280) / 365.25, na.rm = TRUE),
+    mean_surf_holes = mean(SurfaceHoles, na.rm = TRUE),
+    sd_surf_holes = sd(SurfaceHoles, na.rm = TRUE)
+  ) %>%
+  mutate(
+    `N` = as.character(N),
+    `N Studies` = as.character(n_studies),
+    `Sex (Female), n (%)` = paste0(n_female, " (", round(pct_female, 1), "%)"),
+    `Age (years), Mean (SD)` = paste0(round(mean_age, 2), " (", round(sd_age, 2), ")"),
+    `Surface Holes, Mean (SD)` = paste0(round(mean_surf_holes, 1), " (", round(sd_surf_holes, 1), ")")
+  ) %>%
+  select(sample, `N`, `N Studies`, `Sex (Female), n (%)`, `Age (years), Mean (SD)`, `Surface Holes, Mean (SD)`) %>%
+  pivot_longer(-sample, names_to = "Statistic", values_to = "value") %>%
+  pivot_wider(names_from = sample, values_from = "value") %>%
+  gt(rowname_col = "Statistic") %>%
+  tab_header(title = "Table S1. Demographics by Subsample") %>%
+  tab_options(
+    table.font.size = 12,
+    heading.title.font.size = 14,
+    column_labels.font.weight = "bold",
+    row_group.font.weight = "bold"
+  )
+cv_demo_table
+gtsave(cv_demo_table, "figs/supplement/cv_demo_tbl.html")
 ```
 
-also saving sim_df() versions for plotting consistently on across phenos/splits
-
-```{r}
-#manually calculating x-range for denser sampling (10k ages)
-range(df_covars$age_days)
-x_min <- min(df_covars$logAge_days)
-x_max <- max(df_covars$logAge_days)
-x_range <- seq(x_min, x_max, length.out = 10000)
-
-df_sim <- sim_data(df_covars, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days", x_range=x_range)
-#saveRDS(df_sim, "./data/v3_full_sim.rds")
-```
 
 ## Patient Sample
 
@@ -913,54 +854,88 @@ df_pt_recode2 <- df_pt_recode %>%
 #fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
 ```
 
-demographics
-```{r}
-ggplot(df_pt_recode2) +
-  geom_histogram(aes(x=age_days, fill=dx_recode), position = "identity", alpha=.4) +
-  gamlssTools::format_x_axis("lifespan_fetal", df_pt_recode2$age_days)
+split into A and B
 
-df_pt_recode2 %>%
-  mutate(age_yrs = (age_days-280)/365.25) %>%
-  group_by(dx_recode) %>%
-  summarise(n = n(),
-            n_male = sum(sexMale),
-            pct_male = (sum(sexMale)/n())*100,
-            min_age = min(age_yrs),
-            max_age = max(age_yrs),
-            mean_age = mean(age_yrs)
-            )
-#table(df_pt_recode2$dx_recode, df_pt_recode2$study_site)
+```{r}
+set.seed(5678)
+#add sex factor var
+df_pt_recode2 <- df_pt_recode2 %>% mutate(sex=as.factor(sexMale))
+
+split_samples <- splitstackshape::stratified(df_pt_recode2, group=c("study_site", "sex"), size=0.5, bothSets = TRUE)
+
+pt_samp_A <- split_samples$SAMP1 %>% droplevels()
+pt_samp_B <- split_samples$SAMP2 %>% droplevels()
+
+ggplot(pt_samp_A) +
+  geom_histogram(aes(x=age_days, fill=sex))
+ggplot(pt_samp_B) +
+  geom_histogram(aes(x=age_days, fill=sex))
+
+pt_samp_A$sample <- "A"
+pt_samp_B$sample <- "B"
+
+#check diffs in study site between pts and controls
+setdiff(unique(samp_A$study_site), unique(pt_samp_A$study_site))
+setdiff(unique(samp_B$study_site), unique(pt_samp_B$study_site))
 ```
 
-site match controls
+```{r}
+# fwrite(split_samples$SAMP1, "./data/pt_sample_A.csv")
+# fwrite(split_samples$SAMP2, "./data/pt_sample_B.csv")
+```
 
+site-match to controls
 ```{r}
 #samp_A <- fread("./data/cv_sample_A.csv")
 #samp_B <- fread("./data/cv_sample_B.csv")
+A_sites <- unique(samp_A$study_site)
+B_sites <- unique(samp_B$study_site)
+
+pt_samp_A_filt <- pt_samp_A %>%
+  filter(study_site %in% A_sites)
+
+pt_samp_B_filt <- pt_samp_B %>%
+  filter(study_site %in% B_sites)
+
+pt_df <- rbind(pt_samp_A_filt, pt_samp_B_filt)
+
+ggplot(pt_df)+
+  geom_violin(aes(x=sample, y=age_days, fill=as.factor(sexMale))) +
+  theme_linedraw() +
+  labs(fill = "Male")
+```
+
+
+power analyses
+
+```{r}
 cn_df_list <- list(samp_A, samp_B)
 names(cn_df_list) <- c("A", "B")
-dx_list <- unique(df_pt_recode2$dx_recode)
+pt_df_list <- list(pt_samp_A_filt, pt_samp_B_filt)
+names(pt_df_list) <- c("A", "B")
 
-n_comp <- length(unique(full_df$dx_recode)) * length(pheno_list)
+dx_list <- unique(pt_df$dx_recode)
 
-for (dx_val in dx_list){
-  print(dx_val)
-  pts <- df_pt_recode2 %>%
-    filter(dx_recode == dx_val)
-  
-  sites <- unique(pts$study_site)
-  print(length(sites))
-  
-  for (n in names(cn_df_list)){
-  cn_df <- cn_df_list[[n]]
-  
-  new_df <- cn_df %>%
-    filter(study_site %in% sites) %>%
+n_comp <- length(unique(pt_df$dx_recode)) * length(pheno_list)
+case_control_df_list <- list()
+
+for (samp in c("A", "B")){
+  for (dx_val in dx_list){
+    print(dx_val)
+    
+    pts <- pt_df_list[[samp]] %>%
+      filter(dx_recode == dx_val)
+    
+    sites <- unique(pts$study_site)
+    print(length(sites))
+    
+    cn_df <- cn_df_list[[samp]] %>%
+    filter(study_site %in% sites) %>% #just keep controls from pt sites
     mutate(dx_recode = paste(dx, dx_val, sep="_"))
     
-  full_samp <- rbind(new_df, pts, fill=TRUE)
-  
-  sum_df <- full_samp %>%
+    full_samp <- rbind(cn_df, pts, fill=TRUE)
+    
+    sum_df <- full_samp %>%
           mutate(age_yrs = (age_days-280)/365.25) %>%
   group_by(dx_recode) %>%
   summarise(n = n(),
@@ -979,462 +954,59 @@ for (dx_val in dx_list){
   d = pwr.t2n.test(n1=sum_df$n[[1]], n2=sum_df$n[[2]], sig.level=(0.05/n_comp), power=.8)$d
   print(d)
 
-  fname <- paste0("./data/case_control_dfs/cv_sample_", n, "_", dx_val, ".csv")
+  fname <- paste0("./data/case_control_dfs/cv_sample_", samp, "_", dx_val, ".csv")
   fwrite(full_samp, fname)
+  case_control_df_list <- c(case_control_df_list, list(full_samp))
   
   }
 }
-
 ```
 
+plot demographics with matched controls
 
 ```{r}
-set.seed(5678)
-#add sex factor var
-df_pt_recode2 <- df_pt_recode2 %>% mutate(sex=as.factor(sexMale))
-
-split_samples <- splitstackshape::stratified(df_pt_recode2, group=c("study_site", "sex"), size=0.5, bothSets = TRUE)
-
-samp_A <- split_samples$SAMP1 %>% droplevels()
-samp_B <- split_samples$SAMP2 %>% droplevels()
-
-ggplot(samp_A) +
-  geom_histogram(aes(x=age_days, fill=sex))
-ggplot(samp_B) +
-  geom_histogram(aes(x=age_days, fill=sex))
-
-samp_A$sample <- "A"
-samp_B$sample <- "B"
-
-full_df <- rbind(samp_A, samp_B)
-
-#check diffs in study site between pts and controls
-cv_A <- fread("./data/cv_sample_A.csv")
-cv_B <- fread("./data/cv_sample_B.csv")
-setdiff(unique(samp_A$study_site), unique(cv_A$study_site))
-setdiff(unique(samp_B$study_site), unique(cv_B$study_site))
-
-ggplot(full_df)+
-  geom_violin(aes(x=sample, y=age_days, fill=as.factor(sexMale))) +
-  theme_linedraw() +
-  labs(fill = "Male")
-```
-
-```{r}
-# fwrite(split_samples$SAMP1, "./data/pt_sample_A.csv")
-# fwrite(split_samples$SAMP2, "./data/pt_sample_B.csv")
-```
-
-
-Power analyses for sex differences within diagnoses
-```{r}
-n_comp <- length(unique(full_df$dx_recode)) * length(global_list)
-n_comp2 <- length(unique(full_df$dx_recode)) * length(pheno_list)
-
-full_df %>%
-  group_by(dx_recode) %>%
-  summarise(n_female = sum(sexMale==0),
-            n_male = sum(sexMale==1)) %>%
-  rowwise() %>%
-  mutate(d_glob = pwr.t2n.test(n1=n_female, n2=n_male, sig.level=(0.05/n_comp), power=.8)$d,
-         d = pwr.t2n.test(n1=n_female, n2=n_male, sig.level=(0.05/n_comp2), power=.8)$d) %>%
-  ungroup() %>%
-  arrange(d)
-```
-
-only powered medium effects - going to stick to global phenos for now maybe
-
-
-# Visualize Data
-
-```{r, eval=FALSE}
-df_clean <- fread("./data/v3_CN_cleaned.csv", stringsAsFactors=T)
-glob_vol_list <- readRDS("./pheno_lists/global_vols.rds")
-gmv_list <- readRDS("./pheno_lists/cortical_vols.rds")
-subcort_list <- readRDS("./pheno_lists/subcortical_vols.rds")
-ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
-sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
-pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
-```
-
-
-```{r}
-library(gamlssTools)
-for (pheno in glob_vol_list){
-  df <- df_clean %>%
-  dplyr::select(all_of(c(pheno, "fs_version_GM", "logAge_days", "sexMale_x_logAge", "sexMale", "study_site"))) %>%
-    na.omit() %>%
-    trunc_coverage("logAge_days")
-  
-    pheno_sym <- sym(pheno)
-  
-  df <- df %>%
-    mutate(!!pheno_sym := log_scale(!!pheno_sym))
-    
-  
-  model <- gamlss_lambda(pheno,
-                          fs_ver="fs_version_GM",
-                          fs_moment="all",
-                          fam="BCCG",
-                          nu_form="sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)), control = pb.control(order = 3))")
-  
-  model$call$data <- "df"
-model$call$family <- "BCCG"
-  
-  fan_plot <- make_centile_fan(gamlssModel=model, df=df,
-                             x_var="logAge_days",
-                             color_var="sexMale",
-                             get_peaks=FALSE, 
-                             desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
-                             remove_point_effect = "study_site",
-                             y_scale=unscale)
-  print(fan_plot)
-}
-
-```
-
-check ranges
-
-```{r}
-get_min <- function(p, df){
-  min(df[[p]], na.rm=T)
-}
-pheno_mins <- lapply(pheno_list, get_min, df_clean)
-```
-
-look at data in ages <= 3 years
-
-```{r}
-df_clean_inf <- df_clean %>%
-  select(c(pheno_list, sexMale, age_days, country, study, logAge_days)) %>%
-  dplyr::filter(age_days <= (365.25*3)+280) %>%
-  mutate(across(all_of(pheno_list), ~ ifelse(!is.na(.), TRUE, FALSE))) %>%
-  pivot_longer(pheno_list, names_to = "pheno", values_to = "has_data") %>%
-  dplyr::filter(has_data == TRUE) %>%
-  mutate(pheno_cat = case_when(pheno %in% glob_vol_list ~ "global",
-                               pheno %in% gmv_list ~ "cortical_vol",
-                               pheno %in% subcort_list ~ "subcortical",
-                               pheno %in% ct_list ~ "thickness",
-                               pheno %in% sa_list ~ "surface_area"))
-
-ggplot(df_clean_inf) +
-  geom_histogram(aes(x=logAge_days, fill=pheno), position = "identity", alpha=0.4) +
-  theme(legend.position="none") +
-  geom_vline(xintercept=log(280, base=10)) + 
-  # geom_vline(xintercept=(28*7)) + #3rd trimester starts
-  # geom_vline(xintercept=(13*7)) + #2rd trimester starts
-  facet_wrap(~pheno_cat)
-
-ggplot(df_clean_inf) +
-  geom_histogram(aes(x=logAge_days, fill=pheno_cat, color=pheno_cat), position = "identity", alpha=0.4) +
-  geom_vline(xintercept=log(280, base=10))
-```
-
-for whatever reason there's very little data ~ 2 months post-birth
-
-
-
-### Euler QC
-looking at associations between Euler and demographics (in control sample and held-out psychosis sample)
-
-```{r}
-euler_df <- df_clean %>%
-  filter(!is.na(SurfaceHoles)) %>%
-  mutate(sexMale = as.factor(sexMale))
-
-euler_df %>%
-  ggplot(aes(x=sexMale, y=SurfaceHoles)) +
-  geom_boxplot() +
-  stat_compare_means()
-
-euler_df %>%
-  ggplot(aes(x=age_days, y=SurfaceHoles)) +
-  geom_point(alpha=0.4) +
-  geom_smooth(method = "lm")
-```
-
-Try filtering more?
-```{r}
-names(euler_df)
-
-euler_df_strict <- euler_df %>%
-  mutate(euler_threshold = study_euler_median + (3.5*study_euler_mad)) %>%
-  dplyr::filter(SurfaceHoles <= euler_threshold)
-
-euler_df_strict %>%
-  ggplot(aes(x=age_days, y=SurfaceHoles)) +
-  geom_point(alpha=0.4) +
-  geom_smooth(method = "lm")
-
-nrow(euler_df) - nrow(euler_df_strict)
-```
-loose a lot of subjects, doesn't seem to affect relationship
-
-```{r}
-euler_df_strict %>%
-  ggplot(aes(x=age_days, y=eTIV)) +
-  geom_point() +
-  geom_hline(yintercept=4553071)
-```
-
-Look at psychosis sample
-```{r}
-psych_df_eu <- psychosis_df %>%
-   filter(!is.na(SurfaceHoles)) %>%
-  mutate(sexMale = as.factor(sexMale))
-```
-
-```{r}
-unique(psych_df_eu$dx)
-#collapsing all non-CN diagnoses for now
-psych_df_eu <- psych_df_eu %>%
-  mutate(dx_sum = case_when(dx=="CN" ~ "CN",
-                            is.na(dx) ~ NA,
-                            TRUE ~ "PS"))
-psych_df_eu %>%
-  ggplot(aes(x=sexMale, y=SurfaceHoles, fill=dx_sum)) +
-  geom_boxplot() +
-  stat_compare_means()
-
-psych_df_eu %>%
-  ggplot(aes(x=age_days, y=SurfaceHoles, fill=dx_sum, color=dx_sum)) +
-  geom_point(alpha=0.4) +
-  geom_smooth(method = "lm")
-```
-
-### Global Phenotypes
-```{r}
-df_gmv <- df_global %>%
-  dplyr::select(age_days, sexMale, GMV) %>%
-  na.omit()
-
-ggplot(df_gmv) + 
-  geom_point(aes(x=age_days, y=GMV,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280)) +
-  scale_y_continuous(limits = c(0, NA))
-
-ggplot(df_global) + 
-  geom_point(aes(x=log(age_days), y=WMV,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280)) +
-  scale_y_continuous(limits = c(0, NA))
-
-ggplot(df_global) + 
-  geom_point(aes(x=log(age_days), y=sGMV,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280)) +
-  scale_y_continuous(limits = c(0, NA))
-
-ggplot(df_global) + 
-  geom_point(aes(x=log(age_days), y=CSF,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280)) +
-  scale_y_continuous(limits = c(0, NA))
-```
-```{r}
-ggplot(df_global, aes(x=log(age_days), y=eTIV)) + 
-  geom_point(aes(color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280)) +
-  # geom_smooth(method=lm, color="#264762") +
-  # geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x)) +
-  scale_y_continuous(limits = c(0, NA))
-
-ggplot(df_global, aes(x=age_days, y=eTIV)) + 
-  geom_point(aes(color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280)) +
-  geom_smooth(method=lm, color="#264762") +
-  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x)) +
-  scale_y_continuous(limits = c(0, NA))
-
-df_global <- df_global %>%
-  mutate(TBV = WMV + sGMV + GMV)
-
-ggplot(df_global, aes(x=log(age_days), y=TBV)) + 
-  geom_point(aes(color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280)) +
-  # geom_smooth(method=lm, color="#264762") +
-  # geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x)) +
-  scale_y_continuous(limits = c(0, NA))
-```
-
-```{r}
-mad_etiv <- mad(df_clean$eTIV, na.rm = T)
-med_etiv <- median(df_clean$eTIV, na.rm = T)
-
-ggplot(df_clean, aes(y=eTIV)) + 
-  geom_boxplot() +
-  geom_hline(yintercept = med_etiv + 8*mad_etiv) +
-  scale_y_continuous(limits = c(0, NA))
-
-mad_tbv <- mad(df_clean$TBV, na.rm = T)
-med_tbv <- median(df_clean$TBV, na.rm = T)
-
-ggplot(df_clean, aes(y=TBV)) + 
-  geom_boxplot() +
-  geom_hline(yintercept = med_tbv + 8*mad_tbv) +
-  scale_y_continuous(limits = c(0, NA))
-
-mad_ct <- mad(df_clean$mean.CT, na.rm = T)
-med_ct <- median(df_clean$mean.CT, na.rm = T)
-
-ggplot(df_clean, aes(y=mean.CT)) + 
-  geom_boxplot() +
-  geom_hline(yintercept = med_ct + 8*mad_ct) +
-  scale_y_continuous(limits = c(0, NA))
-
-mad_sa <- mad(df_clean$total.SA, na.rm = T)
-med_sa <- median(df_clean$total.SA, na.rm = T)
-
-ggplot(df_clean, aes(y=total.SA)) + 
-  geom_boxplot() +
-  geom_hline(yintercept = med_sa + 8*mad_sa) +
-  scale_y_continuous(limits = c(0, NA))
-```
-
-### Cortical volumes
-```{r}
-ggplot(df_gmv) + 
-  geom_point(aes(x=age_days, y=rh.GM.lingual,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_gmv) + 
-  geom_point(aes(x=age_days, y=lh.GM.parsorbitalis,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_gmv) + 
-  geom_point(aes(x=age_days, y=rh.GM.fusiform,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_gmv) + 
-  geom_point(aes(x=age_days, y=lh.GM.inferiortemporal,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280) +
-  geom_vline(xintercept = (365.25*3))
-
-#compare to original data
-
-ggplot(df) + 
-  geom_point(aes(x=age_days, y=lh.GM.inferiortemporal, color=sex), alpha=.4) +
-  geom_vline(xintercept = 280) +
-  geom_vline(xintercept = (365.25*3))
-```
-
-###Cortical Thickness
-```{r}
-ggplot(df_ct) + 
-  geom_point(aes(x=log(age_days), y=mean.CT, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280))+
-  scale_y_continuous(limits = c(0, NA))
-
-#compare to full dataset
-ggplot(df_clean) + 
-  geom_point(aes(x=age_days, y=rh.CT.superiorparietal, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_ct) + 
-  geom_point(aes(x=age_days, y=lh.CT.parahippocampal, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_ct) + 
-  geom_point(aes(x=age_days, y=rh.CT.caudalanteriorcingulate, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_ct) + 
-  geom_point(aes(x=age_days, y=lh.CT.transversetemporal,color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-```
-
-###Cortical SA
-```{r}
-ggplot(df_sa) + 
-  geom_point(aes(x=log(age_days), y=total.SA, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = log(280))+
-  scale_y_continuous(limits = c(0, max(df_sa$total.SA, na.rm=TRUE)))
-
-ggplot(df_sa) + 
-  geom_point(aes(x=age_days, y=rh.SA.pericalcarine, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_sa) + 
-  geom_point(aes(x=age_days, y=lh.SA.lateralorbitofrontal, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_sa) + 
-  geom_point(aes(x=age_days, y=lh.SA.entorhinal, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_sa) + 
-  geom_point(aes(x=age_days, y=rh.SA.rostralmiddlefrontal, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-```
-
-```{r}
-df_sa %>%
-  dplyr::filter(rh.SA.rostralmiddlefrontal < 3000 & age_days > 2500) %>%
-  group_by(fs_version_SA, study) %>%
-  summarise(n = n())
-
-df_sa %>%
-  mutate(check = ifelse(study=="OpenNeuro_Wang", 1, 0)) %>%
-  ggplot() +
-  geom_point(aes(x=age_days, y=rh.SA.rostralmiddlefrontal, color=as.factor(check)), alpha=.4)
-
-df_sa %>%
-  mutate(check = ifelse(study=="OpenNeuro_Wang", 1, 0)) %>%
-  ggplot() +
-  geom_point(aes(x=age_days, y=lh.SA.rostralmiddlefrontal, color=as.factor(check)), alpha=.4)
-```
-
-values seem low, re-check post-ComBat
-
-###Subcortical Volumes
-```{r}
-ggplot(df_sub) + 
-  geom_point(aes(x=age_days, y=SUBC.Left.Hippocampus, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_sub) + 
-  geom_point(aes(x=age_days, y=SUBC.Left.Accumbens.area, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_sub) + 
-  geom_point(aes(x=age_days, y=SUBC.Left.Amygdala, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-
-ggplot(df_sub) + 
-  geom_point(aes(x=age_days, y=SUBC.Right.Thalamus.Proper, color=as.factor(sexMale)), alpha=.4) +
-  geom_vline(xintercept = 280)
-```
-
-###eTIV scaling
-
-```{r}
-df_clean %>%
-  filter(eTIV < 3e6) %>%
-  ggplot(aes(x=eTIV, y=SUBC.Left.Amygdala)) +
-  geom_point(alpha=0.6, color="gray") +
-  geom_smooth(method=lm, color="#264762") +
-  geom_smooth(color="#3e5410", method = "gam", formula = y ~ s(x, bs = "cs", k=5)) +
-  theme_bw()
-```
-
-###Visualize Batch Effects
-
-using simple PCA
-```{r}
-df_phenos <- df_clean %>% dplyr::select(all_of(c("study_site", "study", ct_list, gmv_list, sa_list, subcort_list))) %>% na.omit()
-
-pc_phenos <- prcomp(df_phenos[,-(1:2)], center=TRUE, scale=TRUE)
-
-as.data.frame(pc_phenos$x) %>% 
-  mutate(site = df_phenos$study_site) %>%
-  ggplot(aes(x=PC1, y=PC2)) +
-  geom_point(aes(color=site), alpha=0.4)+
-  geom_vline(xintercept = 0) +
-  geom_hline(yintercept = 0) +
-  theme(legend.position="none")
-
-as.data.frame(pc_phenos$x) %>% 
-  mutate(site = df_phenos$study) %>%
-  ggplot(aes(x=PC1, y=PC2)) +
-  geom_point(aes(color=site), alpha=0.4)+
-  geom_vline(xintercept = 0) +
-  geom_hline(yintercept = 0) +
-  theme(legend.position="none")
+case_control_df <- do.call(rbind, case_control_df_list)
+
+pt_demo_table <- case_control_df %>%
+  mutate(dx_tested = sub("CN_", "", dx_recode)) %>%
+  mutate(dx = ifelse(str_detect(dx_recode, "CN"), "Control", "Case")) %>%
+  group_by(sample, dx_tested, dx) %>%
+  summarise(
+    N = n(),
+    n_female = sum(sexMale == 0),
+    pct_female = (sum(sexMale == 0) / n()) * 100,
+    n_studies = n_distinct(study),
+    mean_age = mean((age_days - 280) / 365.25, na.rm = TRUE),
+    sd_age = sd((age_days - 280) / 365.25, na.rm = TRUE),
+    mean_surf_holes = mean(SurfaceHoles, na.rm = TRUE),
+    sd_surf_holes = sd(SurfaceHoles, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    `N` = as.character(N),
+    `No. Studies` = as.character(n_studies),
+    `Sex (Female), n (%)` = paste0(n_female, " (", round(pct_female, 1), "%)"),
+    `Age (years), Mean (SD)` = paste0(round(mean_age, 2), " (", round(sd_age, 2), ")"),
+    `Surface Holes, Mean (SD)` = paste0(round(mean_surf_holes, 1), " (", round(sd_surf_holes, 1), ")")
+  ) %>%
+  select(sample, dx, dx_tested, `N`, `No. Studies`, `Sex (Female), n (%)`, `Age (years), Mean (SD)`, `Surface Holes, Mean (SD)`) %>%
+  pivot_longer(-c(sample, dx, dx_tested), names_to = "Statistic", values_to = "value") %>%
+  pivot_wider(names_from = c(sample, dx), values_from = "value") %>%
+  gt(rowname_col = "Statistic", groupname_col = "dx_tested") %>%
+  tab_header(title = "Table S2. Case-Control Sample Demographics") %>%
+  # nest Case/Control under A and B spanners
+  tab_spanner(label = "A", columns = starts_with("A_")) %>%
+  tab_spanner(label = "B", columns = starts_with("B_")) %>%
+  # rename columns to just Case/Control (dropping the A_/B_ prefix)
+  cols_label(
+    A_Case = "Case", A_Control = "Control",
+    B_Case = "Case", B_Control = "Control"
+  ) %>%
+  tab_options(
+    table.font.size = 12,
+    heading.title.font.size = 14,
+    column_labels.font.weight = "bold",
+    row_group.font.weight = "bold"
+  )
+gtsave(pt_demo_table, "figs/supplement/pt_cv_demo_tbl.html")
 ```
