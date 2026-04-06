@@ -105,15 +105,6 @@ df_pt <- df_full_cent %>%
   filter(dx_recode!=cn_level)
 fwrite(df_pt, file=paste0(save_path, "/cent_csvs/", pheno, "_PT_", dx_val, "_cent.csv"))
 
-#get stats about patients with extreme centiles
-df_long <- df_pt %>%
-  pivot_longer(
-    cols = matches("_centile_|_std_score_"),
-    names_to = c("pheno", ".value", "model"),
-    names_pattern = "(.+)_(centile|std_score)_(full|null|null2)"
-  ) %>%
-  rename(centile = centile, std_score = std_score)
-
 ##### DX #####
 print("testing disease effects...")
 dx_test_df <- data.frame()
