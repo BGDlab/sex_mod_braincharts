@@ -143,7 +143,7 @@ run_fisher <- function(n_CN, n_PT, n_total_CN, n_total_PT) {
 #prep df
 fisher_df <- sum_df %>%
   filter(ext != "mid") %>%
-  pivot_wider(id_cols=c(pheno, model, sex, ext), names_from=dx, values_from=c(n, n_total)) %>%
+  pivot_wider(id_cols=c(pheno, model, sex, ext), names_from=dx, values_from=c(n, n_total), values_fill = 0) %>%
   #collapsing across sex for now
   group_by(pheno, model, ext) %>%
   summarise(n_CN = sum(n_CN),
