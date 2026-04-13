@@ -36,7 +36,7 @@ SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/co
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $BASE/code/centile_test.R $PT_DF $DF $MODEL $SAVE_PATH $DX
+    Rscript $BASE/code/centile_calc.R $PT_DF $DF $MODEL $SAVE_PATH $DX
 
 # Done!
 echo "Job finished running!"

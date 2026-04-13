@@ -9,25 +9,44 @@ library(EnvStats)
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
 dx_val <- as.character(args[1])
-cv_sample <- as.character(args[2])
+#cv_sample <- as.character(args[2])
 
 #base path
 base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
-csv_path <- paste0(base_path, "cv_sample_", cv_sample, "_test/*totalFALSE*")
+csv_path <- paste0(base_path, "cv_sample_?_test/*totalFALSE*")
 
 #get pheno list
 lists <- list.files(paste0(base_path, "pheno_lists"), pattern = "\\.rds$", full.names = TRUE)
 pheno_list <- do.call(c, lapply(lists, readRDS))
 
+#READ IN AND AVERAGE PT CENTILES
+fread_filt <- function(f){
+  fread(f) %>%
+    select(INDEX.ID, sex, dx_recode, contains("std_score"))
+}
+
+pt_dfs <- c()
+#average within pheno
+for (pheno in pheno_list) {
+  f_list <- Sys.glob(paste0(csv_path, "/cent_csvs/", pheno, "_PT_", dx_val, "_cent.csv"))
+  if (length(f_list) != 2) {
+    warning(paste("2 files not found for pheno:", pheno))
+    next
+  } else {
+    pheno_df <-  rbindlist(lapply(f_list, fread_filt), fill=TRUE)
+  }
+  
+  pheno_mean <- pheno_df %>%
+    group_by(INDEX.ID, sex, dx_recode) %>%
+    summarise_at(vars(contains("std_score")), mean)
+  fwrite(pheno_mean) #figure out where to save
+  pt_dfs <- c(pt_dfs, list(pheno_mean))
+}
+
 sum_df <- data.frame()
 diffs_df <- data.frame()
 
-#load patient and control centiles  CSVs
 #custom fun to read and filt
-fread_filt <- function(f){
-  fread(f) %>%
-    select(INDEX.ID, sex, dx_recode, contains("centile"))
-}
 
 #loop over pts and controls
 for (grp in c("CN", "PT")){
