@@ -115,6 +115,8 @@ n_cn <- nrow(df_cn)
 n_pt <- nrow(df_pt)
 pi <- n_cn/nrow(df_full_cent) #sampling prop for resi
 
+print(length(mod_list))
+
 for (mn in names(mod_list)){
   col_name <- paste(pheno, "std_score", mn, sep="_")
     
@@ -130,7 +132,7 @@ for (mn in names(mod_list)){
                         "case.control_tstat" = test_out$statistic,
                         "case.control_df" = test_out$parameter,
                         "case.control_p.val" = test_out$p.value,
-                        "case.control_est" = test_out$estimate,
+                        #"case.control_est" = test_out$estimate,
                         "case.control_ci_up" = test_out$conf.int[1],
                         "case.control_ci_low" = test_out$conf.int[1],
                         "case.control_d" = test_d$estimate

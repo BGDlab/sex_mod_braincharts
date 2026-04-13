@@ -712,6 +712,10 @@ samp_plt <- ggplot(full_df)+
   theme_linedraw() +
   labs(fill = "Male")
 ggsave("figs/cv_samples.png", samp_plt)
+
+#confirm correct sites
+stopifnot(setequal(unique(samp_A$study_site), valid_sites))
+stopifnot(setequal(unique(samp_B$study_site), valid_sites))
 ```
 pretty good distributions of ages and Euler within sex, no significant differences between samples 
 
@@ -854,76 +858,26 @@ df_pt_recode2 <- df_pt_recode %>%
 #fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
 ```
 
-split into A and B
-
-```{r}
-set.seed(5678)
-#add sex factor var
-df_pt_recode2 <- df_pt_recode2 %>% mutate(sex=as.factor(sexMale))
-
-split_samples <- splitstackshape::stratified(df_pt_recode2, group=c("study_site", "sex"), size=0.5, bothSets = TRUE)
-
-pt_samp_A <- split_samples$SAMP1 %>% droplevels()
-pt_samp_B <- split_samples$SAMP2 %>% droplevels()
-
-ggplot(pt_samp_A) +
-  geom_histogram(aes(x=age_days, fill=sex))
-ggplot(pt_samp_B) +
-  geom_histogram(aes(x=age_days, fill=sex))
-
-pt_samp_A$sample <- "A"
-pt_samp_B$sample <- "B"
-
-#check diffs in study site between pts and controls
-setdiff(unique(samp_A$study_site), unique(pt_samp_A$study_site))
-setdiff(unique(samp_B$study_site), unique(pt_samp_B$study_site))
-```
-
-```{r}
-# fwrite(split_samples$SAMP1, "./data/pt_sample_A.csv")
-# fwrite(split_samples$SAMP2, "./data/pt_sample_B.csv")
-```
 
 site-match to controls
 ```{r}
-#samp_A <- fread("./data/cv_sample_A.csv")
-#samp_B <- fread("./data/cv_sample_B.csv")
-A_sites <- unique(samp_A$study_site)
-B_sites <- unique(samp_B$study_site)
-
-pt_samp_A_filt <- pt_samp_A %>%
-  filter(study_site %in% A_sites)
-
-pt_samp_B_filt <- pt_samp_B %>%
-  filter(study_site %in% B_sites)
-
-pt_df <- rbind(pt_samp_A_filt, pt_samp_B_filt)
-
-ggplot(pt_df)+
-  geom_violin(aes(x=sample, y=age_days, fill=as.factor(sexMale))) +
-  theme_linedraw() +
-  labs(fill = "Male")
+pt_df <- df_pt_recode2 %>%
+  filter(study_site %in% valid_sites)
 ```
 
-
-power analyses
+split to match controls in A and B
 
 ```{r}
 cn_df_list <- list(samp_A, samp_B)
 names(cn_df_list) <- c("A", "B")
-pt_df_list <- list(pt_samp_A_filt, pt_samp_B_filt)
-names(pt_df_list) <- c("A", "B")
 
 dx_list <- unique(pt_df$dx_recode)
-
-n_comp <- length(unique(pt_df$dx_recode)) * length(pheno_list)
-case_control_df_list <- list()
 
 for (samp in c("A", "B")){
   for (dx_val in dx_list){
     print(dx_val)
     
-    pts <- pt_df_list[[samp]] %>%
+    pts <- pt_df %>%
       filter(dx_recode == dx_val)
     
     sites <- unique(pts$study_site)
@@ -934,30 +888,10 @@ for (samp in c("A", "B")){
     mutate(dx_recode = paste(dx, dx_val, sep="_"))
     
     full_samp <- rbind(cn_df, pts, fill=TRUE)
-    
-    sum_df <- full_samp %>%
-          mutate(age_yrs = (age_days-280)/365.25) %>%
-  group_by(dx_recode) %>%
-  summarise(n = n(),
-            n_male = sum(sexMale),
-            pct_male = (sum(sexMale)/n())*100,
-            min_age = min(age_yrs),
-            max_age = max(age_yrs),
-            mean_age = mean(age_yrs)
-            )
-  print(sum_df)
-  
-  print(ggplot(full_samp) +
-          geom_histogram(aes(x=age_days, fill=dx_recode), position="identity", alpha=.5))
-  
-  #case-control power analyses
-  d = pwr.t2n.test(n1=sum_df$n[[1]], n2=sum_df$n[[2]], sig.level=(0.05/n_comp), power=.8)$d
-  print(d)
 
   fname <- paste0("./data/case_control_dfs/cv_sample_", samp, "_", dx_val, ".csv")
   fwrite(full_samp, fname)
-  case_control_df_list <- c(case_control_df_list, list(full_samp))
-  
+
   }
 }
 ```
@@ -965,12 +899,21 @@ for (samp in c("A", "B")){
 plot demographics with matched controls
 
 ```{r}
-case_control_df <- do.call(rbind, case_control_df_list)
+pt_demo_table <- purrr::map_dfr(dx_list, function(dx_val) {
+  pts <- pt_df %>%
+    filter(dx_recode == dx_val)
+  
+  sites <- unique(pts$study_site)
 
-pt_demo_table <- case_control_df %>%
+  cn_df <- df_clean_sites %>%
+    filter(study_site %in% sites) %>%
+    mutate(dx_recode = paste(dx, dx_val, sep="_"))
+  
+  bind_rows(cn_df, pts)
+}) %>%
   mutate(dx_tested = sub("CN_", "", dx_recode)) %>%
   mutate(dx = ifelse(str_detect(dx_recode, "CN"), "Control", "Case")) %>%
-  group_by(sample, dx_tested, dx) %>%
+  group_by(dx_tested, dx) %>%
   summarise(
     N = n(),
     n_female = sum(sexMale == 0),
@@ -985,23 +928,15 @@ pt_demo_table <- case_control_df %>%
   mutate(
     `N` = as.character(N),
     `No. Studies` = as.character(n_studies),
-    `Sex (Female), n (%)` = paste0(n_female, " (", round(pct_female, 1), "%)"),
+    `Female, n (%)` = paste0(n_female, " (", round(pct_female, 1), "%)"),
     `Age (years), Mean (SD)` = paste0(round(mean_age, 2), " (", round(sd_age, 2), ")"),
     `Surface Holes, Mean (SD)` = paste0(round(mean_surf_holes, 1), " (", round(sd_surf_holes, 1), ")")
   ) %>%
-  select(sample, dx, dx_tested, `N`, `No. Studies`, `Sex (Female), n (%)`, `Age (years), Mean (SD)`, `Surface Holes, Mean (SD)`) %>%
-  pivot_longer(-c(sample, dx, dx_tested), names_to = "Statistic", values_to = "value") %>%
-  pivot_wider(names_from = c(sample, dx), values_from = "value") %>%
+  select(dx, dx_tested, `N`, `No. Studies`, `Female, n (%)`, `Age (years), Mean (SD)`, `Surface Holes, Mean (SD)`) %>%
+  pivot_longer(-c(dx, dx_tested), names_to = "Statistic", values_to = "value") %>%
+  pivot_wider(names_from = dx, values_from = "value") %>%
   gt(rowname_col = "Statistic", groupname_col = "dx_tested") %>%
   tab_header(title = "Table S2. Case-Control Sample Demographics") %>%
-  # nest Case/Control under A and B spanners
-  tab_spanner(label = "A", columns = starts_with("A_")) %>%
-  tab_spanner(label = "B", columns = starts_with("B_")) %>%
-  # rename columns to just Case/Control (dropping the A_/B_ prefix)
-  cols_label(
-    A_Case = "Case", A_Control = "Control",
-    B_Case = "Case", B_Control = "Control"
-  ) %>%
   tab_options(
     table.font.size = 12,
     heading.title.font.size = 14,
