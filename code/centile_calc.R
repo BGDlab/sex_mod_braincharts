@@ -89,7 +89,7 @@ pt_level <- setdiff(levels(df_full_cent$dx_recode), cn_level)
 null_cols <- grep("_null$", names(df_full_cent), value = TRUE)
 for (col in null_cols) {
   base <- sub("_null$", "", col)
-  new_col <- paste0("_diff")
+  new_col <- paste0(base, "_diff")
   full_col <- paste0(base, "_full")
   
   if (full_col %in% names(df_full_cent)) {
@@ -101,7 +101,7 @@ if (length(mod_list) > 2){
   null_cols <- grep("_null2$", names(df_full_cent), value = TRUE)
   for (col in null_cols) {
     base <- sub("_null2$", "", col)
-    new_col <- paste0("_diff2")
+    new_col <- paste0(base, "_diff2")
     full_col <- paste0(base, "_full")
     
     if (full_col %in% names(df_full_cent)) {
