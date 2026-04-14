@@ -80,21 +80,35 @@ df_cent <- lapply(names(mod_list), function(mn){
 })
 
 #rejoin
-df_full_cent <- bind_cols(df_clean, df_cent) %>%
-  mutate(sex = ifelse(sexMale==0, "F", "M")) %>%
-  #make sure base levels set at Female, Controls
-  mutate(sex=factor(sex, 
-                    levels = c("F", "M"),
-                    ordered = TRUE))
+df_full_cent <- bind_cols(df_clean, df_cent)
 
 cn_level <- grep("^CN_", levels(df_full_cent$dx_recode), value = TRUE)
 pt_level <- setdiff(levels(df_full_cent$dx_recode), cn_level)
 
-# Reorder with CN_ as base
-df_full_cent <- df_full_cent %>%
-  mutate(dx_recode = factor(dx_recode, 
-                            levels = c(cn_level, pt_level),
-                            ordered = TRUE))
+#get change in centiles/std scores between full and null models
+null_cols <- grep("_null$", names(df_full_cent), value = TRUE)
+for (col in null_cols) {
+  base <- sub("_null$", "", col)
+  new_col <- paste0("_diff")
+  full_col <- paste0(base, "_full")
+  
+  if (full_col %in% names(df_full_cent)) {
+    df_full_cent[[new_col]] <- df_full_cent[[col]] - df_full_cent[[full_col]]
+  }
+}
+
+if (length(mod_list) > 2){
+  null_cols <- grep("_null2$", names(df_full_cent), value = TRUE)
+  for (col in null_cols) {
+    base <- sub("_null2$", "", col)
+    new_col <- paste0("_diff2")
+    full_col <- paste0(base, "_full")
+    
+    if (full_col %in% names(df_full_cent)) {
+      df_full_cent[[new_col]] <- df_full_cent[[col]] - df_full_cent[[full_col]]
+    }
+  }
+}
 
 #save patient and control centiles separately, otherwise files are too big to read in
 df_cn <- df_full_cent %>%

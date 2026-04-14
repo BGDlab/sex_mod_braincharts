@@ -11,21 +11,22 @@ print(args)
 dx_val <- as.character(args[1])
 #cv_sample <- as.character(args[2])
 
-#base path
+#set paths
 base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
 csv_path <- paste0(base_path, "cv_sample_?_test/*totalFALSE*")
+save_path <- paste0(base_path, "dx_tests/")
 
 #get pheno list
 lists <- list.files(paste0(base_path, "pheno_lists"), pattern = "\\.rds$", full.names = TRUE)
 pheno_list <- do.call(c, lapply(lists, readRDS))
 
 #READ IN AND AVERAGE PT CENTILES
-fread_filt <- function(f){
+fread_filt <- function(f, string){
   fread(f) %>%
-    select(INDEX.ID, sex, dx_recode, contains("std_score"))
+    select(INDEX.ID, sex, dx_recode, matches(string))
 }
 
-pt_dfs <- c()
+pt_df_list <- c()
 #average within pheno
 for (pheno in pheno_list) {
   f_list <- Sys.glob(paste0(csv_path, "/cent_csvs/", pheno, "_PT_", dx_val, "_cent.csv"))
@@ -33,46 +34,91 @@ for (pheno in pheno_list) {
     warning(paste("2 files not found for pheno:", pheno))
     next
   } else {
-    pheno_df <-  rbindlist(lapply(f_list, fread_filt), fill=TRUE)
+    pheno_df <-  rbindlist(lapply(f_list, fread_filt, "std_score"), fill=TRUE)
   }
   
   pheno_mean <- pheno_df %>%
     group_by(INDEX.ID, sex, dx_recode) %>%
-    summarise_at(vars(contains("std_score")), mean)
-  fwrite(pheno_mean) #figure out where to save
-  pt_dfs <- c(pt_dfs, list(pheno_mean))
+    summarise(across(contains("std_score"), mean), .groups = "drop") %>%
+    # convert mean std scores back to centiles
+    mutate(
+      across(
+        .cols = contains("std_score") & 
+          !ends_with("_diff") & 
+          !ends_with("_diff2"), #don't back-convert diff cols
+        .fns = pnorm,
+        .names = "{gsub('std_score', 'centile', .col)}"
+      )
+    ) %>%
+    ungroup()
+  
+  pt_df_list <- c(pt_df_list, list(pheno_mean))
 }
 
+pt_df <- pt_df_list %>% purrr::reduce(dplyr::full_join, by = c("INDEX.ID", "sex", "dx_recode"))
+stopifnot(nrow(pt_df) == length(unique(pt_df$INDEX.ID)))
+fwrite(pt_df, paste0(save_path, dx_val, "_mean_scores.csv")) #figure out where to save
+
+cn_df_list <- c()
+##READ IN CONTROLS
+for (pheno in pheno_list) {
+  f_list <- Sys.glob(paste0(csv_path, "/cent_csvs/", pheno, "_CN_", dx_val, "_cent.csv"))
+  if (length(f_list) != 2) {
+    warning(paste("2 files not found for pheno:", pheno))
+    next
+  } else {
+    pheno_df <-  rbindlist(lapply(f_list, fread_filt, "std_score|centile"), fill=TRUE)
+  }
+  
+  cn_df_list <- c(cn_df_list, list(pheno_df))
+}
+
+cn_df <- cn_df_list %>% purrr::reduce(dplyr::full_join, by = c("INDEX.ID", "sex", "dx_recode"))
+stopifnot(nrow(cn_df) == length(unique(cn_df$INDEX.ID)))
+
+#T TEST TO COMPARE MEAN Z SCORES IN EACH PHENO
+#also tests differences in between-model changes
+std_cols <- names(cn_df)[grepl("std_score", names(cn_df))]
+
+t_results <- map_dfr(std_cols, function(col) {
+  x <- na.omit(cn_df[[col]])
+  y <- na.omit(pt_df[[col]])
+  
+  test_out <- t.test(x, y)
+  d_out <- effsize::cohen.d(x, y)
+  
+  tibble(
+    variable = col,
+    t_stat = test_out$statistic,
+    p_value = test_out$p.value,
+    mean_df1 = mean(x, na.rm = TRUE),
+    mean_df2 = mean(y, na.rm = TRUE),
+    n_cn = sum(!is.na(x)),
+    n_pt = sum(!is.na(y)),
+    d = d_out$estimate
+  )
+})
+
+#save
+fwrite(dx_test_df, file=paste0(save_path, dx_val, "_casecontrol_test.csv"))
+
+#TEST EXTREMENESS & CHANGES IN EXTREMENESS ACROSS MODELS IN CASES V CONTROLS
 sum_df <- data.frame()
 diffs_df <- data.frame()
-
-#custom fun to read and filt
-
 #loop over pts and controls
-for (grp in c("CN", "PT")){
+for (df in list(cn_df, pt_df)){
   sum_df_grp <- data.frame()
   diffs_df_grp <- data.frame()
   denom_grp <- data.frame()
   
-  #read in all centile csvs
-  file_list <-list()
-  
-  for (pheno in pheno_list){
-    f <- Sys.glob(paste0(csv_path, "/cent_csvs/", pheno, "_", grp, "_", dx_val, "_cent.csv"))
-    if (length(f) == 0) {
-      warning(paste("No file found for pheno:", pheno))
-      next
-    } else {
-      file_list <- unique(unlist(c(file_list, f)))
-    }}
-  print(length(file_list))
-  
-  full_df <- rbindlist(lapply(file_list, fread_filt), fill=TRUE)
+  #get dx
+  x <- unique(df$dx_recode)
+  dx_grp <- ifelse(grepl("CN", x), "CN", "PT")
   
   # --- CHUNKED pivot_longer to avoid vec_interleave_indices() size limit ---
   chunk_size <- 50  # number of files per chunk; tune down if still hitting the limit
   
-  cent_cols <- grep("centile", names(full_df), value = TRUE)
+  cent_cols <- grep("centile", names(df), value = TRUE)
   id_cols   <- c("INDEX.ID", "sex", "dx_recode")
   phenos_in_data <- unique(sub("_centile_(full|null)$", "", cent_cols))
   
@@ -80,7 +126,7 @@ for (grp in c("CN", "PT")){
   
   cent_csv <- rbindlist(lapply(chunks, function(pheno_chunk) {
     cols_chunk <- cent_cols[sub("_centile_(full|null)$", "", cent_cols) %in% pheno_chunk]
-    sub_df <- full_df[, c(id_cols, cols_chunk), with = FALSE]
+    sub_df <- df[, c(id_cols, cols_chunk), with = FALSE]
     
     sub_df %>%
       pivot_longer(
@@ -121,7 +167,7 @@ for (grp in c("CN", "PT")){
               .groups = "drop") 
   
   #get denominator - how many subjects per dx and sex were tested?  
-  denom_grp <- full_df %>%
+  denom_grp <- df %>%
     select(INDEX.ID, sex, dx_recode) %>%
     distinct(INDEX.ID, .keep_all = TRUE) %>%
     count(dx_recode, sex) %>%
@@ -133,7 +179,7 @@ for (grp in c("CN", "PT")){
   
   sum_df_grp <- full_join(sum_df_grp, denom_grp, by = c("dx_recode", "sex")) %>%
     mutate(pct = (n / n_total) * 100,
-           dx = grp)
+           dx = dx_grp)
   
   sum_df <- rbind(sum_df, sum_df_grp)
   diffs_df <- rbind(diffs_df, diffs_df_grp)
@@ -142,12 +188,10 @@ for (grp in c("CN", "PT")){
 
 #save
 sum_df$dx_tested <- dx_val
-sum_df$cv_sample <- cv_sample
 diffs_df$dx_tested <- dx_val
-diffs_df$cv_sample <- cv_sample
 
-fwrite(sum_df, paste0(base_path, "cv_sample_", cv_sample, "_test/", dx_val, "_extcent_sum.csv"))
-fwrite(diffs_df, paste0(base_path, "cv_sample_", cv_sample, "_test/", dx_val, "_extcent_diffs.csv"))
+fwrite(sum_df, file=paste0(save_path, dx_val, "_extcent_sum.csv"))
+fwrite(diffs_df, paste0(save_path, dx_val, "_extcent_diffs.csv"))
 
 #SIGNIFICANCE TESTING using Fisher's Exact test of proportions
 run_fisher <- function(n_CN, n_PT, n_total_CN, n_total_PT) {
@@ -183,6 +227,5 @@ fisher_final <- fisher_df %>%
   )
 
 fisher_final$dx_tested <- dx_val
-fisher_final$cv_sample <- cv_sample
 
-fwrite(fisher_final, paste0(base_path, "cv_sample_", cv_sample, "_test/", dx_val, "_extcent_fisher.csv"))
+fwrite(fisher_final, paste0(save_path, dx_val, "_extcent_fisher.csv"))

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH --job-name=ext_test
-#SBATCH --time=4:00:00
+#SBATCH --time=6:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=100G
