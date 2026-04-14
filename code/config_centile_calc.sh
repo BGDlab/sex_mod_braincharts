@@ -79,9 +79,9 @@ do
       
       #skip already tested models if rerunning
       if [[ "$rerun" == "TRUE" ]]; then
-          test_csv=$(ls ${save_path}/model_sums/${pheno_line}*_${dx}pt_cent_test.csv 2>/dev/null | head -n 1 || true)
+          test_csv=$(ls ${save_path}/cent_csvs/${pheno_line}*PT_${dx}_cent.csv 2>/dev/null | head -n 1 || true)
           if [[ -n "$test_csv" ]]; then
-            echo "Skipping $pheno_line (centile tests found)"
+            echo "Skipping $pheno_line (centiles found)"
             continue
           fi
       fi
@@ -112,8 +112,15 @@ do
           file="${file_matches[0]}"
         fi
 
-	    #find test model - handle optional _logPheno*_ in directory names
-        mapfile -t matches < <(find "$(realpath "$save_dir")" -path "*${pheno_cat}_total${total}*logAge${log_age}_pbmods/model_objs/*" -type f -name "${pheno_line}_*full_mod.rds" 2>/dev/null)
+	    #find test model - handle optional _logPheno*_ in directory names, ignore weighted models
+        mapfile -t matches < <(
+        find "$(realpath "$save_dir")" \
+          -path "*${pheno_cat}_total${total}*logAge${log_age}_pbmods/model_objs/*" \
+          -type f \
+          -name "${pheno_line}_*full_mod.rds" \
+          ! -path "*weighted*" \
+          2>/dev/null
+      )
         if [ ${#matches[@]} -eq 1 ]; then
           og_mod="${matches[0]}"
           

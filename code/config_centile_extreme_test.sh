@@ -5,6 +5,7 @@
 #PATHS
 data_path=./data
 config_path=./code/config_files
+save_path=./dx_tests
 
 rerun="FALSE"
 
@@ -33,7 +34,7 @@ if [[ "$rerun" == "TRUE" ]]; then
   date_tag=$(date +%Y%m%d)
   config_file=$config_path/cv_mods_total${total}_logAge${log_age}_centext_rerun${date_tag}_config.txt
   else
-    config_file=$config_path/cv_mods_total${total}_logAge${log_age}_centext_config.txt
+  config_file=$config_path/cv_mods_total${total}_logAge${log_age}_centext_config.txt
   fi
 if ! [ -d $config_path ]
 then
@@ -44,14 +45,16 @@ then
   fi
   
   touch $config_file
-  
+
+#make output dir
+if ! [ -d $save_path ]
+then
+mkdir $save_path
+fi
     
-#LOOP THROUGH 1/2 CSVS
-for split in A B
+#LOOP THROUGH DX
+for dx in "SCZ" "ALZ" "ASD" "MDD" "GAD" "ADHD"
 do
-  #LOOP THROUGH DX
-  for dx in "SCZ" "ALZ" "ASD" "MDD" "GAD" "ADHD"
-  do
       
   #skip already tested models if rerunning
   if [[ "$rerun" == "TRUE" ]]; then
@@ -64,8 +67,7 @@ do
       
   #write config file
   echo -e "$dx\t$split" >> "$config_file"
-    
-  done
+
 done
  #add numbering
   nl "$config_file" > temp.txt && mv temp.txt "$config_file"
