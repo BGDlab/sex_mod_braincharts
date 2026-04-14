@@ -23,7 +23,8 @@ pheno_list <- do.call(c, lapply(lists, readRDS))
 #READ IN AND AVERAGE PT CENTILES
 fread_filt <- function(f, string){
   fread(f) %>%
-    select(INDEX.ID, sex, dx_recode, matches(string))
+    select(INDEX.ID, sexMale, dx_recode, matches(string)) %>%
+    mutate(sex = ifelse(sexMale==0, "F", "M"))
 }
 
 pt_df_list <- c()
@@ -54,6 +55,7 @@ for (pheno in pheno_list) {
   
   pt_df_list <- c(pt_df_list, list(pheno_mean))
 }
+print(length(pt_df_list))
 
 pt_df <- pt_df_list %>% purrr::reduce(dplyr::full_join, by = c("INDEX.ID", "sex", "dx_recode"))
 stopifnot(nrow(pt_df) == length(unique(pt_df$INDEX.ID)))
@@ -72,6 +74,7 @@ for (pheno in pheno_list) {
   
   cn_df_list <- c(cn_df_list, list(pheno_df))
 }
+print(length(cn_df_list))
 
 cn_df <- cn_df_list %>% purrr::reduce(dplyr::full_join, by = c("INDEX.ID", "sex", "dx_recode"))
 stopifnot(nrow(cn_df) == length(unique(cn_df$INDEX.ID)))
@@ -81,9 +84,15 @@ stopifnot(nrow(cn_df) == length(unique(cn_df$INDEX.ID)))
 std_cols <- names(cn_df)[grepl("std_score", names(cn_df))]
 
 t_results <- map_dfr(std_cols, function(col) {
+  #print(col)
   x <- na.omit(cn_df[[col]])
   y <- na.omit(pt_df[[col]])
   
+  if (length(x) == 0 || length(y) == 0) {
+  message("Skipping ", col)
+  return(NULL)
+  }  
+
   test_out <- t.test(x, y)
   d_out <- effsize::cohen.d(x, y)
   
@@ -100,7 +109,7 @@ t_results <- map_dfr(std_cols, function(col) {
 })
 
 #save
-fwrite(dx_test_df, file=paste0(save_path, dx_val, "_casecontrol_test.csv"))
+fwrite(t_results, file=paste0(save_path, dx_val, "_casecontrol_test.csv"))
 
 #TEST EXTREMENESS & CHANGES IN EXTREMENESS ACROSS MODELS IN CASES V CONTROLS
 sum_df <- data.frame()
@@ -212,7 +221,8 @@ fisher_df <- sum_df %>%
   summarise(n_CN = sum(n_CN),
             n_PT = sum(n_PT),
             n_total_CN = sum(n_total_CN),
-            n_total_PT = sum(n_total_PT)) 
+            n_total_PT = sum(n_total_PT)) %>%
+  filter(n_total_CN != 0 & n_total_PT != 0) #if no denominator, skip pheno 
 #run stats
 fisher_results <- pmap(
   list(fisher_df$n_CN, fisher_df$n_PT, fisher_df$n_total_CN, fisher_df$n_total_PT),
