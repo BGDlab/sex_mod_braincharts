@@ -28,9 +28,9 @@ global_list <- readRDS("./pheno_lists/global_vols.rds")
 sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
 pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
 #just looking at non-TBV-corrected results for now
-test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*totalFALSE*/"
+test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/dx_tests"
 
-dx_tested <- c("SCZ", "ALZ", "ASD", "MDD", "GAD", "ADHD")
+dx_levels <- c("SCZ", "ALZ", "ASD", "MDD", "GAD", "ADHD")
 
 # install.packages("remotes")
 remotes::install_github("BGDlab/ggsegTissue")
@@ -41,42 +41,45 @@ source("code/plot_cv_brain.R")
 
 #Read & Prep CSVs
 
-just visualize global centiles
+just visualize global centiles for now
+
+Patients:
 
 ```{r}
+#CASES
+paths <- Sys.glob(file.path(test_path, "*mean_scores.csv")) %>% unlist()
+
+#CONTROLS
 glob_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*global*totalFALSE*/"
 # Use Sys.glob to expand wildcard paths
-paths <- Sys.glob(file.path(glob_path, "cent_csvs/*_*_*cent.csv")) %>%
-  grep("CN|PT", ., value = TRUE)
-
+cn_paths <- Sys.glob(file.path(glob_path, "cent_csvs/*_*_*cent.csv")) %>%
+  grep("CN", ., value = TRUE)
 # Read all matching CSVs
-cent_df_list <- lapply(paths, function(p) {
-  fread(p) %>%
-    mutate(
-      cv_sample = stringr::str_extract(p, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
-      total = stringr::str_extract(p, "(?<=total)(TRUE|FALSE)"),
-      weighted = stringr::str_detect(p, "weight"),
-      control = stringr::str_extract(p, "(CN|PT)"),
-      dx_tested  = sub("CN_", "", dx_recode)
-    ) %>%
-    select(!c(sexMale_x_logAge))
+cent_df_list <- lapply(c(paths, cn_paths), function(f){
+  fread(f) %>%
+    select(any_of(c("dx_recode", "dx_tested", "sex", "sexMale")), 
+           ends_with("std_score_full")) %>%
+    mutate(control = ifelse(grepl("CN", dx_recode), "CN", "PT"),
+           dx_tested  = sub("CN_", "", dx_recode)) %>%
+    pivot_longer(cols = ends_with("std_score_full"),
+    names_to = "pheno",
+    names_pattern = "^(.*)_std_score_full$",
+    values_to = "std_score_full") %>%
+  filter(pheno %in% global_list) %>% #just keep global pheno's z scores from full model for now
+  na.omit(std_score_full)
 })
 
 length(cent_df_list)
 #stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
 cent_df <- rbindlist(cent_df_list, fill=TRUE)
-
 rm(cent_df_list)
 ```
+
 
 Case-Control results
 ```{r}
 # Use Sys.glob to expand wildcard paths
-paths <- Sys.glob(file.path(test_path, "cent_csvs/*cent_pt*_casecontrol_test.csv"))
-
-#expect 1 row per pheno/cv_sample/dx (or fewer for missing variables)
-n_expected <- length(dx_tested)*length(pheno_list)*2
-stopifnot(length(paths) <= n_expected)
+paths <- Sys.glob(file.path(test_path, "*_casecontrol_test.csv"))
 
 # Read all matching CSVs
 output_fread <- lapply(paths, fread)
@@ -84,16 +87,14 @@ length(output_fread)
 names(output_fread) <- paths
 
 
-cent_test.df <- bind_rows(output_fread, .id="file") %>%
-  mutate(pheno = sapply(basename(file), function(f) {
-           matched <- pheno_list[startsWith(f, pheno_list)]
-           if (length(matched) > 0) matched[which.max(nchar(matched))] else NA_character_
-         }),
-         cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
-         total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"), #just looking at FALSE for now
-         weighted  = stringr::str_detect(file, "weight")) %>%
-  select(-case.control_est) %>%
-  distinct() %>%
+cent_test.df_uncor <- bind_rows(output_fread, .id="file") %>%
+  mutate(dx_tested = stringr::str_extract(basename(file), "[^_]+"),
+         pi = n_cn/(n_cn+n_pt),
+         #flipping sign so that neg effect means pts < CN
+         d = -d) %>%
+  select(!c(contains("centile"), "file")) %>% #just looking at z score stats
+  separate(variable, into = c("pheno", "model"), sep = "_std_score_") %>%
+  #update pheno naming for plotting
   mutate(pheno_cat = factor(case_when(
     pheno %in% global_list ~ "Global Vol",
     pheno %in% vol_list ~ "Regional Vol",
@@ -115,61 +116,43 @@ cent_test.df <- bind_rows(output_fread, .id="file") %>%
     pheno == "CBV" ~ "Cerebellum",
     TRUE ~ label
   )) %>%
-  select(!file) %>%
-  group_by(total, weighted, cv_sample, model) %>% #apply FDR correction within each combo ??apply fdr correction within each model??
+  group_by(model) %>% #apply FDR correction within each model
   mutate(
     dx_p.val_fdr = p.adjust(
-      case.control_p.val,
+      p_value,
       method = "fdr"
-    ),
-    #flipping sign so that neg effect means pts < CN
-    case.control_d = -case.control_d) %>%
+    )) %>%
   ungroup() %>%
   rowwise() %>%
   mutate(
     dx_sig_fdr = ifelse(dx_p.val_fdr <= 0.05, TRUE, FALSE),
-    case.control_resi = d2S(d = case.control_d, pi = case.control_pi)
+    case.control_resi = d2S(d = d, pi = pi)
   ) %>%
   #get back sign from d - pending approval from simon
-  mutate(case.control_resi = ifelse(case.control_d < 0, -case.control_resi, case.control_resi)) %>%
+  mutate(case.control_resi = ifelse(d < 0, -case.control_resi, case.control_resi)) %>%
   ungroup()
 ```
 
 ##Case-Control Diffs
 
 ```{r}
-#full model
-cent_test.df_uncor <- cent_test.df %>%
-  filter(total == "FALSE" & weighted == "FALSE")
-
-#expect 2 rows per path, 1 full model and 1 null model
-stopifnot(nrow(cent_test.df_uncor) <= n_expected*2)
-
 cent_test.df_uncor %>%
   ggplot() +
-  geom_bar(aes(x=dx, fill=dx_sig_fdr)) +
-  facet_grid(model~cv_sample)
+  geom_bar(aes(x=dx_tested, fill=dx_sig_fdr)) +
+  facet_wrap(~model)
   
 uncor_d_plt <- cent_test.df_uncor %>%
   filter(dx_sig_fdr == TRUE) %>%
   ggplot() +
-  geom_col(aes(x=pheno, y= case.control_d, fill=model), position="dodge") +
+  geom_col(aes(x=pheno, y= d, fill=model), position="dodge") +
   theme(axis.text.x = element_blank()) +
-  facet_grid(dx~cv_sample, scales="free_y") 
+  facet_wrap(~dx_tested, scales="free_y") 
 #ggplotly(uncor_d_plt)
 
 cent_test.df_uncor %>%
   filter(dx_sig_fdr == TRUE & pheno %in% global_list) %>%
   ggplot() +
-  geom_col(aes(x=dx, y= case.control_resi, fill=cv_sample), position="dodge") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  facet_grid(model~pheno)
-
-cent_test.df_uncor %>%
-  filter(dx_sig_fdr == TRUE & pheno %in% global_list) %>%
-  ggplot() +
-  geom_col(aes(x=dx, y= case.control_d, fill=cv_sample), position="dodge") +
+  geom_col(aes(x=dx_tested, y= case.control_resi), position="dodge") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   facet_grid(model~pheno)
@@ -177,12 +160,12 @@ cent_test.df_uncor %>%
 
 ```{r}
 cent_plt_df <- cent_test.df_uncor %>%
-  filter(dx_sig_fdr == TRUE) %>%
+  filter(dx_sig_fdr == TRUE & model !="diff") %>% #drop diffs
   arrange(pheno_cat, pheno) %>%
   mutate(pheno_nested = interaction(pheno, pheno_cat, sep = "__"))
 
 cent_plt_uncor <- ggplot(cent_plt_df) +
-  geom_col(aes(x = pheno_nested, y = case.control_d, fill = model), position = "dodge") +
+  geom_col(aes(x = pheno_nested, y = d, fill = model), position = "dodge") +
   guides(x = legendry::guide_axis_nested(
   key = key_range_auto(sep = "__"),
   levels_text = list(
@@ -196,10 +179,10 @@ cent_plt_uncor <- ggplot(cent_plt_df) +
     legend.position = "right",
     axis.title.x = element_blank()
   ) +
-  scale_fill_discrete(name = "Sex-Effect", labels = c("Age-Varying", "Intercept Only")) +
-  facet_grid(dx~cv_sample, scales = "free_y") +
+  scale_fill_discrete(name = "Sex-Effect", labels = c(full="Age-Varying", null="Intercept Only")) +
+  facet_wrap(~dx_tested, scales = "free_y") +
   labs(y = "Cohen's D")
-ggsave("figs/supplement/cent_test_col_uncorrected_NEW.png", cent_plt_uncor, dpi = 600, width = 14, height=7)
+ggsave("figs/supplement/cent_test_col_uncorrected.png", cent_plt_uncor, dpi = 600, width = 14, height=7)
 
 cent_plt_resi_uncor <- ggplot(cent_plt_df) +
   geom_col(aes(x = pheno_nested, y = case.control_resi, fill = model), position = "dodge") +
@@ -216,155 +199,120 @@ cent_plt_resi_uncor <- ggplot(cent_plt_df) +
     legend.position = "right",
     axis.title.x = element_blank()
   ) +
-  scale_fill_discrete(name = "Sex-Effect", labels = c("Age-Varying", "Intercept Only")) +
-  facet_grid(dx~cv_sample, scales = "free_y") +
+  scale_fill_discrete(name = "Sex-Effect", labels = c(full="Age-Varying", null="Intercept Only")) +
+  facet_wrap(~dx_tested, scales = "free_y") +
   labs(y = "RESI")
-ggsave("figs/misc/cent_test_col_resi_uncorrected_NEW.png", cent_plt_resi_uncor, dpi = 600, width = 14, height=7)
+ggsave("figs/supplement/cent_test_col_resi_uncorrected.png", cent_plt_resi_uncor, dpi = 600, width = 14, height=7)
 ```
 
 ```{r}
-dx_levels <- unique(cent_test.df_uncor$dx)
-
 for (dx_name in dx_levels) {
 
   # Filter and rename
   dx.df_uncor <- cent_test.df_uncor %>%
-    dplyr::filter(dx == dx_name) %>%
-    dplyr::rename(sig_fdr = dx_sig_fdr)
+    dplyr::filter(dx_tested == dx_name & model !="diff") %>%
+    dplyr::rename(sig_fdr = dx_sig_fdr) %>%
+    mutate(model = case_when(
+      model == "full" ~ "Sex-Moderated Model",
+      model == "null" ~ "Sex-Intercept Model"
+    ))
 
   # Compute symmetric range for color scale
-  d_range <- range(dx.df_uncor$case.control_d, na.rm = TRUE)
+  d_range <- range(dx.df_uncor$d, na.rm = TRUE)
   sym_range <- c(-max(abs(d_range)), max(abs(d_range)))
 
-  # Split by model
-  dx.df_full <- dx.df_uncor %>% dplyr::filter(model == "full")
-  dx.df_null <- dx.df_uncor %>% dplyr::filter(model == "null")
-
-  # Build plot components (without auto-assembling full figure)
-  full_parts <- plot_cv_brain(df = dx.df_full,
-                          fill_var = case.control_d,
+  # Build plot
+  dx_plt <- plot_cv_brain(df = dx.df_uncor,
+                          fill_var = d,
                           fill_name = "Cohen's D",
                           fill_color = "ggthemes::Gold-Purple Diverging",
                           fill_limits = sym_range,
+                          facet_var = "model",
                           height_list = c(1.03, 4.5, .93),
                           direction = -1,
-                          return_plt = FALSE)
-
-  null_parts <- plot_cv_brain(df = dx.df_null,
-                          fill_var = case.control_d,
-                          fill_name = "Cohen's D",
-                          fill_color = "ggthemes::Gold-Purple Diverging",
-                          fill_limits = sym_range,
-                          height_list = c(1.03, 4.5, .93),
-                          direction = -1,
-                          return_plt = FALSE)
-
-  # Helper to assemble one brain panel (without legend) + visible title
-  assemble_panel <- function(parts, title_text, heights = c(1.03, 4.5, .93)) {
-    panel <- cowplot::plot_grid(
-      parts[[1]], parts[[2]], parts[[3]],
-      ncol = 1, nrow = 3,
-      rel_heights = heights,
-      align = "v", axis = "lr", greedy = TRUE
-    )
-
-    title_plot <- cowplot::ggdraw() +
-      cowplot::draw_label(
-        title_text,
-        x = 0.5, y = 0.5, hjust = 0.5, vjust = 0.5,
-        fontface = "bold", size = 13
-      )
-
-    cowplot::plot_grid(
-      title_plot, panel,
-      ncol = 1,
-      rel_heights = c(0.12, 1)
-    )
-  }
-
-  plt_full_titled <- assemble_panel(
-    full_parts,
-    paste(dx_name, "effects from sex-moderated model")
+                          return_plt = TRUE)
+  
+  #add title
+  title <- ggdraw() + 
+  draw_label(
+    paste(dx_name, "effects on z-score"),
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
   )
-
-  plt_null_titled <- assemble_panel(
-    null_parts,
-    paste(dx_name, "effects from sex-intercept model")
-  )
-
-  # Use one shared legend (same scale, so either legend works)
-  shared_legend <- full_parts[[4]]
-
-  # Combine both panels + single legend on right
-  dx_plt <- cowplot::plot_grid(
-    cowplot::plot_grid(plt_full_titled, plt_null_titled, ncol = 2),
-    shared_legend,
-    ncol = 2,
-    rel_widths = c(6, 1)
-  )
+  
+dx_plt <- plot_grid(
+  title, dx_plt,
+  ncol = 1,
+  # rel_heights values control vertical title margins
+  rel_heights = c(0.1, 1)
+)
 
   # Save
   dx_lower <- tolower(dx_name)
   ggplot2::ggsave(
-    paste0("figs/supplement/", dx_lower, "_uncorrected_NEW.png"),
-    dx_plt, dpi = 600, height = 8.5, width = 13, bg = "white"
+    paste0("figs/supplement/", dx_lower, "_ttest_brainplt.png"),
+    dx_plt, dpi = 600, height=9.35, width=7.1, bg = "white"
   )
 
   message("Saved plots for: ", dx_name)
 }
 ```
 
+brain plots across dx for just full model
 
 ```{r}
-cent_df_uncor <- cent_df %>%
-  filter(total == "FALSE" & weighted == "FALSE")
+#visualizing ventricles separately
+vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle", "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
 
-cent_df_full_long <- cent_df_uncor %>%
-  select(logAge_days, cv_sample, control, dx_tested, control, sex, ends_with("std_score_full")) %>%
-  pivot_longer(cols = ends_with("std_score_full"),
-    names_to = "pheno",
-    names_pattern = "^(.*)_std_score_full$",
-    values_to = "std_score_full") %>%
-  na.omit(std_score_full)
+dx_all <- cent_test.df_uncor %>%
+  dplyr::filter(model == "full") %>%
+  filter(!(pheno %in% vent_list)) %>%
+  dplyr::rename(sig_fdr = dx_sig_fdr)
 
+# Compute symmetric range for color scale
+range(dx_all$case.control_resi, na.rm = TRUE)
+sym_range <- c(-.5, .5)
+
+dx_brain_plt <- plot_cv_brain(df = dx_all, 
+                          fill_var = case.control_resi, 
+                          fill_name = "RESI", 
+                          fill_color = "ggthemes::Gold-Purple Diverging", 
+                          fill_limits = sym_range,
+                          facet_var= "dx_tested",
+                          height_list=c(5,1.1), 
+                          return_plt = TRUE, 
+                          include_global = FALSE,
+                          direction = -1,
+                          rel_widths = c(6,.5))
+ggsave("figs/tmp.png", dx_brain_plt, width=18, height=7, dpi=600, bg = "white")
+saveRDS(dx_brain_plt, "figs/ggobjs/dx_brain_plt.rds")
+```
+
+boxplot
+
+```{r}
 ####get sig plots
-y_pos <- cent_df_full_long %>%
-  filter(pheno %in% global_list) %>%
-  group_by(cv_sample, dx_tested, pheno) %>%
+y_pos <- cent_df %>%
+  group_by(dx_tested, pheno) %>%
   summarise(y_pos = max(std_score_full, na.rm = TRUE) + 0.6, .groups = "drop")
 
 pvals <- cent_test.df_uncor %>%
   filter(pheno %in% global_list) %>%
-  rename(dx_tested = dx) %>%
   filter(model=="full") %>%
   mutate(dx_sig_fdr = ifelse(dx_sig_fdr==TRUE, "*", NA))
 
-pvals <- left_join(pvals, y_pos, by = c("cv_sample", "dx_tested", "pheno"))
+pvals <- left_join(pvals, y_pos, by = c("dx_tested", "pheno"))
 
-dx_bxplt <- ggplot(cent_df_full_long, aes(x=pheno, y=std_score_full, color=control)) +
+dx_bxplt <- ggplot(cent_df, aes(x=pheno, y=std_score_full, color=control)) +
+  geom_hline(yintercept = 0, color = "darkgray", linetype = "dashed") +
   geom_boxplot(outlier.size = .5) +
   geom_text(
     data = pvals,
-    aes(x = pheno, y = y_pos, label = dx_sig_fdr),
-    inherit.aes = FALSE,
-    size = 4
-  ) +
-  facet_grid(cv_sample ~ dx_tested) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(y="Standard Score")
-
-ggsave("figs/supplement/dx_bxplt_NEW.png", dx_bxplt, height=7, width=9, dpi=600)
-```
-save just B
-
-```{r}
-dx_bxpltB <- cent_df_full_long %>%
-  filter(cv_sample=="B") %>%
-  ggplot(aes(x=pheno, y=std_score_full, color=control)) +
-  geom_boxplot(outlier.size = .5) +
-  geom_text(
-    data = pvals %>% filter(cv_sample=="B"),
     aes(x = pheno, y = y_pos, label = dx_sig_fdr),
     inherit.aes = FALSE,
     size = 4
@@ -384,87 +332,7 @@ dx_bxpltB <- cent_df_full_long %>%
         legend.position = "bottom") +
   labs(y="Standard Score")
 
-saveRDS(dx_bxpltB, "figs/ggobjs/dx_bxpltB_NEW.rds")
-```
-
-brainplots across dx for just B
-
-```{r}
-#visualizing ventricles separately
-vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle", "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
-
-dx_all <- cent_test.df_uncor %>%
-  dplyr::filter(model == "full" & cv_sample == "B") %>%
-  filter(!(pheno %in% vent_list)) %>%
-  select(-cv_sample) %>%
-  dplyr::rename(sig_fdr = dx_sig_fdr)
-
-# Compute symmetric range for color scale
-d_range <- range(dx_all$case.control_resi, na.rm = TRUE)
-sym_range <- c(-.5, .5)
-
-dx_brain_plt <- plot_cv_brain(df = dx_all, 
-                          fill_var = case.control_resi, 
-                          fill_name = "RESI", 
-                          fill_color = "ggthemes::Gold-Purple Diverging", 
-                          fill_limits = sym_range,
-                          facet_var= "dx",
-                          height_list=c(5,1.1), 
-                          return_plt = TRUE, 
-                          include_global = FALSE,
-                          direction = -1,
-                          rel_widths = c(6,.5))
-ggsave("figs/tmp.png", dx_brain_plt, width=18, height=7, dpi=600, bg = "white")
-saveRDS(dx_brain_plt, "figs/ggobjs/dx_brain_plt_NEW.rds")
-```
-
-###Replication
-What phenos replicate across splits in the full model?
-```{r}
-cent_rep_df <- cent_test.df_uncor %>%
-  select(dx, model, pheno, cv_sample, case.control_d, dx_sig_fdr, pheno_cat, label, case.control_resi) %>%
-  mutate(d_sign = sign(case.control_d)) %>%
-  group_by(dx, model, pheno_cat, pheno, label) %>%
-  summarise(sig_fdr = ifelse(sum(dx_sig_fdr==TRUE) < 2, FALSE, TRUE),
-            same_sign = ifelse(sum(dx_sig_fdr==TRUE) < 2, NA, n_distinct(d_sign) == 1),
-            mean_d = mean(case.control_d),
-            mean_resi = mean(case.control_resi)) %>%
-  mutate(#mean_d = ifelse(same_sign==TRUE, mean_d, NA),
-         #mean_resi = ifelse(same_sign==TRUE, mean_resi, NA),
-         sig_fdr = ifelse(same_sign==TRUE & sig_fdr==TRUE, TRUE, FALSE))
-
-cent_rep_df %>%
-  group_by(dx, model, same_sign) %>%
-  filter(!is.na(same_sign)) %>%
-  summarise(n=n())
-
-#1 pheno in ADHD is sig in opposite directions
-cent_rep_df %>%
-  filter(same_sign==FALSE)
-```
-
-less agreement in full model vs null model for ADHD and 1 pheno in opposite directions in both models; 1 pheno agree in GAD full but 0 in GAD null; slightly less agreement for other phenos in full model vs null
-
-plot
-
-```{r}
-cent_rep_df_full <- cent_rep_df %>%
-  filter(model=="full")
-range(cent_rep_df_full$mean_resi, na.rm = TRUE)
-sym_range <- c(-.5, .5)
-
-dx_rep_brain_plt <- plot_cv_brain(df = cent_rep_df_full, 
-                          fill_var = mean_resi, 
-                          fill_name = "RESI", 
-                          fill_color = "ggthemes::Gold-Purple Diverging", 
-                          fill_limits = sym_range,
-                          facet_var= "dx",
-                          return_plt = TRUE, 
-                          include_global = TRUE,
-                          direction = -1,
-                          rel_widths = c(6,.5))
-ggsave("figs/supplement/dx_casecontrol_rep_NEW.png", dx_rep_brain_plt, width=18, height=8.5, dpi=600, bg = "white")
-saveRDS(dx_rep_brain_plt, "figs/ggobjs/dx_casecontrol_rep_NEW.rds")
+saveRDS(dx_bxplt, "figs/ggobjs/dx_bxplt.rds")
 ```
 
 ##Exteremeness
@@ -472,28 +340,24 @@ Are patients more or less likely to have extreme centiles?
 
 ```{r}
 # Use Sys.glob to expand wildcard paths
-paths <- Sys.glob(file.path("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test", "*_extcent_sum.csv"))
+paths <- Sys.glob(file.path(test_path, "*_extcent_sum.csv"))
 
 # Read all matching CSVs
 ext_cent_sum <- lapply(paths, function(p) {
   fread(p) %>%
-    mutate(cv_sample = stringr::str_extract(p, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
-           dx_tested  = sub("CN_", "", dx_recode),
-           dx = ifelse(grepl("^CN_", dx_recode), "CN", "PT"))
+    mutate(dx_tested  = sub("CN_", "", dx_recode),
+           dx = ifelse(grepl("^CN_", dx_recode), "CN", "PT")
+           )
 })
 
-ext_cent_sum_df <- ext_cent_sum %>%
-  reduce(full_join)
+ext_cent_sum_df <- rbindlist(ext_cent_sum)
 
-stopifnot(nrow(ext_cent_sum_df) <= n_expected*2*3*2*2) #2 models, 3 groups, 2 sexes, case v control
+ext_cent_sum_df %>%
+  filter(pct >= 100)
+
 ```
 
 ```{r}
-ext_cent_means <- ext_cent_sum_df %>%
-  filter(ext != "mid") %>%
-  group_by(cv_sample, dx_tested, model, sex, ext, dx) %>%
-  summarise(mean_pct = mean(pct, na.rm=T))
-
 #signifigance testing
 comparisons <- list(
   c("CN_full",  "PT_full"),
@@ -503,7 +367,7 @@ comparisons <- list(
 ttest_results <- ext_cent_sum_df %>%
   filter(ext != "mid") %>%
   mutate(dx_model = paste(dx, model, sep = "_")) %>%
-  group_by(cv_sample, dx_tested, ext, sex) %>%
+  group_by(dx_tested, ext, sex) %>%
   summarise(
     map_dfr(comparisons, function(comp) {
       grp       <- cur_data()
@@ -528,14 +392,12 @@ ttest_results <- ext_cent_sum_df %>%
           p_value    = res$p.value,
           statistic  = as.numeric(res$statistic),
           mean_diff  = as.numeric(res$estimate),   # mean of (g1 - g2)
-          n_pairs    = length(g1)
         )
       }
     }),
     .groups = "drop"
   ) %>%
-  # FDR correction within cv_sample
-  group_by(cv_sample) %>%
+  # FDR correction
   mutate(
     p_fdr = p.adjust(p_value, method = "fdr"),
     sig   = case_when(
@@ -589,11 +451,11 @@ plot_df <- ext_cent_sum_df %>%
 
 # compute a per-facet y-max to anchor brackets just above the boxes
 facet_ymax <- plot_df %>%
-  group_by(cv_sample, sex, dx_tested, ext) %>%
+  group_by(sex, dx_tested, ext) %>%
   summarise(y_max = max(pct, na.rm = TRUE), .groups = "drop")
 
 sig_plot_df <- sig_plot_df %>%
-  left_join(facet_ymax, by = c("cv_sample", "sex", "dx_tested", "ext")) %>%
+  left_join(facet_ymax, by = c("sex", "dx_tested", "ext")) %>%
   mutate(
     y_bracket = y_max * 1.05 + bracket_y_offset,
     y_label   = y_bracket + 0.5
@@ -602,7 +464,6 @@ sig_plot_df <- sig_plot_df %>%
 ggplot(plot_df) +
   geom_hline(yintercept = 5, color = "darkgray", linetype = "dashed") +
   geom_boxplot(aes(x = dx_tested, y = pct, fill = dx_model), position = "dodge") +
-
   # bracket segments: left arm
   geom_segment(
     data = sig_plot_df,
@@ -627,7 +488,7 @@ ggplot(plot_df) +
     aes(x = (x_left + x_right) / 2, y = y_label, label = sig),
     inherit.aes = FALSE, size = 3
   ) +
-  ggh4x::facet_nested(ext ~ cv_sample + sex, scales = "free_y") +
+  facet_grid(sex ~ ext, scales = "free_y") +
   theme_linedraw() +
   scale_fill_manual(values = c("CN_full" = "#F9E011FF", "CN_null" ="#D9B523FF", "PT_full" ="#DDDAEFFF", "PT_null"="#796D9DFF"),
   name = "Group"
@@ -836,7 +697,7 @@ for (dx_name in dx_levels) {
   # Save
   dx_lower <- tolower(dx_name)
   ggplot2::ggsave(
-    paste0("figs/supplement/", dx_lower, "_ext_uncorrected_NEW.png"),
+    paste0("figs/supplement/", dx_lower, "_ext_uncorrected.png"),
     dx_plt, dpi = 600, height = 8.5, width = 22, bg = "white"
   )
 
@@ -884,8 +745,8 @@ low_plt <- plot_cv_brain(df = dx_low,
                           return_plt = FALSE, 
                           include_global = FALSE,
                           rel_widths = c(6,.5))
-saveRDS(high_plt, "figs/ggobjs/dx_exthigh_brain_plt_NEW.rds")
-saveRDS(low_plt, "figs/ggobjs/dx_extlow_brain_plt_NEW.rds")
+saveRDS(high_plt, "figs/ggobjs/dx_exthigh_brain_plt.rds")
+saveRDS(low_plt, "figs/ggobjs/dx_extlow_brain_plt.rds")
 ```
 
 ###Replication
@@ -941,8 +802,8 @@ low_plt <- plot_cv_brain(df = dx_low,
                           facet_var = "dx_tested",
                           return_plt = FALSE, 
                           rel_widths = c(6,.5))
-saveRDS(high_plt, "figs/ggobjs/dx_exthigh_rep_NEW.rds")
-saveRDS(low_plt, "figs/ggobjs/dx_extlow_rept_NEW.rds")
+saveRDS(high_plt, "figs/ggobjs/dx_exthigh_rep.rds")
+saveRDS(low_plt, "figs/ggobjs/dx_extlow_rept.rds")
 
 #also just quick visual for now
 ext_rep_brain_plt <- plot_cv_brain(df = ext_rep_full, 
@@ -955,7 +816,7 @@ ext_rep_brain_plt <- plot_cv_brain(df = ext_rep_full,
                           include_global = TRUE,
                           direction = -1,
                           rel_widths = c(10,.5))
-ggsave("figs/supplement/dx_ext_rep_NEW.png", ext_rep_brain_plt, width=30, height=8.5, dpi=600, bg = "white")
+ggsave("figs/supplement/dx_ext_rep.png", ext_rep_brain_plt, width=30, height=8.5, dpi=600, bg = "white")
 ```
 
 
@@ -1108,5 +969,5 @@ change_barplt <- plot_df %>%
     name = "Sex") +
   labs(y="Discordant Patients",
        x="Diagnosis")
-saveRDS(change_barplt, "figs/ggobjs/change_barpltB_NEW.rds")
+saveRDS(change_barplt, "figs/ggobjs/change_barpltB.rds")
 ```
