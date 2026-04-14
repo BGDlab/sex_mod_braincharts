@@ -143,7 +143,7 @@ for (df in list(cn_df, pt_df)){
         names_to = c("pheno", "model"),
         names_pattern = "(.+)_centile_(full|null)"
       ) %>%
-      filter(!is.na(value)) %>%
+      filter(!is.na(value) & !is.na(model)) %>%
       mutate(ext = case_when(
         value < 0.05  ~ "low",
         value > 0.95  ~ "high",
