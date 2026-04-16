@@ -477,7 +477,8 @@ full_plt_tot_sex_B <- plot_cv_brain(df = LR.df_tot_sex_noventB,
                           include_global = TRUE, 
                           rel_widths = c(3, .6),
                           direction = -1,
-                          fill_values = NULL)
+                          fill_values = NULL,
+                          legend_position = "bottom")
   
 saveRDS(full_plt_tot_sex_B, "figs/ggobjs/full_plt_tot_sex_B.rds")
 ```
@@ -1093,7 +1094,7 @@ range(dominance_plt_df_novent$centile_int_norm.unlog)
 
 full_dom_plt <- plot_cv_brain(df=dominance_plt_df_novent, 
                               fill_var=centile_int_norm.unlog, 
-                              fill_name = "Net Sex\nDifference\nover\n100 yrs", 
+                              fill_name="Normalized\nSex\nDifference", 
                               fill_color="ggthemes::Orange-Blue Diverging", 
                               fill_limits= c(-0.07, 0.07), 
                               height_list=c(1.03, 4.5, .93), 
@@ -1220,7 +1221,7 @@ range(dominance_plt_df_novent$sigma_int_norm.unlog)
 
 full_dom_plt_sigma <- plot_cv_brain(df=dominance_plt_df_novent, 
                                     fill_var=sigma_int_norm.unlog, 
-                                    fill_name = "Net Sex\nDifference\nover\n100 yrs", 
+                                    fill_name="Normalized\nSex\nDifference", 
                                     fill_color = "ggthemes::Orange-Blue Diverging", 
                                     fill_limits =  c(-.03, .03),
                                     height_list= c(1.03, 4.5, .93))
@@ -1272,7 +1273,7 @@ full_above_sig_plt <- plot_cv_brain(df=prop_above_sigma_df_novent,
 ggsave("figs/supplement/prop_male_sigma_tbvTRUE.png", full_above_sig_plt, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
 
-Prep for fig 3
+Prep for fig 2
 
 ```{r}
 dominance_plt_df_B <- dominance_plt_df_novent %>%
@@ -1282,22 +1283,24 @@ dominance_plt_df_B <- dominance_plt_df_novent %>%
 range(dominance_plt_df_B$centile_int_norm.unlog)
 full_dom_pltB <- plot_cv_brain(df=dominance_plt_df_B, 
                                fill_var=centile_int_norm.unlog, 
-                               fill_name="Normalized\nSex\nDifference", 
+                               fill_name="Sex Difference (Scaled)", 
                                fill_color="ggthemes::Orange-Blue Diverging", 
                                fill_limits=c(-0.07, 0.07),
                                height_list=c(1.03, 4.5, .93), 
-                               return_plt = FALSE)
+                               return_plt = FALSE,
+                               legend_position = "bottom")
 saveRDS(full_dom_pltB, "figs/ggobjs/cent_dom_B.rds")
 
 #sigma
 range(dominance_plt_df_B$sigma_int_norm.unlog)
 full_dom_plt_sigmaB <- plot_cv_brain(df=dominance_plt_df_B, 
                                      fill_var=sigma_int_norm.unlog, 
-                                     fill_name="Normalized\nSigma Sex\nDifference", 
+                                     fill_name="Sex Difference (Scaled)", 
                                      fill_color="ggthemes::Orange-Blue Diverging", 
                                      fill_limits=c(-0.03, 0.03), 
                                      height_list=c(1.03, 4.5, .93), 
-                                     return_plt = FALSE)
+                                     return_plt = FALSE,
+                                      legend_position = "bottom")
 saveRDS(full_dom_plt_sigmaB, "figs/ggobjs/sig_dom_B.rds")
 ```
 
