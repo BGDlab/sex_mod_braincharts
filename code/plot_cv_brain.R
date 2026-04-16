@@ -167,11 +167,11 @@ plot_subcortex <- function(df, fill_var, facet_var) {
       guide = "none"
     ) +
     ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)))
-
+  
   p
 }
 
-plot_global <- function(df, fill_var, facet_var) {
+plot_global <- function(df, fill_var, facet_var, legend_position = "right") {
   p <- df |>
     dplyr::select(-dplyr::any_of(c("geometry", "tissue_class"))) |>
     dplyr::group_by(!!rlang::sym(facet_var), pheno_cat) |>
@@ -196,8 +196,14 @@ plot_global <- function(df, fill_var, facet_var) {
       panel.grid.major = ggplot2::element_blank(),
       panel.grid.minor = ggplot2::element_blank(),
       plot.margin = ggplot2::margin(0, 0, 0, 0),
-      legend.position = "right",
-      legend.box.margin = ggplot2::margin(0, 0, 0, 5)
+      legend.position = legend_position,
+      legend.direction = if (legend_position == "bottom") "horizontal" else "vertical",
+      legend.title.position = if (legend_position == "bottom") "top" else "left",
+      legend.box.margin = if (legend_position == "bottom") {
+        ggplot2::margin(5, 0, 0, 0)
+      } else {
+        ggplot2::margin(0, 0, 0, 5)
+      }
     ) +
     ggplot2::scale_color_manual(
       values = c("FALSE" = "gray", "TRUE" = "black"),
@@ -208,17 +214,21 @@ plot_global <- function(df, fill_var, facet_var) {
       values = c("FALSE" = .2, "TRUE" = .2),
       na.value = 0,
       guide = "none"
-    ) +
-    ggplot2::facet_grid(
-      pheno_cat ~ !!sym(facet_var),
-      labeller = ggplot2::labeller(cv_sample = c("A" = "Split A", "B" = "Split B"))
     )
   
-  if (facet_var=="cv_sample") {
+  if (facet_var == "cv_sample") {
     p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)),
                                  labeller = ggplot2::labeller(cv_sample = c("A" = "Split A", "B" = "Split B")))
   } else {
-    p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)) )
+    p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)))
+  }
+  
+  if (legend_position == "bottom") {
+    p <- p + ggplot2::guides(
+      fill = ggplot2::guide_colorbar(
+        label.theme = ggplot2::element_text(angle = 45, hjust = 1, size = 8)
+      )
+    )
   }
   p
 }
@@ -226,7 +236,7 @@ plot_global <- function(df, fill_var, facet_var) {
 format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limits, direction, fill_values = NULL) {
   fill_var_name <- rlang::as_name(rlang::enquo(fill_var))
   is_categorical <- is.factor(df[[fill_var_name]]) || is.character(df[[fill_var_name]])
-
+  
   if (is_categorical) {
     if (!is.null(fill_values) && length(fill_values) > 0) {
       plt <- plt +
@@ -260,40 +270,63 @@ format_fill_var <- function(df, fill_var, plt, fill_name, fill_color, fill_limit
   return(plt)
 }
 
-plot_cv_brain <- function(df, 
-                          fill_var, 
-                          fill_name, 
-                          fill_color, 
+plot_cv_brain <- function(df,
+                          fill_var,
+                          fill_name,
+                          fill_color,
                           fill_limits,
-                          facet_var= "cv_sample",
-                          height_list=c(1.03, 4.5, .93), 
-                          return_plt = TRUE, 
-                          include_global = TRUE, 
+                          facet_var = "cv_sample",
+                          height_list = c(1.03, 4.5, .93),
+                          return_plt = TRUE,
+                          include_global = TRUE,
                           rel_widths = c(3, .6),
                           direction = 1,
-                          fill_values = NULL) {
+                          fill_values = NULL,
+                          legend_position = "right") {
   show_cv_labels <- !include_global
-
+  
   cortex_plt <- plot_cortex(
     df, {{ fill_var }}, facet_var,
     show_cv_facet_labels = show_cv_labels,
     margin_top = if (include_global) 5 else 0
   )
   cortex_plt <- format_fill_var(df, {{ fill_var }}, cortex_plt, fill_name, fill_color, fill_limits, direction, fill_values)
-
+  
   subcort_plt <- plot_subcortex(df, {{ fill_var }}, facet_var)
   subcort_plt <- format_fill_var(df, {{ fill_var }}, subcort_plt, fill_name, fill_color, fill_limits, direction, fill_values)
-
+  
+  legend_margin <- if (legend_position == "bottom") {
+    ggplot2::margin(5, 0, 0, 0)
+  } else {
+    ggplot2::margin(0, 0, 0, 5)
+  }
+  
   if (include_global) {
-    glob_plt <- plot_global(df, {{ fill_var }}, facet_var)
+    glob_plt <- plot_global(df, {{ fill_var }}, facet_var, legend_position = legend_position)
     glob_plt <- format_fill_var(df, {{ fill_var }}, glob_plt, fill_name, fill_color, fill_limits, direction, fill_values)
+    glob_plt <- glob_plt + ggplot2::theme(
+      legend.direction = if (legend_position == "bottom") "horizontal" else "vertical",
+      legend.title.position = if (legend_position == "bottom") "top" else "left",
+      legend.box.margin = legend_margin
+    )
     legend <- cowplot::get_legend(glob_plt)
     glob_plt <- glob_plt + ggplot2::theme(legend.position = "none")
   } else {
-    subcort_with_legend <- subcort_plt + ggplot2::theme(legend.position = "right", legend.box.margin = ggplot2::margin(0, 0, 0, 5))
+    subcort_with_legend <- subcort_plt + ggplot2::theme(
+      legend.position = legend_position,
+      legend.direction = if (legend_position == "bottom") "horizontal" else "vertical",
+      legend.box.margin = legend_margin
+    )
+    if (legend_position == "bottom") {
+      subcort_with_legend <- subcort_with_legend + ggplot2::guides(
+        fill = ggplot2::guide_colorbar(
+          label.theme = ggplot2::element_text(angle = 45, hjust = 1, size = 8)
+        )
+      )
+    }
     legend <- cowplot::get_legend(subcort_with_legend)
   }
-
+  
   if (return_plt == TRUE) {
     if (include_global) {
       plts <- cowplot::plot_grid(
@@ -319,8 +352,22 @@ plot_cv_brain <- function(df,
         greedy = TRUE
       )
     }
-
-    full_plt_obj <- cowplot::plot_grid(plts, legend, ncol = 2, rel_widths = rel_widths)
+    
+    if (legend_position == "bottom") {
+      full_plt_obj <- cowplot::plot_grid(
+        plts, legend,
+        ncol = 1,
+        nrow = 2,
+        rel_heights = c(1, 0.1)
+      )
+    } else {
+      full_plt_obj <- cowplot::plot_grid(
+        plts, legend,
+        ncol = 2,
+        rel_widths = rel_widths
+      )
+    }
+    
     return(full_plt_obj)
   } else {
     if (include_global) {
