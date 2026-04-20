@@ -7,40 +7,37 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-# Find all .err files in code/jobfiles and subdirectories matching any of the patterns
-err_files=()
+# Build a single find call with all patterns OR'd together
+find_args=()
 for pattern in "$@"; do
-    while IFS= read -r file; do
-        err_files+=("$file")
-    done < <(find ./code/jobfiles -type f -name "*${pattern}*.err")
+    find_args+=(-o -name "*${pattern}*.err")
 done
+find_args=("${find_args[@]:1}")  # strip leading -o
 
-# Remove duplicates
-err_files=( $(printf "%s\n" "${err_files[@]}" | sort -u) )
+# Collect unique files via associative array (no subshell sort needed)
+declare -A seen
+err_files=()
+while IFS= read -r file; do
+    if [[ -z "${seen[$file]}" ]]; then
+        seen[$file]=1
+        err_files+=("$file")
+    fi
+done < <(find ./code/jobfiles -type f \( "${find_args[@]}" \))
 
 if [ ${#err_files[@]} -eq 0 ]; then
     echo "No matching .err files found for the given patterns."
     exit 0
-    else
+else
     echo "${#err_files[@]} files found, checking..."
 fi
 
-# Search for common error patterns once to avoid duplicate printing when multiple patterns hit the same lines
 grep -RH --after-context=2 -E "Error in|Killed|halted|error" "${err_files[@]}" 2>/dev/null | awk '
-
 BEGIN { filename = "" }
-/^--$/ { 
-  # Reset filename when we hit a separator so next file prints its header
-  filename = ""
-  next 
-}
+/^--$/ { filename = ""; next }
 {
-  # Check if line starts with a filename (contains .err:)
   if (match($0, /^[^:]+\.err:/)) {
     newfile = substr($0, 1, RLENGTH - 1)
-    # Remove filename prefix from the line
     $0 = substr($0, RLENGTH + 1)
-    # Print filename header only if it changed
     if (newfile != filename) {
       filename = newfile
       print "\nFile: " filename
@@ -48,7 +45,3 @@ BEGIN { filename = "" }
   }
   print $0
 }'
-
-
-
-
