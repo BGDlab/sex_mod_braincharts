@@ -40,7 +40,7 @@ do
       date_tag=$(date +%Y%m%d)
       config_file=$config_path/cv_sample_${split}_total${total}_logAge${log_age}_centtest_rerun${date_tag}_config.txt
     else
-      config_file=$config_path/cv_sample_${split}_total${total}_logAge${log_age}_centtest_config.txt
+      config_file=$config_path/cv_sample_${split}_total${total}_logAge${log_age}_centtest_SCZ_config.txt
     fi
     if ! [ -d $config_path ]
     then
@@ -74,7 +74,7 @@ do
       do
       
       #LOOP THROUGH DX
-      for dx in "SCZ" "ALZ" "ASD" "MDD" "GAD" "ADHD"
+      for dx in "SCZ" #"ALZ" "ASD" "MDD" "GAD" "ADHD" #scz only for now
       do
       
       #skip already tested models if rerunning

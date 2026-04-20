@@ -53,10 +53,14 @@ all_list <- c(unlist(pred_list), pheno, "INDEX.ID", "dx", "dx_recode")
 # print(length(all_list))
 # print(all_list)
 
+#make sure NDAR-SCZGlu was successfully removed
+df <- df %>% filter(study != "NDAR-SCZGlu")
+
 #drop extra variables
 df_clean <- df %>%
   dplyr::select(all_of(all_list)) %>%
   na.omit()
+
 stopifnot(length(unique(df_clean$dx_recode))==2)
 
 ##### CALCULATE CENTILES #####
