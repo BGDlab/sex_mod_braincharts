@@ -154,6 +154,8 @@ cent_test.df_uncor %>%
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   facet_grid(model~pheno)
+
+cent_test.df_uncor %>% filter(dx_tested=="ADHD" & pheno_cat =="Regional CT" & dx_sig_fdr==TRUE & model == "full") %>% filter(d<0) %>% pull(pheno)
 ```
 
 ```{r}
@@ -331,6 +333,96 @@ dx_bxplt <- ggplot(cent_df, aes(x=pheno, y=std_score_full, color=control)) +
   labs(y="Standard Score")
 
 saveRDS(dx_bxplt, "figs/ggobjs/dx_bxplt.rds")
+```
+
+save csv
+
+```{r}
+cent_test_csv <- cent_test.df_uncor %>%
+  filter(model != "diff") %>%
+  select(model, dx_tested, pheno_cat, pheno, t_stat, d, case.control_resi, mean_df1, mean_df2, n_cn, n_pt, p_value, dx_p.val_fdr, dx_sig_fdr) %>%
+  rename(idp_category = pheno_cat,
+         idp = pheno,
+         p.val = p_value,
+         significant_fdr = dx_sig_fdr,
+         mean_zscore_control = mean_df1,
+         mean_zscore_case = mean_df2,
+         n_control = n_cn,
+         n_case = n_pt,
+         p.val_fdr = dx_p.val_fdr
+         ) %>%
+  mutate(model = ifelse(model=="full", "sex_with_age_moderator", "sex_intercept_only"))
+
+fwrite(cent_test_csv, "figs/supplement/case_control_ttests.csv")
+```
+
+###Change
+
+How do results differ across full and null models?
+
+```{r}
+cent_test_change <- cent_test.df_uncor %>%
+  filter(model != "diff") %>%
+  group_by(dx_tested, pheno_cat, pheno, label) %>% 
+  #first make sure model converged in both
+  filter(n() == 2) %>%
+  #then filter to significant vals
+  filter(dx_sig_fdr == "TRUE") %>%
+  summarise(
+    sig_mod = case_when(
+      n() == 1 ~ model,                          # significant in only one model
+      n() == 2 & length(unique(sign(d))) > 1 ~ "opposite",  # both sig, opposite signs
+      n() == 2 ~ "both"                          # both sig, same sign
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(sig_mod = factor(sig_mod, levels = c("both", "opposite", "full", "null")))
+
+table(cent_test_change$sig_mod)
+
+cent_disagree_plt <- cent_test_change %>%
+  filter(sig_mod != "both") %>%
+  ggplot() +
+    geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
+    scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
+                        values = c("full" = "#D9B523FF",
+                                   "null" = "#6C568CFF")) +
+    facet_wrap(~ dx_tested, nrow=1) +
+    theme_linedraw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    labs(y="Incongruous IDPs", x="", fill="Brain Chart Model")
+saveRDS(cent_disagree_plt, "figs/ggobjs/cent_disagree_bar_plt.rds")
+```
+
+Male-biased disorders -> false positives, female-biased disorders -> false negatives? severe disorders with prominent neuroanatomical effects are well-captured by both models
+
+look more into full-model-only results
+```{r}
+cent_test_change %>%
+  filter(sig_mod == "full")
+
+cent_test_change %>%
+  filter(pheno_cat =="Subcortical Vol" & sig_mod != "both")
+```
+
+plot on brains
+
+```{r}
+cent_test_change$sig_fdr <- TRUE #all sig by definition
+
+dx_brain_change_plt <- plot_cv_brain(df = cent_test_change, 
+                          fill_var = sig_mod, 
+                          fill_name = "Model", 
+                          fill_color=NULL,
+                          fill_values = c("both" = "#7aab88", 
+                                         "full" = "#F9E011FF" , 
+                                        "null" = "#6C568CFF"),
+                          fill_limits = c("both", "full", "null"),
+                          facet_var= "dx_tested",
+                          return_plt = TRUE, 
+                          include_global = TRUE,
+                          rel_widths = c(6,.5)) 
+ggsave("figs/supplement/dx_brain_change_plt.png", dx_brain_change_plt, width=17, height=8, dpi=600, bg = "white")
 ```
 
 ##Exteremeness
@@ -667,8 +759,23 @@ high_plt <- plot_cv_brain(df = dx_high,
                           facet_var = "dx_tested",
                           height_list=c(5,1.1), 
                           return_plt = FALSE, 
-                          include_global = FALSE,
+                          include_global = TRUE,
                           rel_widths = c(6,.5))
+upper_combo <- plot_grid(
+  high_plt[[1]], high_plt[[2]], high_plt[[3]],
+  ncol = 1,
+  align = "v",
+  rel_heights = c(1.03, 4.5, .93)
+)
+
+upper_combo_labeled <- ggdraw() +
+  draw_plot(upper_combo, x = 0.02, y = 0, width = 0.97, height = 1) +
+  draw_grob(
+    grid::rectGrob(gp = grid::gpar(fill = "#EBEBEB", col = NA)),
+    x = 0, y = 0.01, width = 0.02, height = 0.95
+  ) +
+  draw_label("Centiles > 95%", x = 0.01, y = 0.5, angle = 90, size = 10)
+
 low_plt <- plot_cv_brain(df = dx_low, 
                           fill_var = pct_diff, 
                           fill_name = "Percent\nDifference",
@@ -677,215 +784,193 @@ low_plt <- plot_cv_brain(df = dx_low,
                           facet_var = "dx_tested",
                           height_list=c(5,1.1), 
                           return_plt = FALSE, 
-                          include_global = FALSE,
+                          include_global = TRUE,
                           rel_widths = c(6,.5))
-saveRDS(high_plt, "figs/ggobjs/dx_exthigh_brain_plt.rds")
-saveRDS(low_plt, "figs/ggobjs/dx_extlow_brain_plt.rds")
-```
 
-
-##Change
-how many subjects change between full and null models?
-
-```{r}
-# Use Sys.glob to expand wildcard paths
-paths <- Sys.glob(file.path(test_path, "*_extcent_diffs.csv"))
-
-# Read all matching CSVs
-ext_cent_diff <- lapply(paths, function(p) {
-  fread(p) %>%
-    mutate(dx_tested  = sub("CN_", "", dx_recode),
-           control = ifelse(grepl("CN", dx_recode), "CN", "PT"))
-})
-
-ext_cent_diff_df <- rbindlist(ext_cent_diff)
-```
-
-```{r}
-ext_cent_diff_df %>%
-  ggplot() +
-  geom_col(aes(x=dx_tested, y=mean_phenos, fill=sex), position="dodge") +
-  facet_wrap(~control)
-
-ext_cent_diff_df %>%
-  ggplot() +
-  geom_col(aes(x=dx_tested, y=pct_change, fill=sex), position="dodge") +
-  facet_wrap(~control)
-```
-
-are zscore changes a function of age?
-
-```{r}
-#CASES
-paths <- Sys.glob(file.path(test_path, "*mean_scores.csv")) %>% unlist()
-
-#CONTROLS
-cn_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*totalFALSE*/"
-# Use Sys.glob to expand wildcard paths
-cn_paths <- Sys.glob(file.path(cn_path, "cent_csvs/*_*_*cent.csv")) %>%
-  grep("CN", ., value = TRUE)
-# Read all matching CSVs
-cent_diff_list <- lapply(c(paths, cn_paths), function(f){
-  dt <- fread(f)
-  
-  # skip if no std_score_diff columns
-  if (!any(endsWith(names(dt), "std_score_diff"))) return(NULL)
-  
-  dt %>%
-    select(any_of(c("dx_recode", "dx_tested", "sex", "sexMale", "logAge_days")), 
-           ends_with("std_score_diff")) %>%
-    mutate(control = ifelse(grepl("CN", dx_recode), "CN", "PT"),
-           dx_tested  = sub("CN_", "", dx_recode)) %>%
-    pivot_longer(cols = ends_with("std_score_diff"),
-                 names_to = "pheno",
-                 names_pattern = "^(.*)_std_score_diff$",
-                 values_to = "std_score_diff") %>%
-    na.omit(std_score_diff)
-}) %>% 
-  Filter(Negate(is.null), .)
-
-length(cent_diff_list)
-#stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
-cent_diffs <- rbindlist(cent_diff_list, fill=TRUE) %>%
-  filter(!is.na(logAge_days))
-rm(cent_diff_list)
-```
-
-```{r}
-cent_diffs <- cent_diffs %>%
-   mutate(age_days = un_log(logAge_days))
-
-cent_diffs %>%
-    filter(pheno %in% global_list) %>%
-    ggplot(aes(x=age_days, y=std_score_diff, color=as.factor(sexMale))) +
-    #geom_point(alpha=.1) +
-    geom_smooth() +
-  facet_wrap(~pheno) +
-  format_x_axis("lifespan_fetal", cent_diffs$age_days)
-```
-
-
-how many case-control results change between sex-mod and sex-int models?
-
-```{r}
-#changes in extremeness stats
-ext_cent_fish_df %>% 
-  filter(sig_fdr==TRUE) %>%
-  group_by(dx_tested, pheno, ext) %>%
-  summarise(models = n_distinct(model), .groups = "drop") %>%
-  filter(models == 1) %>% #subjects where just ONE model (sex-mod or sex-int) is significant
-  group_by(dx_tested) %>%
-  summarise(n_pheno_change = n_distinct(pheno), .groups = "drop")
-
-#changes in case-control t tests
-cent_test.df_uncor %>%
-  filter(dx_sig_fdr == TRUE & model !="diff") %>% #drop diffs
-  group_by(dx_tested, pheno) %>%
-  summarise(models = n_distinct(model), .groups = "drop") %>%
-  filter(models == 1) %>% #subjects where just ONE model (sex-mod or sex-int) is significant
-  group_by(dx_tested) %>%
-  summarise(n_pheno_change = n_distinct(pheno), .groups = "drop")
-```
-
-test sex-differences in prop sample with changes
-```{r}
-run_fisher <- function(n_change_F, n_change_M, n_total_F, n_total_M) {
-  twoSamplePermutationTestProportion(
-    x = c(n_change_F, n_change_M),
-    y = c(n_total_F, n_total_M),
-    x.and.y = "Number Successes and Trials",
-    alternative = "two.sided"
-  )
-}
-
-fisher_df <- ext_cent_diff_df %>%
-  filter(dx=="PT") %>%
-  pivot_wider(id_cols = c(cv_sample, dx_tested), values_from=c(n_change, n_total), names_from=sex)
-
-  #run stats
-fisher_results <- pmap(
-  list(fisher_df$n_change_F, fisher_df$n_change_M, fisher_df$n_total_F, fisher_df$n_total_M),
-  run_fisher
+lower_combo <- plot_grid(
+  low_plt[[1]], low_plt[[2]], low_plt[[3]],
+  ncol = 1,
+  align = "v",
+  rel_heights = c(1.03, 4.5, .93)
 )
 
-fisher_final <- fisher_df %>%
-  ungroup() %>%
-  mutate(
-    fisher_stat = map_dbl(fisher_results, ~ .x$statistic),
-    fisher_p    = map_dbl(fisher_results, ~ .x$p.value)) %>%
-  rowwise() %>%
-  mutate(
-    ci_lower_F = binom.confint(n_change_F, n_total_F, method="exact")$lower, #also getting conf int estimates
-    ci_upper_F = binom.confint(n_change_F, n_total_F, method="exact")$upper,
-    ci_lower_M = binom.confint(n_change_M, n_total_M, method="exact")$lower,
-    ci_upper_M = binom.confint(n_change_M, n_total_M, method="exact")$upper
-  ) %>%
-  group_by(cv_sample) %>%
-  mutate(
-    p_fdr = p.adjust(
-      fisher_p,
-      method = "fdr"
-    )) %>%
-  ungroup() %>%
-  mutate(sig_fdr = ifelse(p_fdr <= 0.05, TRUE, FALSE))
+lower_combo_labeled <- ggdraw() +
+  draw_plot(lower_combo, x = 0.02, y = 0, width = 0.97, height = 1) +
+  draw_grob(
+    grid::rectGrob(gp = grid::gpar(fill = "#EBEBEB", col = NA)),
+    x = 0, y = 0.01, width = 0.02, height = 0.95
+  ) +
+  draw_label("Centiles < 5%", x = 0.01, y = 0.5, angle = 90, size = 10)
 
-table(fisher_final$dx_tested, fisher_final$sig_fdr)
+ext_brain_plt <- plot_grid(
+  plot_grid(
+  upper_combo_labeled,
+  lower_combo_labeled,
+  ncol=1,
+  align="v"),
+  low_plt[[4]],
+  ncol=2,
+  rel_widths=c(10,1)
+)
+
+ggsave("figs/supplement/extreme_dx_brainplt.png", ext_brain_plt, width=18, height=16, dpi=600, bg = "white")
 ```
-replot
+
 
 ```{r}
-# pivot fisher_final CIs and p-values to long format for joining
-ci_long <- fisher_final %>%
-  select(cv_sample, dx_tested, ci_lower_F, ci_upper_F, ci_lower_M, ci_upper_M, p_fdr, sig_fdr) %>%
-  pivot_longer(
-    cols = c(ci_lower_F, ci_upper_F, ci_lower_M, ci_upper_M),
-    names_to = c(".value", "sex"),
-    names_pattern = "(ci_lower|ci_upper)_(F|M)"
-  ) %>%
-  mutate(sig_label = case_when(
-    p_fdr < 0.001 ~ "***",
-    p_fdr < 0.01  ~ "**",
-    p_fdr < 0.05  ~ "*",
-    TRUE ~ ""
-  ))
+ext_test_csv <- ext_cent_fish_df %>%
+  select(model, dx_tested, ext, pheno_cat, pheno, pct_CN, pct_PT, pct_diff, fisher_stat, fisher_p, p_fdr, sig_fdr) %>%
+  rename(idp_category = pheno_cat,
+         idp = pheno,
+         p.val = fisher_p,
+         significant_fdr = sig_fdr,
+         percent_control = pct_CN,
+         percent_case = pct_PT,
+         percent_diff = pct_diff,
+         p.val_fdr = p_fdr,
+         centile_group = ext,
+         ) %>%
+  mutate(model = ifelse(model=="full", "sex_with_age_moderator", "sex_intercept_only"),
+         centile_group = ifelse(centile_group=="high", "above_95th", "below_5th"))
 
-plot_df <- ext_cent_diff_df %>%
-  filter(dx == "PT") %>%
-  left_join(ci_long, by = c("cv_sample", "dx_tested", "sex"))
+fwrite(ext_test_csv, "figs/supplement/case_control_proportion_tests.csv")
+```
 
-# separate df to position brackets just above the highest error bar per facet/x group
-bracket_df <- plot_df %>%
-  filter(cv_sample=="B") %>%
-  group_by(dx_tested) %>%
+###Change
+
+How do results differ across full and null models?
+
+```{r}
+ext_test_change <- ext_cent_fish_df %>%
+  group_by(dx_tested, pheno_cat, pheno, label, ext) %>% 
+  #first make sure model converged in both
+  filter(n() == 2) %>%
+  #then filter to significant vals
+  filter(sig_fdr == "TRUE") %>%
   summarise(
-    bracket_y = max(ci_upper) * 1.05,  # just above highest error bar
-    sig_label = first(sig_label),
+    sig_mod = case_when(
+      n() == 1 ~ model,                          # significant in only one model
+      n() == 2 & length(unique(sign(pct_diff))) > 1 ~ "opposite",  # both sig, opposite signs
+      n() == 2 ~ "both"                          # both sig, same sign
+    ),
     .groups = "drop"
-  )
+  ) %>%
+  mutate(sig_mod = factor(sig_mod, levels = c("both", "opposite", "full", "null")))
 
-change_barplt <- plot_df %>%
-  filter(cv_sample=="B") %>%
-  ggplot(aes(x = dx_tested, y = pct_change/100, fill = sex)) +
-  geom_col(position = "dodge") +
-  geom_errorbar(
-    aes(ymin = ci_lower, ymax = ci_upper),
-    position = position_dodge(width = 0.9),
-    width = 0.25
+table(ext_test_change$sig_mod)
+
+ext_test_change %>%
+  filter(sig_mod != "both") %>%
+  group_by(dx_tested, ext, sig_mod) %>%
+  count()
+
+ext_test_change %>%
+  filter(sig_mod != "both") %>%
+  ggplot() +
+    geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
+        scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
+                        values = c("full" = "#D9B523FF",
+                                   "null" = "#6C568CFF")) +
+    facet_grid(ext ~ dx_tested) +
+    theme_linedraw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    labs(y="Incongruous IDPs", x="", fill="Brain Chart Model")
+```
+
+look more into full-model-only results
+```{r}
+ext_test_change %>%
+  filter(sig_mod == "full")
+
+ext_test_change %>%
+  filter(str_detect(label, "insula"))
+
+ext_test_change %>%
+  filter(pheno_cat =="Subcortical Vol" & sig_mod != "both")
+```
+
+plot on brains
+
+```{r}
+ext_test_change$sig_fdr <- TRUE
+
+#add back NS phenos
+lab_df <- ext_cent_fish_df %>% 
+  select(pheno, pheno_cat, label, dx_tested) %>%
+  distinct()
+
+change_high <- ext_test_change %>% filter(ext=="high")
+change_low <- ext_test_change %>% filter(ext=="low")
+
+change_high_nas <- full_join(change_high, lab_df)
+change_low_nas <- full_join(change_low, lab_df)
+
+high_plt <- plot_cv_brain(df = change_high_nas, 
+                          fill_var = sig_mod, 
+                          fill_name = "Model", 
+                          fill_color=NULL,
+                          fill_values = c("both" = "#7aab88", 
+                                         "full" = "#F9E011FF" , 
+                                        "null" = "#6C568CFF"),
+                          fill_limits = c("both", "full", "null"),
+                          facet_var= "dx_tested",
+                          return_plt = FALSE, 
+                          include_global = TRUE,
+                          rel_widths = c(6,.5))
+upper_combo <- plot_grid(
+  high_plt[[1]], high_plt[[2]], high_plt[[3]],
+  ncol = 1,
+  align = "v",
+  rel_heights = c(1.03, 4.5, .93)
+)
+
+upper_combo_labeled <- ggdraw() +
+  draw_plot(upper_combo, x = 0.02, y = 0, width = 0.97, height = 1) +
+  draw_grob(
+    grid::rectGrob(gp = grid::gpar(fill = "#EBEBEB", col = NA)),
+    x = 0, y = 0.01, width = 0.02, height = 0.95
   ) +
-  geom_text(
-    data = bracket_df,
-    aes(x = dx_tested, y = bracket_y, label = sig_label),
-    inherit.aes = FALSE,
-    size = 5
+  draw_label("Centiles > 95%", x = 0.01, y = 0.5, angle = 90, size = 10)
+
+low_plt <- plot_cv_brain(df = change_low_nas, 
+                          fill_var = sig_mod, 
+                          fill_name = "Model", 
+                          fill_color=NULL,
+                          fill_values = c("both" = "#7aab88", 
+                                         "full" = "#F9E011FF" , 
+                                        "null" = "#6C568CFF"),
+                          fill_limits = c("both", "full", "null"),
+                          facet_var= "dx_tested",
+                          return_plt = FALSE, 
+                          include_global = TRUE,
+                          rel_widths = c(6,.5))
+
+#lower plot
+lower_combo <- plot_grid(
+  low_plt[[1]], low_plt[[2]], low_plt[[3]],
+  ncol = 1,
+  align = "v",
+  rel_heights = c(1.03, 4.5, .93)
+)
+
+lower_combo_labeled <- ggdraw() +
+  draw_plot(lower_combo, x = 0.02, y = 0, width = 0.97, height = 1) +
+  draw_grob(
+    grid::rectGrob(gp = grid::gpar(fill = "#EBEBEB", col = NA)),
+    x = 0, y = 0.01, width = 0.02, height = 0.95
   ) +
-  theme_linedraw() +
-  scale_y_continuous(labels = scales::percent) +
-  scale_fill_manual(
-    values = c('F' = "#c05f0d", 'M' = "#38688D"),
-    breaks = c("F", "M"),
-    labels = c("Female", "Male"),
-    name = "Sex") +
-  labs(y="Discordant Patients",
-       x="Diagnosis")
-saveRDS(change_barplt, "figs/ggobjs/change_barpltB.rds")
+  draw_label("Centiles < 5%", x = 0.01, y = 0.5, angle = 90, size = 10)
+
+ext_brain_plt_change <- plot_grid(
+  plot_grid(
+  upper_combo_labeled,
+  lower_combo_labeled,
+  ncol=1,
+  align="v"),
+  low_plt[[4]],
+  ncol=2,
+  rel_widths=c(10,1)
+)
+
+ggsave("figs/supplement/extreme_dx_brainplt_change.png", ext_brain_plt_change, width=18, height=16, dpi=600, bg = "white")
 ```

@@ -15,6 +15,8 @@ if(!require('pacman')) {
 pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr, pwr, gt)
 #devtools::install_github("BGDlab/gamlssTools", force = TRUE) 
 library(gamlssTools)
+#remotes::install_github('njudd/ggrain')
+library(ggrain)
 ```
 
 ```{r, eval=FALSE}
@@ -703,15 +705,23 @@ ggplot(samp_A) +
 ggplot(samp_B) +
   geom_histogram(aes(x=age_days, fill=sex))
 
+
+#if rerunning demographics
+# samp_A <- fread("./data/cv_sample_A.csv")
+# samp_B <- fread("./data/cv_sample_B.csv")
 samp_A$sample <- "A"
 samp_B$sample <- "B"
 full_df <- rbind(samp_A, samp_B)
 
-samp_plt <- ggplot(full_df)+
-  geom_violin(aes(x=sample, y=age_days, fill=as.factor(sexMale))) +
+samp_plt <- full_df %>%
+  mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
+         age_yrs = (age_days-280)/365.25) %>%
+  ggplot(aes(x=sample, y=age_yrs, color=Sex))+
+  geom_rain(alpha=.4) +
+  scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
   theme_linedraw() +
-  labs(fill = "Male")
-ggsave("figs/cv_samples.png", samp_plt)
+  labs(color = "Sex", y="Age (years)", x="Subset")
+ggsave("figs/supplement/cv_samples.png", samp_plt)
 
 #confirm correct sites
 stopifnot(setequal(unique(samp_A$study_site), valid_sites))
@@ -760,6 +770,60 @@ cv_demo_table <- full_df %>%
   )
 cv_demo_table
 gtsave(cv_demo_table, "figs/supplement/cv_demo_tbl.html")
+```
+
+Subjects with Euler
+```{r}
+cv_demo_table <- full_df %>%
+  filter(!is.na(SurfaceHoles)) %>%
+  group_by(sample) %>%
+  summarise(
+    N = n(),
+    n_female = sum(sexMale == 0),
+    pct_female = (sum(sexMale == 0) / n()) * 100,
+    n_studies = n_distinct(study),
+    mean_age = mean((age_days - 280) / 365.25, na.rm = TRUE),
+    sd_age = sd((age_days - 280) / 365.25, na.rm = TRUE),
+    mean_surf_holes = mean(SurfaceHoles, na.rm = TRUE),
+    sd_surf_holes = sd(SurfaceHoles, na.rm = TRUE)
+  ) %>%
+  mutate(
+    `N` = as.character(N),
+    `N Studies` = as.character(n_studies),
+    `Sex (Female), n (%)` = paste0(n_female, " (", round(pct_female, 1), "%)"),
+    `Age (years), Mean (SD)` = paste0(round(mean_age, 2), " (", round(sd_age, 2), ")"),
+    `Surface Holes, Mean (SD)` = paste0(round(mean_surf_holes, 1), " (", round(sd_surf_holes, 1), ")")
+  ) %>%
+  select(sample, `N`, `N Studies`, `Sex (Female), n (%)`, `Age (years), Mean (SD)`, `Surface Holes, Mean (SD)`) %>%
+  pivot_longer(-sample, names_to = "Statistic", values_to = "value") %>%
+  pivot_wider(names_from = sample, values_from = "value") %>%
+  gt(rowname_col = "Statistic") %>%
+  tab_header(title = "Table S2. Demographics by Subsample with Surface Holes Data") %>%
+  tab_options(
+    table.font.size = 12,
+    heading.title.font.size = 14,
+    column_labels.font.weight = "bold",
+    row_group.font.weight = "bold"
+  )
+cv_demo_table
+gtsave(cv_demo_table, "figs/supplement/cv_demo_surfhole_tbl.html")
+
+
+samp_plt <- full_df %>%
+  filter(!is.na(SurfaceHoles)) %>%
+  mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
+         age_yrs = (age_days-280)/365.25) %>%
+  ggplot(aes(x=sample, y=age_yrs, color=Sex))+
+  geom_rain(alpha=.4) +
+  scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
+  theme_linedraw() +
+  labs(color = "Sex", y="Age (years)", x="Subset")
+ggsave("figs/supplement/cv_samples_surfhole.png", samp_plt)
+
+#check min age
+full_df %>%
+  filter(!is.na(SurfaceHoles)) %>%
+  summarise(min_age_yrs = (min(age_days)-280)/365.25)
 ```
 
 
@@ -899,7 +963,7 @@ for (samp in c("A", "B")){
 plot demographics with matched controls
 
 ```{r}
-pt_demo_table <- purrr::map_dfr(dx_list, function(dx_val) {
+case_control_demo_df <- purrr::map_dfr(dx_list, function(dx_val) {
   pts <- pt_df %>%
     filter(dx_recode == dx_val)
   
@@ -912,7 +976,10 @@ pt_demo_table <- purrr::map_dfr(dx_list, function(dx_val) {
   bind_rows(cn_df, pts)
 }) %>%
   mutate(dx_tested = sub("CN_", "", dx_recode)) %>%
-  mutate(dx = ifelse(str_detect(dx_recode, "CN"), "Control", "Case")) %>%
+  mutate(dx = ifelse(str_detect(dx_recode, "CN"), "Control", "Case"))
+
+#table
+pt_demo_table <- case_control_demo_df %>%
   group_by(dx_tested, dx) %>%
   summarise(
     N = n(),
@@ -944,4 +1011,17 @@ pt_demo_table <- purrr::map_dfr(dx_list, function(dx_val) {
     row_group.font.weight = "bold"
   )
 gtsave(pt_demo_table, "figs/supplement/pt_cv_demo_tbl.html")
+
+#plot
+
+samp_plt <- case_control_demo_df %>%
+  mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
+         age_yrs = (age_days-280)/365.25) %>%
+  ggplot(aes(x=dx, y=age_yrs, color=Sex))+
+  geom_rain(alpha=.4) +
+  #scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
+  theme_linedraw() +
+  facet_wrap(~dx_tested) +
+  labs(color = "Sex", y="Age (years)", x="Diagnosis")
+ggsave("figs/supplement/cv_samples_surfhole.png", samp_plt)
 ```
