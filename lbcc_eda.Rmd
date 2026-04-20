@@ -637,6 +637,16 @@ write out full dataframe
 #fwrite(df_clean, "./data/v3_CN_cleaned.csv")
 ```
 
+remove NDAR-SCZGlu
+```{r}
+df_clean_old <- fread("./data/v3_CN_cleaned.csv")
+df_clean <- df_clean_old %>%
+  filter(study != "NDAR-SCZGlu")
+nrow(df_clean_old) - nrow(df_clean)
+
+fwrite(df_clean, "./data/v3_CN_cleaned.csv")
+```
+
 ###Split for CV Modeling
 
 Splitting data into 50-50 train and testing, stratified by site and sex. Using this [reference](https://stackoverflow.com/questions/74573270/stratified-data-splitting-in-r).
@@ -733,6 +743,27 @@ save
 ```{r}
 #fwrite(split_samples$SAMP1, "./data/cv_sample_A.csv")
 #fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
+```
+
+remove NDAR-SCZGlu
+```{r}
+samp_A_old <- fread("./data/cv_sample_A.csv")
+samp_B_old <- fread("./data/cv_sample_B.csv")
+
+samp_A <- samp_A_old %>%
+  filter(study != "NDAR-SCZGlu")
+nrow(samp_A_old) - nrow(samp_A)
+
+samp_B <- samp_B_old %>%
+  filter(study != "NDAR-SCZGlu")
+nrow(samp_B_old) - nrow(samp_B)
+
+fwrite(samp_A, "./data/cv_sample_A.csv")
+fwrite(samp_B, "./data/cv_sample_B.csv")
+
+samp_A$sample <- "A"
+samp_B$sample <- "B"
+full_df <- rbind(samp_A, samp_B)
 ```
 
 demographics by split
@@ -922,6 +953,16 @@ df_pt_recode2 <- df_pt_recode %>%
 #fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
 ```
 
+remove NDAR-SCZGlu
+```{r}
+valid_sites <- unique(full_df$study_site)
+df_pt_recode2_old <- fread("./data/v3_pts_cleaned.csv")
+df_pt_recode2 <- df_pt_recode2_old %>%
+  filter(study != "NDAR-SCZGlu")
+nrow(df_pt_recode2_old) - nrow(df_pt_recode2)
+
+fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
+```
 
 site-match to controls
 ```{r}
@@ -1019,9 +1060,9 @@ samp_plt <- case_control_demo_df %>%
          age_yrs = (age_days-280)/365.25) %>%
   ggplot(aes(x=dx, y=age_yrs, color=Sex))+
   geom_rain(alpha=.4) +
-  #scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
+  scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
   theme_linedraw() +
   facet_wrap(~dx_tested) +
   labs(color = "Sex", y="Age (years)", x="Diagnosis")
-ggsave("figs/supplement/cv_samples_surfhole.png", samp_plt)
+ggsave("figs/supplement/cv_samples_pts.png", samp_plt)
 ```
