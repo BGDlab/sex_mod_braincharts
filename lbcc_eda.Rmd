@@ -44,7 +44,6 @@ names(df)[grepl("index", names(df), ignore.case=T)]
 length(unique(df$INDEX.ID))
 sum(is.na(df$INDEX.ID))
 
-
 sum(is.na(df$participant))
 sum(is.na(df$study))
 sum(is.na(df$site))
@@ -65,7 +64,9 @@ cerebel <- names(df)[grep("Cerebell|cerebell|CERE", names(df))]
 
 #rename Cerebellum.all to CBV
 df <- df %>%
-  rename(CBV = Cerebellum.all)
+  rename(CBV = Cerebellum.all) %>%
+#remove NDAR_SCZGlu b/c incorrect ages
+  filter(study != "NDAR-SCZGlu")
 
 #global volumes
 glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF", "CBV", "mean.CT", "total.SA")
@@ -635,6 +636,15 @@ for (pheno in pheno_list){
 write out full dataframe
 ```{r}
 #fwrite(df_clean, "./data/v3_CN_cleaned.csv")
+```
+
+fix sczglu
+```{r, eval=FALSE}
+#fix sczglu
+df_clean <- fread("./data/v3_CN_cleaned.csv")
+df_clean <- df_clean %>%
+  filter(study != "NDAR-SCZGlu")
+fwrite(df_clean, "./data/v3_CN_cleaned.csv")
 ```
 
 ###Split for CV Modeling
