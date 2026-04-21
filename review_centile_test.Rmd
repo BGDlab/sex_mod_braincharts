@@ -215,7 +215,8 @@ for (dx_name in dx_levels) {
     mutate(model = case_when(
       model == "full" ~ "Sex-Moderated Model",
       model == "null" ~ "Sex-Intercept Model"
-    ))
+    )) %>%
+    mutate(model = factor(model, levels = c("Sex-Moderated Model", "Sex-Intercept Model")))
 
   # Compute symmetric range for color scale
   d_range <- range(dx.df_uncor$d, na.rm = TRUE)
