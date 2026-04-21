@@ -82,7 +82,7 @@ for (fs_include in fs_moment_list){
   #CHECK IF MODEL EXISTS
   if (file.exists(m_file)){
     print("loading pre-fit model")
-    model <- tryCatch({readRDS(m_file)
+    init_mod <- tryCatch({readRDS(m_file)
       }, error = function(e){
         message(e$message, "- trying again")
         tryCatch({readRDS(m_file)
@@ -91,29 +91,15 @@ for (fs_include in fs_moment_list){
             NULL
             })
         })
-    #double-check that loaded model did converge
-    if (!is.null(model) && isFALSE(model$converged)) {
-      print("loaded model was not converged")
-      init_mod <- model
-      print("fitting new gamlss model")
-      #FIT BASIC MODEL
-      if (sm == "pb" & log_age == TRUE){
-        model <- gamlss_lambda(pheno,
-                               fs_ver=fs,
-                               fs_moment=fs_include,
-                               fam=family,
-                               nu_form=nu,
-                               start.from = "init_mod") #use loaded model as starting point
-        
-      } else if (sm == "pb" & log_age == FALSE) {
-        model <- gamlss_age(pheno,
-                            fs_ver=fs,
-                            fs_moment=fs_include,
-                            fam=family,
-                            nu_form=nu,
-                            start.from = "init_mod") #use loaded model as starting point
-        
-      }
+    
+    if (!is.null(init_mod)){
+      #use old model as starting base
+      model <- gamlss_lambda(pheno,
+                             fs_ver=fs,
+                             fs_moment=fs_include,
+                             fam=family,
+                             nu_form=nu,
+                             start.from = "init_mod") #use loaded model as starting point
     }
   }
   

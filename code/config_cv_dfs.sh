@@ -7,6 +7,9 @@ data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 
+#rerunning phenos with NDAR_SCZGlu data
+rerun_list=./sczglu_pheno_rerun.txt
+
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -26,6 +29,14 @@ fi
 # Print arguments
 echo "include total value = $total"
 echo "log scale age = $log_age"
+
+# Load rerun list into associative array
+declare -A rerun_set
+while read -r line; do
+  rerun_set["$line"]=1
+done < "$rerun_list"
+echo "Loaded ${#rerun_set[@]} phenotypes from rerun list"
+
 
 #LOOP THROUGH 1/2 CSVS
 for file in $(find $(realpath $data_path)  -type f -name "cv_sample_?.csv") #for testing full df "v3_CN_cleaned.csv"
@@ -88,6 +99,10 @@ do
       #LOOP THROUGH PHENOS
       while read -r pheno_line
       do
+        if [[ -z "${rerun_set[$pheno_line]}" ]]; then
+          echo "WARNING: '$pheno_line' not in rerun list, skipping"
+          continue
+        fi
       # Write the CSV file path and the formula to the output file (tab-delimited) test
         echo -e "$file\t$pheno_line\t$fs\t$tot\t$log_age\t$save_path" >> "$config_file"
       done < "$pheno_list"
@@ -97,6 +112,10 @@ do
       #LOOP THROUGH PHENOS
       while read -r pheno_line
       do
+        if [[ -z "${rerun_set[$pheno_line]}" ]]; then
+          echo "WARNING: '$pheno_line' not in rerun list, skipping"
+          continue
+        fi
       # Write the CSV file path and the formula to the output file (tab-delimited)
         echo -e "$file\t$pheno_line\t$fs\tNULL\t$log_age\t$save_path" >> "$config_file"
       done < "$pheno_list"

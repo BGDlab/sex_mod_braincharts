@@ -19,6 +19,10 @@ total <- as.character(args[4]) # total pheno to control for (or NULL)
 log_age <- as.logical(args[5]) #log-scale age TRUE/FALSE
 save_path <- as.character(args[6]) #path to save df
 
+#make completely sure NDAR-SCZGlu has been removed
+df <- df %>%
+  filter(study != "NDAR-SCZGlu" & study != "NDAR_SCZGlu")
+
 #log-scale age if necessary
 if (log_age == TRUE){
   age_var <- "logAge_days"
@@ -49,6 +53,9 @@ if (total=="NULL"){
 } else {
   total_tf <- "TRUE"
 }
+
+
+print(unique(df$study))
 
 fwrite(df, file=paste0(save_path, "/", pheno, "_total", total_tf, "_logAge" , log_age, ".csv"))
 
