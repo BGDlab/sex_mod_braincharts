@@ -215,8 +215,7 @@ for (dx_name in dx_levels) {
     mutate(model = case_when(
       model == "full" ~ "Sex-Moderated Model",
       model == "null" ~ "Sex-Intercept Model"
-    )) %>%
-    mutate(model = factor(model, levels = c("Sex-Moderated Model", "Sex-Intercept Model")))
+    ))
 
   # Compute symmetric range for color scale
   d_range <- range(dx.df_uncor$d, na.rm = TRUE)
@@ -286,11 +285,11 @@ dx_brain_plt <- plot_cv_brain(df = dx_all,
                           fill_limits = sym_range,
                           facet_var= "dx_tested",
                           height_list=c(5,1.1), 
-                          return_plt = TRUE, 
+                          return_plt = FALSE, 
                           include_global = FALSE,
                           direction = -1,
                           rel_widths = c(6,.5))
-ggsave("figs/tmp.png", dx_brain_plt, width=18, height=7, dpi=600, bg = "white")
+
 saveRDS(dx_brain_plt, "figs/ggobjs/dx_brain_plt.rds")
 ```
 
@@ -318,7 +317,7 @@ dx_bxplt <- ggplot(cent_df, aes(x=pheno, y=std_score_full, color=control)) +
     inherit.aes = FALSE,
     size = 4
   ) +
-  facet_wrap(~dx_tested, nrow=3) +
+  facet_wrap(~dx_tested, nrow=2) +
   scale_x_discrete(labels = c("total.SA" = "Total SA", 
                               "mean.CT" = "Mean CT",
                               "CBV" = "Cerebellum",
@@ -326,9 +325,13 @@ dx_bxplt <- ggplot(cent_df, aes(x=pheno, y=std_score_full, color=control)) +
                               "GMV" = "Cortical GM",
                               "sGMV" = "Subcortical GM",
                               "WMV" = "WM")) +
-  scale_color_discrete(labels = c("CN" = "Control", "PT" = "Patient"), name = NULL) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+  scale_color_manual(
+  values = c('PT' = "#D9B523FF", 'CN' = "#6C568CFF"),
+  labels = c("CN" = "Control", "PT" = "Patient"),
+  name = NULL
+) +
+  theme_linedraw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
         axis.title.x=element_blank(),
         legend.position = "bottom") +
   labs(y="Standard Score")
@@ -386,12 +389,12 @@ cent_disagree_plt <- cent_test_change %>%
   ggplot() +
     geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
     scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
-                        values = c("full" = "#D9B523FF",
-                                   "null" = "#6C568CFF")) +
+                        values = c("full" = "#216936FF",
+                                   "null" = "#A8BFAAFF")) +
     facet_wrap(~ dx_tested, nrow=1) +
     theme_linedraw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-    labs(y="Incongruous IDPs", x="", fill="Brain Chart Model")
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1), legend.position = "bottom") +
+    labs(y="Incongruous IDPs", x="", fill="Brain Chart \nModel")
 saveRDS(cent_disagree_plt, "figs/ggobjs/cent_disagree_bar_plt.rds")
 ```
 
@@ -415,9 +418,9 @@ dx_brain_change_plt <- plot_cv_brain(df = cent_test_change,
                           fill_var = sig_mod, 
                           fill_name = "Model", 
                           fill_color=NULL,
-                          fill_values = c("both" = "#7aab88", 
-                                         "full" = "#F9E011FF" , 
-                                        "null" = "#6C568CFF"),
+                          fill_values = c("both" = "#89B7CFFF", 
+                                         "full" = "#216936FF" , 
+                                        "null" = "#A8BFAAFF"),
                           fill_limits = c("both", "full", "null"),
                           facet_var= "dx_tested",
                           return_plt = TRUE, 
@@ -577,7 +580,7 @@ ggplot(plot_df) +
   ) +
   facet_grid(ext ~ sex, scales = "free_y") +
   theme_linedraw() +
-  scale_fill_manual(values = c("CN_full" = "#F9E011FF", "CN_null" ="#D9B523FF", "PT_full" ="#DDDAEFFF", "PT_null"="#796D9DFF"),
+  scale_fill_manual(values = c("PT_full" = "#F9E011FF", "PT_null" ="#D9B523FF", "CN_full" ="#DDDAEFFF", "CN_null"="#796D9DFF"),
   name = "Group"
 )
 
@@ -870,8 +873,8 @@ ext_test_change %>%
   ggplot() +
     geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
         scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
-                        values = c("full" = "#D9B523FF",
-                                   "null" = "#6C568CFF")) +
+                        values = c("full" = "#216936FF",
+                                   "null" = "#A8BFAAFF")) +
     facet_grid(ext ~ dx_tested) +
     theme_linedraw() +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
@@ -910,9 +913,9 @@ high_plt <- plot_cv_brain(df = change_high_nas,
                           fill_var = sig_mod, 
                           fill_name = "Model", 
                           fill_color=NULL,
-                          fill_values = c("both" = "#7aab88", 
-                                         "full" = "#F9E011FF" , 
-                                        "null" = "#6C568CFF"),
+                           fill_values = c("both" = "#89B7CFFF", 
+                                         "full" = "#216936FF" , 
+                                        "null" = "#A8BFAAFF"),
                           fill_limits = c("both", "full", "null"),
                           facet_var= "dx_tested",
                           return_plt = FALSE, 
@@ -937,9 +940,9 @@ low_plt <- plot_cv_brain(df = change_low_nas,
                           fill_var = sig_mod, 
                           fill_name = "Model", 
                           fill_color=NULL,
-                          fill_values = c("both" = "#7aab88", 
-                                         "full" = "#F9E011FF" , 
-                                        "null" = "#6C568CFF"),
+                           fill_values = c("both" = "#89B7CFFF", 
+                                         "full" = "#216936FF" , 
+                                        "null" = "#A8BFAAFF"),
                           fill_limits = c("both", "full", "null"),
                           facet_var= "dx_tested",
                           return_plt = FALSE, 
