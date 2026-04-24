@@ -67,6 +67,7 @@ first_mod <- NULL
 results_df <- data.frame()
 summary_df <- data.frame()
 
+
 #FIT MODEL
 for (fs_include in fs_moment_list){
 
@@ -79,66 +80,15 @@ for (fs_include in fs_moment_list){
   
   model <- NULL
   
-  #CHECK IF MODEL EXISTS
-  if (file.exists(m_file)){
-    print("loading pre-fit model")
-    init_mod <- tryCatch({readRDS(m_file)
-      }, error = function(e){
-        message(e$message, "- trying again")
-        tryCatch({readRDS(m_file)
-          }, error = function(e){
-            message(e$message, "- refit")
-            NULL
-            })
-        })
-    
-    if (!is.null(init_mod)){
-      #use old model as starting base
-      model <- gamlss_lambda(pheno,
-                             fs_ver=fs,
-                             fs_moment=fs_include,
-                             fam=family,
-                             nu_form=nu,
-                             start.from = "init_mod") #use loaded model as starting point
-    }
-  }
-  
-  #if no model, fit
-  if (is.null(model)) {
-    print("fitting new gamlss model")
-    #FIT BASIC MODEL
-    if (sm == "pb" & log_age == TRUE){
-      model <- gamlss_lambda(pheno,
+ 
+   #FIT BASIC MODEL
+    model <- gamlss_lambda(pheno,
                              fs_ver=fs,
                              fs_moment=fs_include,
                              fam=family,
                              nu_form=nu,
                              start.from = "first_mod") #use first model as starting point
-      
-    } else if (sm == "pb" & log_age == FALSE) {
-      model <- gamlss_age(pheno,
-                          fs_ver=fs,
-                          fs_moment=fs_include,
-                          fam=family,
-                          nu_form=nu,
-                          start.from = "first_mod") #use first model as starting point
-      
-    } else if (sm == "cs" & log_age == TRUE){
-      model <- gamlss_cs(pheno,
-                         fs_ver=fs,
-                         fs_moment=fs_include,
-                         fam=family,
-                         nu_form=nu,
-                         start.from = "first_mod") #use first model as starting point
-    } else if (sm == "cs" & log_age == FALSE){
-      model <- gamlss_csage(pheno,
-                            fs_ver=fs,
-                            fs_moment=fs_include,
-                            fam=family,
-                            nu_form=nu,
-                            start.from = "first_mod") #use first model as starting point
-    }
-  }
+ 
   
   #if model isn't fit, skip to next loop
   if (is.null(model)) {

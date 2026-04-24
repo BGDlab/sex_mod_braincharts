@@ -7,6 +7,9 @@ data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 
+#rerunning phenos with NDAR_SCZGlu data
+rerun_list=./sczglu_pheno_rerun.txt
+
 rerun="FALSE"
 
 while [[ "$#" -gt 0 ]]; do
@@ -31,6 +34,13 @@ echo "include total value = $total"
 echo "log scale age = $log_age"
 echo "smooth = $sm"
 
+
+# Load rerun list into associative array
+declare -A rerun_set
+while read -r line; do
+  rerun_set["$line"]=1
+done < "$rerun_list"
+echo "Loaded ${#rerun_set[@]} phenotypes from rerun list"
 
 #make config file dir or remove old file if necessary
 if [[ "$rerun" == "TRUE" ]]; then
@@ -110,6 +120,12 @@ do
         #LOOP THROUGH PHENOS
         while read -r pheno_line
         do
+        
+        if [[ -z "${rerun_set[$pheno_line]}" ]]; then
+          echo "WARNING: '$pheno_line' not in rerun list, skipping"
+          continue
+        fi
+        
         if [[ "$rerun" == "TRUE" ]]; then
           best_file=$(ls ${save_path}/model_objs/${pheno_line}*_BestMod.rds 2>/dev/null | head -n 1 || true)
           if [[ -n "$best_file" ]]; then
@@ -140,6 +156,12 @@ do
         #LOOP THROUGH PHENOS
         while read -r pheno_line
         do
+        
+        if [[ -z "${rerun_set[$pheno_line]}" ]]; then
+          echo "WARNING: '$pheno_line' not in rerun list, skipping"
+          continue
+        fi
+        
         if [[ "$rerun" == "TRUE" ]]; then
           best_file=$(ls ${save_path}/model_objs/${pheno_line}*_BestMod.rds 2>/dev/null | head -n 1 || true)
           if [[ -n "$best_file" ]]; then

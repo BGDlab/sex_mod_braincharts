@@ -11,7 +11,8 @@ gamlss_lambda <- function(pheno, lambda=NULL,
                            fam="GG",
                            weight=NULL,
                            nu_form="1",
-                           start.from=NULL){
+                           start.from=NULL,
+                          start.from.coef=NULL){
   
   fs_moment <- match.arg(fs_moment)
   
@@ -50,6 +51,22 @@ gamlss_lambda <- function(pheno, lambda=NULL,
   
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
+  }
+  
+  ##update to allow start.from for each moment individually (written with claude)
+  # NEW: coefficient-based warm start from a model fit on different-sized data
+  if (!is.null(start.from.coef)) {
+    m <- start.from.coef
+    
+    safe_deparse <- function(x) {
+      paste(deparse(x), collapse="")
+    }
+    
+    if (!is.null(m$mu))    control <- paste0("mu.start = ",    safe_deparse(m$mu),    ", ", control)
+    if (!is.null(m$sigma)) control <- paste0("sigma.start = ", safe_deparse(m$sigma), ", ", control)
+    if (!is.null(m$nu))    control <- paste0("nu.start = ",    safe_deparse(m$nu),    ", ", control)
+    if (!is.null(m$tau))   control <- paste0("tau.start = ",   safe_deparse(m$tau),   ", ", control)
+    
   }
   
   if (!is.null(weight)) {
