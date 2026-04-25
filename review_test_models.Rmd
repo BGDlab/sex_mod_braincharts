@@ -800,11 +800,23 @@ reformat_x <- function(x_values, simplified=FALSE){
 cent_plt_pct_mean <- glob_mean %>%
   ggplot() +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno), linewidth=1) +
   geom_point(
     data = glob_mean_sums_long,
     aes(x = age, y = value, color = pheno, shape = metric),
-    size = 3
+    size = 4
+  ) +
+  scale_color_discrete(
+    labels = c(
+      "total.SA" = "Total SA",
+      "mean.CT"  = "Mean CT",
+      "CBV"      = "Cerebellum",
+      "CSF"      = "Ventricles",
+      "GMV"      = "Cortical GM",
+      "sGMV"     = "Subcortical GM",
+      "WMV"      = "WM"
+    ),
+    name = "Phenotype"
   ) +
   scale_shape_manual(
     values = c(
@@ -825,25 +837,13 @@ cent_plt_pct_mean <- glob_mean %>%
       "max_deriv_M"  = "Max Change Male",
       "max_deriv_F"  = "Max Change Female"
     ),
-    name = "Metric"
+    name = "Peak"
   ) +
-  scale_color_discrete(
-    labels = c(
-      "total.SA" = "Total SA",
-      "mean.CT"  = "Mean CT",
-      "CBV"      = "Cerebellum",
-      "CSF"      = "Ventricles",
-      "GMV"      = "Cortical GM",
-      "sGMV"     = "Subcortical GM",
-      "WMV"      = "WM"
-    ),
-    name = "Phenotype"
-  ) +
-  theme_linedraw() +
+  theme_minimal() +
   reformat_x(glob_mean$age_days) +
   labs(y="% Maximum Sex-Difference")
 saveRDS(cent_plt_pct_mean, "figs/ggobjs/glob_trajectories.rds")
-ggsave("figs/supplement/glob_trajectories.png", cent_plt_pct_mean, dpi=600, width=11, height=5)
+ggsave("figs/glob_trajectories.png", cent_plt_pct_mean, dpi=600, width=11, height=5)
 ```
 
 ```{r}
@@ -1283,7 +1283,7 @@ dominance_plt_df_B <- dominance_plt_df_novent %>%
 range(dominance_plt_df_B$centile_int_norm.unlog)
 full_dom_pltB <- plot_cv_brain(df=dominance_plt_df_B, 
                                fill_var=centile_int_norm.unlog, 
-                               fill_name="Sex Difference (Scaled)", 
+                               fill_name="Sex Difference (Std.)", 
                                fill_color="ggthemes::Orange-Blue Diverging", 
                                fill_limits=c(-0.07, 0.07),
                                height_list=c(1.03, 4.5, .93), 
@@ -1295,7 +1295,7 @@ saveRDS(full_dom_pltB, "figs/ggobjs/cent_dom_B.rds")
 range(dominance_plt_df_B$sigma_int_norm.unlog)
 full_dom_plt_sigmaB <- plot_cv_brain(df=dominance_plt_df_B, 
                                      fill_var=sigma_int_norm.unlog, 
-                                     fill_name="Sex Difference (Scaled)", 
+                                     fill_name="Sex Difference (Std.)", 
                                      fill_color="ggthemes::Orange-Blue Diverging", 
                                      fill_limits=c(-0.03, 0.03), 
                                      height_list=c(1.03, 4.5, .93), 

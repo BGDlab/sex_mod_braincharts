@@ -109,7 +109,7 @@ ggsave("figs/fig1.png", fig1, width=11, height=8, dpi=600, bg = "white")
 Sample A exemplar curve(s)
 
 ```{r}
-df <- fread(paste0(base_path, "data/cv_sample_B_dfs/sGMV_totalTRUE_logPhenoFALSE_logAgeTRUE.csv"), stringsAsFactors = TRUE, na.strings = "")
+df <- fread(paste0(base_path, "data/cv_sample_B_dfs/sGMV_totalTRUE_logAgeTRUE.csv"), stringsAsFactors = TRUE, na.strings = "")
 
 test_mod <- readRDS(paste0(base_path, "cv_sample_B_test/global_vols_totalTRUE_logAgeTRUE_pbmods/model_objs/sGMV_fsmu_pbAge_totalboth_test_full_mod.rds"))
 test_mod$call$data <- "df"
@@ -185,7 +185,7 @@ sGMV_fan <- plot_grid(sGMV_fan_tbv,
                       nrow=2,
                       rel_widths=c(1,1),
                       align = "hv",
-                      labels=c("C", "D"),
+                      labels=c("B", "C"),
                       label_size = 12,
                       hjust=-.1,
                       vjust=-1),
@@ -270,7 +270,7 @@ fig2 <- plot_grid(sGMV_fan,
                   sex_dom_sigma,
                   nrow=1, ncol=7, 
                   rel_widths=c(1.8,.05,1,.05,1,.05,1), 
-                  labels=c("", "B", "", "E","", "F", ""),
+                  labels=c("", "D", "", "E","", "F", ""),
                   label_size = 12)
 
 ggsave("figs/fig2.png", fig2, width=19, height=11, dpi=600, bg = "white")
