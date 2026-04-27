@@ -83,42 +83,13 @@ for (fs_include in moment_list){
     
     model <- NULL
     
-    #CHECK IF MODEL EXISTS
-    if (file.exists(m_file)){
-      print("loading pre-fit model")
-      model <- tryCatch({readRDS(m_file)
-      }, error = function(e){
-        message(e$message, "- trying again")
-        tryCatch({readRDS(m_file)
-        }, error = function(e){
-          message(e$message, "- refit")
-          NULL
-        })
-      })
-      #double-check that loaded model did converge
-      if (!is.null(model) && isFALSE(model$converged)) {
-        print("loaded model was not converged")
-        init_mod <- model
-        print("fitting new gamlss model")
-        #FIT BASIC MODEL
-        model <- gamlss_lambda_etiv(pheno,
-                                    total_var=total, total_moment=total_include,
-                                    fs_ver=fs, fs_moment=fs_include, 
-                                    fam=family,
-                                    nu_form=nu,
-                                    start.from = "init_mod") #use loaded model as starting point
-      }
-    } 
-    
-    if (is.null(model)){
-      #FIT BASIC MODEL
-      model <- gamlss_lambda_etiv(pheno,
+    #FIT BASIC MODEL
+    model <- gamlss_lambda_etiv(pheno,
                                   total_var=total, total_moment=total_include,
                                   fs_ver=fs, fs_moment=fs_include, 
                                   fam=family,
                                   nu_form=nu,
                                   start.from = "first_mod") #use first model as starting point
-    }
   
     #if model isn't fit, skip to next loop
     if (is.null(model)) {
