@@ -7,7 +7,7 @@ mapfile -t prefixes < <(tr -d '\r' < "$PREFIX_FILE")
 
 found=0
 
-for dir in cv_sample_?_test/*/model_objs/; do
+for dir in cv_sample_?_test/*/*/; do
     [ -d "$dir" ] || continue
 
     subdir=$(basename "$(dirname "$dir")")
@@ -23,7 +23,8 @@ for dir in cv_sample_?_test/*/model_objs/; do
 
         for prefix in "${prefixes[@]}"; do
             if [[ "$fname" == "$prefix"* ]]; then
-                rm "$file"
+                echo "remove $file"
+		rm "$file"
                 ((found++))
                 break
             fi
