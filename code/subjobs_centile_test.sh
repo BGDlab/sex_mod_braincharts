@@ -29,7 +29,7 @@ SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/co
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $BASE/code/centile_extreme_test.R $DX $SPLIT
+    Rscript $BASE/code/centile_test.R $DX $SPLIT
 
 # Done!
 echo "Job finished running!"

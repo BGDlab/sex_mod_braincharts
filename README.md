@@ -100,10 +100,10 @@ sbatch code/subjobs_cv_mods_test_weighted.sh ./code/config_files/cv_sample_B_tot
 sbatch code/subjobs_centile_test.sh ./code/config_files/cv_sample_A_totalFALSE_logAgeTRUE_centtest_config.txt
 sbatch code/subjobs_centile_test.sh ./code/config_files/cv_sample_B_totalFALSE_logAgeTRUE_centtest_config.txt
 ```
-2. Average cases' scores across split-halves and run analyses: `code/subjobs_centile_extreme_test.sh`, `code/centile_extreme_test.R`, `code/config_centile_extreme_test.sh`
+2. Average cases' scores across split-halves and run analyses: `code/subjobs_centile_test.sh`, `code/centile_test.R`, `code/config_centile_test.sh`
 ```
 #config
-./code/config_centile_extreme_test.sh --total FALSE --log_age TRUE
+./code/config_centile_test.sh --total FALSE --log_age TRUE
 #submit
-sbatch --array=1-6 code/subjobs_centile_extreme_test.sh ./code/config_files/cv_mods_totalFALSE_logAgeTRUE_centext_config.txt
+sbatch --array=1-6 code/subjobs_centile_test.sh ./code/config_files/cv_mods_totalFALSE_logAgeTRUE_centext_config.txt
 ```

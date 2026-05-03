@@ -4,12 +4,9 @@ library(dplyr)
 library(purrr)
 library(EnvStats)
 
-#simplified version of centile_extreme_test.R to make sure denominators are calculated correctly
-
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
 dx_val <- as.character(args[1])
-#cv_sample <- as.character(args[2])
 
 #set paths
 base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
