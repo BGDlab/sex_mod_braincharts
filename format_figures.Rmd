@@ -290,7 +290,8 @@ barplot_final <- barplot + theme(legend.position="none")
 median group trajectories
 
 ```{r}
-cent_traj_group <- readRDS("figs/ggobjs/cent_groups_traj_B.rds")
+cent_traj_group <- readRDS("figs/ggobjs/cent_groups_traj_B.rds") + 
+  labs(y="Std. Median Sex Difference")
 ```
 
 
@@ -315,21 +316,18 @@ medoid trajectories
 
 ```{r}
 elbow <- readRDS("figs/ggobjs/cent_elbow_B.rds")
-medoid <- readRDS("figs/ggobjs/cent_kmedoid_B.rds")
+medoid <- readRDS("figs/ggobjs/cent_kmedoid_B.rds") + 
+  labs(y="Std. Median Sex Difference") +
+  scale_fill_manual(values=c("Cluster 2 Medoid Trajectory"="#FA9A16", 
+                              "Cluster 1 Medoid Trajectory" ="#1676FA"))
 
 #update colors, etc
 elbow <- elbow + theme(plot.title=element_blank()) +
   labs(y="Average\nSilhouette Width", 
        x="Number of Clusters")
-medoid <- medoid +
-  scale_color_manual(values=c('2'="#FA9A16", '1' ="#1676FA")) +
-  theme_linedraw() +
-  theme(plot.title=element_blank(), legend.position = "none",
-  strip.background = element_blank(),
-  strip.text.x = element_blank())
 ```
 
-try just combining median results
+combining
 
 ```{r}
 top_down <- plot_grid(
