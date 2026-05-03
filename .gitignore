@@ -11,3 +11,5 @@ cv_sample_*/
 *.pdf
 figs/
 slurm-*
+*.log
+*.tar
