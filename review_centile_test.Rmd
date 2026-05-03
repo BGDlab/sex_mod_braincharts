@@ -155,7 +155,11 @@ cent_test.df_uncor %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   facet_grid(model~pheno)
 
-cent_test.df_uncor %>% filter(dx_tested=="ADHD" & pheno_cat =="Regional CT" & dx_sig_fdr==TRUE & model == "full") %>% filter(d<0) %>% pull(pheno)
+cent_test.df_uncor %>% 
+  mutate(effect_dir = sign(d)) %>%
+  filter(dx_sig_fdr==TRUE & model == "full") %>%
+  group_by(dx_tested, pheno_cat, effect_dir) %>%
+  summarise(n=n())
 ```
 
 ```{r}

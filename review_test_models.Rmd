@@ -762,7 +762,6 @@ glob_mean_sums <- glob_mean %>%
             .by = pheno
             )
 
-#add age at peak rate divergence!!
 
 #pivot and rejoin
 values_long <- glob_mean_sums %>%
@@ -800,23 +799,11 @@ reformat_x <- function(x_values, simplified=FALSE){
 cent_plt_pct_mean <- glob_mean %>%
   ggplot() +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno), linewidth=1) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
   geom_point(
     data = glob_mean_sums_long,
     aes(x = age, y = value, color = pheno, shape = metric),
-    size = 4
-  ) +
-  scale_color_discrete(
-    labels = c(
-      "total.SA" = "Total SA",
-      "mean.CT"  = "Mean CT",
-      "CBV"      = "Cerebellum",
-      "CSF"      = "Ventricles",
-      "GMV"      = "Cortical GM",
-      "sGMV"     = "Subcortical GM",
-      "WMV"      = "WM"
-    ),
-    name = "Phenotype"
+    size = 3
   ) +
   scale_shape_manual(
     values = c(
@@ -837,13 +824,25 @@ cent_plt_pct_mean <- glob_mean %>%
       "max_deriv_M"  = "Max Change Male",
       "max_deriv_F"  = "Max Change Female"
     ),
-    name = "Peak"
+    name = "Metric"
   ) +
-  theme_minimal() +
+  scale_color_discrete(
+    labels = c(
+      "total.SA" = "Total SA",
+      "mean.CT"  = "Mean CT",
+      "CBV"      = "Cerebellum",
+      "CSF"      = "Ventricles",
+      "GMV"      = "Cortical GM",
+      "sGMV"     = "Subcortical GM",
+      "WMV"      = "WM"
+    ),
+    name = "Phenotype"
+  ) +
+  theme_linedraw() +
   reformat_x(glob_mean$age_days) +
   labs(y="% Maximum Sex-Difference")
 saveRDS(cent_plt_pct_mean, "figs/ggobjs/glob_trajectories.rds")
-ggsave("figs/glob_trajectories.png", cent_plt_pct_mean, dpi=600, width=11, height=5)
+ggsave("figs/supplement/glob_trajectories.png", cent_plt_pct_mean, dpi=600, width=11, height=5)
 ```
 
 ```{r}
@@ -955,7 +954,7 @@ cent_df %>%
   mutate(pheno = factor(pheno, levels = pheno_order_mean)) %>%
   ggplot() +
   geom_line(aes(x=age_days, y=pheno, color=trajectory)) +
-  facet_grid(pheno_cat ~ cv_sample, scales="free_y", space="free_y", switch="y") +
+  facet_grid(pheno_cat ~ cv_sample, scales="free_y", space="free_y", flip="y") +
   format_x_axis("lifespan_fetal", cent_df$age_days) +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
@@ -1283,7 +1282,7 @@ dominance_plt_df_B <- dominance_plt_df_novent %>%
 range(dominance_plt_df_B$centile_int_norm.unlog)
 full_dom_pltB <- plot_cv_brain(df=dominance_plt_df_B, 
                                fill_var=centile_int_norm.unlog, 
-                               fill_name="Sex Difference (Std.)", 
+                               fill_name="Sex Difference (Scaled)", 
                                fill_color="ggthemes::Orange-Blue Diverging", 
                                fill_limits=c(-0.07, 0.07),
                                height_list=c(1.03, 4.5, .93), 
@@ -1295,7 +1294,7 @@ saveRDS(full_dom_pltB, "figs/ggobjs/cent_dom_B.rds")
 range(dominance_plt_df_B$sigma_int_norm.unlog)
 full_dom_plt_sigmaB <- plot_cv_brain(df=dominance_plt_df_B, 
                                      fill_var=sigma_int_norm.unlog, 
-                                     fill_name="Sex Difference (Std.)", 
+                                     fill_name="Sex Difference (Scaled)", 
                                      fill_color="ggthemes::Orange-Blue Diverging", 
                                      fill_limits=c(-0.03, 0.03), 
                                      height_list=c(1.03, 4.5, .93), 
@@ -1491,7 +1490,7 @@ group_traj_final <- full_join(group_cd, group_cd_mix) %>%
     sig_fdr==FALSE ~ "Stable",
     cent_group == "F_diverging" | cent_group == "M_diverging" ~ "Diverging",
     cent_group == "F_converging" | cent_group == "M_converging" ~ "Converging",
-    cent_group == "M_to_F" | cent_group == "F_to_M" ~ "Flip",
+    cent_group == "M_to_F" | cent_group == "F_to_M" ~ "Switch",
     TRUE ~ str_to_title(cent_group)
   ))
 
@@ -1621,13 +1620,16 @@ group_bar_plt_all <- plot_grid(
 ```{r}
 #just plot B
 barplt_final <- group_final %>%
-  filter(sig_fdr==TRUE & cv_sample=="B") %>%
-  mutate(parent_group = case_when(
-    cent_group == "F_diverging" | cent_group == "M_diverging" ~ "Diverging",
-    cent_group == "F_converging" | cent_group == "M_converging" ~ "Converging",
-    cent_group == "M_to_F" | cent_group == "F_to_M" ~ "Flip",
-    TRUE ~ str_to_title(cent_group)
-  )) %>%
+  filter(cv_sample=="B" & pheno_cat != "Ventricular Vol") %>%
+  mutate(parent_group = factor(case_when(
+      cent_group == "NS" ~ "Stable",
+      cent_group == "F_diverging" | cent_group == "M_diverging" ~ "Diverging",
+      cent_group == "F_converging" | cent_group == "M_converging" ~ "Converging",
+      cent_group == "M_to_F" | cent_group == "F_to_M" ~ "Switch",
+      TRUE ~ str_to_title(cent_group)
+    ), levels = c("Diverging", "Converging", "Switch", "Stable", "Other"),
+       ordered = TRUE)
+  ) %>%
   dplyr::count(pheno_cat, parent_group, cent_group) %>%
   group_by(pheno_cat) %>%
   mutate(pct = n / sum(n)) %>%
@@ -1754,7 +1756,7 @@ group_traj_plt_B <- group_traj_final %>%
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
   #geom_line(aes(group=pheno), alpha=.2) +
   facet_wrap(~parent_group, nrow=3) +
-  geom_smooth(method = "gam") +
+  geom_smooth(method = "gam", se=FALSE) +
   group_color_scale +
   reformat_x(group_traj_final$age_days) +
   theme_linedraw() +
@@ -1839,7 +1841,7 @@ group_sig_traj_final <- full_join(group_sig_cd, group_sig_cd_mix) %>%
     sig_fdr == FALSE ~ "Stable",
     sig_group == "F_diverging" | sig_group == "M_diverging" ~ "Diverging",
     sig_group == "F_converging" | sig_group == "M_converging" ~ "Converging",
-    sig_group == "M_to_F" | sig_group == "F_to_M" ~ "Flip",
+    sig_group == "M_to_F" | sig_group == "F_to_M" ~ "Switch",
     TRUE ~ str_to_title(sig_group)
   ))
 
@@ -2011,22 +2013,6 @@ group_brain_plt[[4]] <- get_legend(
 
 
 saveRDS(group_brain_plt, "figs/ggobjs/sig_groups_brain_B.rds")
-
-##TRAJECTORIES
-group_sig_traj_plt_B <- group_sig_traj_final %>%
-  filter(sig_fdr==TRUE & cv_sample=="B" & sig_group != "other") %>%
-  arrange(pheno, age_days) %>%
-  ggplot(aes(x=age_days, y=logcv_M_div_F, color=sig_group)) +
-  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(group=pheno), alpha=.2) +
-  facet_wrap(~parent_group, nrow=3, scales="free_y") +
-  geom_smooth(method = "gam", linewidth=1) +
-  group_color_scale +
-  reformat_x(group_traj_final$age_days) +
-  theme_linedraw() +
-  theme(legend.position="none") +
-  labs(y="Variance Ratio")
-saveRDS(group_sig_traj_plt_B, "figs/ggobjs/sig_groups_traj_B.rds")
 ```
 
 
@@ -2068,8 +2054,8 @@ clust_fun <- function(df, clust_var, k){
   #Cluster
   set.seed(42)
   
-  # Elbow plot using average silhouette width (more natural for PAM)
-    elbow_plt <- factoextra:::fviz_nbclust(ts_matrix_complete, cluster:::pam, method = "silhouette")
+  # Elbow plot using average silhouette width
+    elbow_plt <- factoextra:::fviz_nbclust(ts_matrix_complete, cluster:::pam, method = "silhouette", linecolor = "gray10")
     print(elbow_plt)
   
     pm <- cluster:::pam(dist_matrix, k = k, diss = TRUE)
@@ -2104,12 +2090,12 @@ clust_fun <- function(df, clust_var, k){
 #plot medoids
   med_plt <- data_with_clusters %>%
     filter(pheno %in% medoids) %>%
-    mutate(cluster = factor(cluster)) %>%
+    mutate(cluster = factor(paste("Cluster", cluster, "Medoid Trajectory"))) %>%
     ggplot(aes(x = age_days, y = !!sym(clust_var),
-                group = pheno, colour = cluster)) +
+                group = pheno, pheno = cluster)) +
     geom_hline(yintercept = 0,linetype='dashed',color='grey20')+
     geom_line(alpha = 0.7) +
-    facet_wrap(~pheno, nrow=2) +
+    facet_wrap(~cluster, nrow=2) +
     labs(title = "Cluster Medoid"
     ) +
   reformat_x(data_with_clusters$age_days, simplified=TRUE) +
