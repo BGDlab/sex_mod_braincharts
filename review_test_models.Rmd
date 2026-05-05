@@ -53,8 +53,8 @@ get_deriv <- function(x, age) {
   c(NA, diff(x) / diff(age))
 }
 
-#riemann_stieltjes
-rs_integral <- function(x, y, g = function(x) log10(x)) {
+#riemann_stieltjes - updating default fun based on claude/convo with taki
+rs_integral <- function(x, y, g = function(x) 10^(x)) {
   stopifnot(
     length(x) == length(y),
     length(x) >= 2
