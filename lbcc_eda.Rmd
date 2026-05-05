@@ -12,21 +12,11 @@ set.seed(5678)
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr, pwr, gt)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, naniar, rlang, parallel, ggrepel, ggpubr, stringr, pwr, gt, svglite)
 #devtools::install_github("BGDlab/gamlssTools", force = TRUE) 
 library(gamlssTools)
 #remotes::install_github('njudd/ggrain')
 library(ggrain)
-```
-
-```{r, eval=FALSE}
-df_clean <- fread("./data/v3_CN_cleaned.csv", stringsAsFactors=T)
-glob_vol_list <- readRDS("./pheno_lists/global_vols.rds")
-gmv_list <- readRDS("./pheno_lists/cortical_vols.rds")
-subcort_list <- readRDS("./pheno_lists/subcortical_vols.rds")
-ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
-sa_list <- readRDS("./pheno_lists/cortical_surf.rds")
-pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
 ```
 
 load data - prelim version of LBCC 3.0, waiting on Lena to look into missing sex info
@@ -802,6 +792,29 @@ cv_demo_table <- full_df %>%
 cv_demo_table
 gtsave(cv_demo_table, "figs/supplement/cv_demo_tbl.html")
 ```
+
+sample plot for talk
+
+```{r}
+samples_alt_plt <- full_df %>%
+   mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
+         age_yrs = (age_days-280)/365.25) %>%
+  ggplot() +
+  geom_boxplot(aes(x=reorder(study, age_yrs, FUN = mean), y=age_yrs, color=Sex)) +
+  facet_wrap(~sample) +
+  scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D")) +
+  theme_linedraw(base_size=16) +
+  theme(axis.text.x= element_blank(), axis.ticks.x=element_blank(), legend.position = "bottom") +
+  labs(color = "Sex", y="Age (years)", x="Study")
+ggsave(
+  "figs/supplement/cv_samples_alt.png",
+  plot   = samples_alt_plt,
+  width  = 14,
+  height = 7,
+  dpi = 600
+)
+```
+
 
 Subjects with Euler
 ```{r}

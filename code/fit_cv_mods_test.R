@@ -43,7 +43,7 @@ if (file.exists(file_full)){
   })
 }
 if (is.null(model)){
-  model <- gamlss_lambda_rep(base_mod, null_mod="false", n.cyc=1200)
+  model <- gamlss_lambda_rep(base_mod, null_mod="false", n.cyc=1800)
 }
 
 #if model doesn't fit, fail

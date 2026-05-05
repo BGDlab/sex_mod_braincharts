@@ -1,7 +1,9 @@
 # Sex-Moderated Brain Charts
 
 ## Data Prep and QC
-1. `lbcc_eda.Rmd`
+Nearly all data prep, filtering, etc, is in `lbcc_eda.Rmd`. This includes identifying and writing lists of
+imaging-derived phenotypes (IDPs) to test, which are saved in `pheno_lists/`
+Data from the Children's Hospital of Philadelphia was first retrieved using `build_your_cohort_dev_mg.Rmd`
 
 ## Sex Effect Significance Testing
 Each analysis step is run using 3 scripts: 
@@ -107,3 +109,11 @@ sbatch code/subjobs_centile_test.sh ./code/config_files/cv_sample_B_totalFALSE_l
 #submit
 sbatch --array=1-6 code/subjobs_centile_test.sh ./code/config_files/cv_mods_totalFALSE_logAgeTRUE_centext_config.txt
 ```
+
+## Figures
+Manuscript figures were assembled using `format_figures.Rmd`. Other scripts used for plotting, 
+formatting, and viewing figures are `replot_centiles.Rmd`, `code/grab_pngs.R`, `code/plot_all_phenotypes_train_v_test.R`, 
+`code/plot_cv_brain.R`, and `code/subjob_grab_pngs.sh`.
+
+## Misc
+The following scripts are used to check outputs: `code/check_errors.sh`, `code/config_check_convergence.sh`, `code/subjobs_check_convergence.sh`, `code/subjobs_replot_test.sh`
