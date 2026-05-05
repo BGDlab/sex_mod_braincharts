@@ -103,12 +103,29 @@ err <- tryCatch(rs_integral(grid$logAge, y, g = function(x) -10^x),
 stopifnot(inherits(err, "error"))
 cat("[OK     ] monotonicity guard rejects decreasing g\n")
 
-# Change-of-variables consistency:
-# Integral y d(age) = Integral y * age * ln(10) d(logAge)
-# Both should be identical left Riemann sums of the same integrand.
-diff_logAge <- diff(grid$logAge)
-manual <- sum(head(y, -1) * head(grid$age, -1) * log(10) * diff_logAge)
-stopifnot(all.equal(rs_integral(grid$logAge, y), manual))
-cat("[OK     ] matches change-of-variables left Riemann sum\n")
+# Discrete identity: rs_integral with g(x)=10^x must equal a direct left
+# Riemann sum of y over the age grid (since gx == age).
+manual_left <- sum(head(y, -1) * diff(grid$age))
+stopifnot(all.equal(rs_integral(grid$logAge, y), manual_left))
+cat("[OK     ] matches direct left Riemann sum on age grid\n")
+
+# Change-of-variables consistency (asymptotic, NOT exact at finite n):
+# Integral y d(age) = Integral y * age * ln(10) d(logAge), but the two
+# left Riemann sums of those integrands differ by O(Delta logAge^2) per term
+# (Taylor: age_{i+1} - age_i = age_i * ln(10) * d(logAge) * (1 + O(d(logAge)))).
+# So we verify the gap shrinks as n grows.
+chvar_rel_diff <- function(n) {
+  g <- make_grid(1, 100, n)
+  yy <- g$age
+  rsi <- rs_integral(g$logAge, yy)
+  manual <- sum(head(yy, -1) * head(g$age, -1) * log(10) * diff(g$logAge))
+  abs(rsi - manual) / abs(rsi)
+}
+ns_chvar <- c(1e3, 1e4, 1e5)
+diffs_chvar <- sapply(ns_chvar, chvar_rel_diff)
+cat(sprintf("[CONVRG ] change-of-variables rel gap at n=%s: %s\n",
+            paste(formatC(ns_chvar, format="d"), collapse=", "),
+            paste(sprintf("%.3e", diffs_chvar), collapse=", ")))
+stopifnot(diffs_chvar[2] < diffs_chvar[1], diffs_chvar[3] < diffs_chvar[2])
 
 cat("\nAll tests passed.\n")
