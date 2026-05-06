@@ -1041,7 +1041,7 @@ range(dominance_plt_df_novent$centile_int_norm.unlog)
 
 full_dom_plt <- plot_cv_brain(df=dominance_plt_df_novent, 
                               fill_var=centile_int_norm.unlog, 
-                              fill_name="Normalized\nSex\nDifference", 
+                              fill_name="Sex Diff\n(Std.)", 
                               fill_color="ggthemes::Orange-Blue Diverging", 
                               fill_limits= c(-12000, 12000), 
                               height_list=c(1.03, 4.5, .93), 
@@ -1168,7 +1168,7 @@ range(dominance_plt_df_novent$sigma_int_norm.unlog)
 
 full_dom_plt_sigma <- plot_cv_brain(df=dominance_plt_df_novent, 
                                     fill_var=sigma_int_norm.unlog, 
-                                    fill_name="Normalized\nSex\nDifference", 
+                                    fill_name="Sex Diff\n(Std.)", 
                                     fill_color = "ggthemes::Orange-Blue Diverging", 
                                     fill_limits =  c(-3500, 3500),
                                     height_list= c(1.03, 4.5, .93))
@@ -1230,7 +1230,7 @@ dominance_plt_df_B <- dominance_plt_df_novent %>%
 range(dominance_plt_df_B$centile_int_norm.unlog)
 full_dom_pltB <- plot_cv_brain(df=dominance_plt_df_B, 
                                fill_var=centile_int_norm.unlog, 
-                               fill_name="Sex Difference (Scaled)", 
+                               fill_name="Sex Difference (Std.)", 
                                fill_color="ggthemes::Orange-Blue Diverging", 
                                fill_limits=c(-12000, 12000),
                                height_list=c(1.03, 4.5, .93), 
@@ -1242,7 +1242,7 @@ saveRDS(full_dom_pltB, "figs/ggobjs/cent_dom_B.rds")
 range(dominance_plt_df_B$sigma_int_norm.unlog)
 full_dom_plt_sigmaB <- plot_cv_brain(df=dominance_plt_df_B, 
                                      fill_var=sigma_int_norm.unlog, 
-                                     fill_name="Sex Difference (Scaled)", 
+                                     fill_name="Sex Difference (Std.)", 
                                      fill_color="ggthemes::Orange-Blue Diverging", 
                                      fill_limits=c(-3500, 3500), 
                                      height_list=c(1.03, 4.5, .93), 
