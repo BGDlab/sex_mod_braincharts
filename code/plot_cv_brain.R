@@ -231,14 +231,7 @@ plot_global <- function(df, fill_var, facet_var, legend_position = "right", keep
     p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)),
                                  drop = !keep_levels)
   }
-  
-  if (legend_position == "bottom") {
-    p <- p + ggplot2::guides(
-      fill = ggplot2::guide_colorbar(
-        label.theme = ggplot2::element_text(angle = 45, hjust = 1, size = 8)
-      )
-    )
-  }
+
   p
 }
 
@@ -323,6 +316,13 @@ plot_cv_brain <- function(df,
       legend.box.margin = legend_margin
     )
   dummy_plt <- format_fill_var(df, {{ fill_var }}, dummy_plt, fill_name, fill_color, fill_limits, direction, fill_values, keep_levels = keep_levels)
+  if (legend_position == "bottom") {
+    dummy_plt <- dummy_plt + ggplot2::guides(
+      fill = ggplot2::guide_colorbar(
+        label.theme = ggplot2::element_text(angle = 45, hjust = 1, size = 8)
+      )
+    )
+  }
   legend <- cowplot::get_legend(dummy_plt)
 
   if (include_global) {
