@@ -1078,4 +1078,16 @@ samp_plt <- case_control_demo_df %>%
   facet_wrap(~dx_tested) +
   labs(color = "Sex", y="Age (years)", x="Diagnosis")
 ggsave("figs/supplement/cv_samples_pts.png", samp_plt)
+
+#simplified version for talk
+samp_plt2 <- case_control_demo_df %>%
+  mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
+         age_yrs = (age_days-280)/365.25) %>%
+  ggplot(aes(x=dx, y=age_yrs, color=Sex))+
+  geom_boxplot() +
+  scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
+  theme_linedraw(base_size=16) +
+  facet_wrap(~dx_tested) +
+  labs(color = "Sex", y="Age (years)", x="Diagnosis")
+ggsave("figs/supplement/cv_samples_pts_simple.png", samp_plt)
 ```

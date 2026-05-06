@@ -186,7 +186,7 @@ sGMV_fan <- plot_grid(sGMV_fan_tbv,
                       nrow=2,
                       rel_widths=c(1,1),
                       align = "hv",
-                      labels=c("C", "D"),
+                      labels=c("B", "C"),
                       label_size = 12,
                       hjust=-.1,
                       vjust=-1),
@@ -228,8 +228,8 @@ sig_sex_dom[[1]] <- sig_sex_dom[[1]] + theme(strip.text.x = element_blank(), str
 #median
 #try adding legend label
 legend_labeled <- ggdraw(sex_dom[[4]]) +
-  draw_label("Male",   x = 0.18, y = 0.5, size = 9, hjust = 0.5, fontface = "italic") +
-  draw_label("Female", x = 0.7, y = 0.5, size = 9, hjust = 0.5, fontface = "italic")
+  draw_label("Female",   x = 0.18, y = 0.5, size = 9, hjust = 0.5, fontface = "italic") +
+  draw_label("Male", x = 0.7, y = 0.5, size = 9, hjust = 0.5, fontface = "italic")
 
 sex_dom_median <- plot_grid(
   sex_dom[[1]],
@@ -245,8 +245,8 @@ sex_dom_median <- plot_grid(
 #sigma
 #try adding legend label
 sig_legend_labeled <- ggdraw(sig_sex_dom[[4]]) +
-  draw_label("Male",   x = 0.18, y = 0.5, size = 9, hjust = 0.5, fontface = "italic") +
-  draw_label("Female", x = 0.7, y = 0.5, size = 9, hjust = 0.5, fontface = "italic")
+  draw_label("Female",   x = 0.18, y = 0.5, size = 9, hjust = 0.5, fontface = "italic") +
+  draw_label("Male", x = 0.7, y = 0.5, size = 9, hjust = 0.5, fontface = "italic")
 
 sex_dom_sigma <- plot_grid(
   sig_sex_dom[[1]],
@@ -271,7 +271,7 @@ fig2 <- plot_grid(sGMV_fan,
                   sex_dom_sigma,
                   nrow=1, ncol=7, 
                   rel_widths=c(1.8,.05,1,.05,1,.05,1), 
-                  labels=c("", "B", "", "E","", "F", ""),
+                  labels=c("", "C", "", "E","", "F", ""),
                   label_size = 12)
 
 ggsave("figs/fig2.png", fig2, width=19, height=11, dpi=600, bg = "white")

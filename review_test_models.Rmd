@@ -238,7 +238,7 @@ ggsave("figs/supplement/resi_uncorrected.png", full_plt_uncor, dpi=600, height=8
 ```
 
 ```{r}
-#test plotting just split A
+#test plotting just split B
 LR.df_uncor_novent_B <- LR.df_uncor_novent %>%
   filter(cv_sample=="B")
 B_plt_uncor <- plot_cv_brain(df = LR.df_uncor_novent_B, 
