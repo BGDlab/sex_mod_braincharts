@@ -845,58 +845,6 @@ saveRDS(cent_plt_pct_mean, "figs/ggobjs/glob_trajectories.rds")
 ggsave("figs/supplement/glob_trajectories.png", cent_plt_pct_mean, dpi=600, width=11, height=5)
 ```
 
-```{r}
-biggest_agesex_resi <- LR.df_tot %>%
-  mintyr:::top_perc(perc = 0.1,                # Select top 10%
-         trait = c("resi"),  # Column to analyze
-         by = "cv_sample",
-         keep_data = TRUE)
-
-biggest_agesex_resi <- biggest_agesex_resi$resi_0.1$data %>% ungroup() %>% select(!pheno_cat)
-biggest_agesex_resi$top10 <- TRUE
-
-biggest_sex_resi <- LR.df_tot_sex %>%
-  mintyr:::top_perc(perc = 0.1,                # Select top 10%
-         trait = c("resi"),  # Column to analyze
-         by = "cv_sample",
-         keep_data = TRUE)
-
-biggest_sex_resi <- biggest_sex_resi$resi_0.1$data %>% ungroup() %>% select(!pheno_cat)
-biggest_sex_resi$top10 <- TRUE
-
-#highlight trajectories of phenos with large effects
-top_sex_plt <- full_join(sexdiffs_tbv, biggest_sex_resi) %>%
-  dplyr::select(centile_M_minus_F_z, pheno, logAge_days, pheno_cat, cv_sample, top10) %>%
-  mutate(top10 = ifelse(is.na(top10), "no", "yes")) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days) %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  gghighlight(top10 == "yes", calculate_per_facet = TRUE) +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-    labs(title="Male-Female Trajectory Differences in Phenos\nwith Strongest Sex Effects (Top 10%)", 
-         y="Scaled 50th Centile Sex-Difference")
-
-top_agesex_plt <- full_join(sexdiffs_tbv, biggest_agesex_resi) %>%
-  dplyr::select(deriv_M_minus_F_z, pheno, logAge_days, pheno_cat, cv_sample, top10) %>%
-  mutate(top10 = ifelse(is.na(top10), "no", "yes")) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days) %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=deriv_M_minus_F_z, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-  gghighlight(top10 == "yes", calculate_per_facet = TRUE) +
-    labs(title="Male-Female Rate-of-Growth Differences in Phenos\nwith Strongest Age*Sex Effects (Top 10%)", 
-         y="Scaled 50th Centile Difference Derivative")
-
-ggsave("figs/misc/top_sexdiffs_centiles.png", top_sex_plt)
-ggsave("figs/misc/top_agesexdiffs_derivs.png", top_agesex_plt)
-```
-
 ###Convergence vs Divergence
 
 *Do sex-differences tend to increase, decrease, or remain constant across the lifespan?*
@@ -954,7 +902,7 @@ cent_df %>%
   mutate(pheno = factor(pheno, levels = pheno_order_mean)) %>%
   ggplot() +
   geom_line(aes(x=age_days, y=pheno, color=trajectory)) +
-  facet_grid(pheno_cat ~ cv_sample, scales="free_y", space="free_y", flip="y") +
+  facet_grid(pheno_cat ~ cv_sample, scales="free_y", space="free_y", switch="y") +
   format_x_axis("lifespan_fetal", cent_df$age_days) +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
@@ -1095,7 +1043,7 @@ full_dom_plt <- plot_cv_brain(df=dominance_plt_df_novent,
                               fill_var=centile_int_norm.unlog, 
                               fill_name="Normalized\nSex\nDifference", 
                               fill_color="ggthemes::Orange-Blue Diverging", 
-                              fill_limits= c(-0.07, 0.07), 
+                              fill_limits= c(-12000, 12000), 
                               height_list=c(1.03, 4.5, .93), 
                               direction=1)
 
@@ -1133,7 +1081,7 @@ prop_above <- function(x, y, threshold=0){
 
 #test function
 test <- sexdiffs_tbv %>%
-  filter(cv_sample =="A" & pheno=="sGMV")
+  filter(cv_sample =="A" & pheno=="CBV")
 prop_above(test$age_days, test$centile_M_minus_F_z)
 ggplot(test) +
   geom_line(aes(x=age_days, y=centile_M_minus_F_z))
@@ -1222,7 +1170,7 @@ full_dom_plt_sigma <- plot_cv_brain(df=dominance_plt_df_novent,
                                     fill_var=sigma_int_norm.unlog, 
                                     fill_name="Normalized\nSex\nDifference", 
                                     fill_color = "ggthemes::Orange-Blue Diverging", 
-                                    fill_limits =  c(-.03, .03),
+                                    fill_limits =  c(-3500, 3500),
                                     height_list= c(1.03, 4.5, .93))
 
 ggsave("figs/supplement/sigma_dominance_tbvTRUE.png", full_dom_plt_sigma, dpi=600, height=8.5, width=7.5, bg = "white")
@@ -1284,7 +1232,7 @@ full_dom_pltB <- plot_cv_brain(df=dominance_plt_df_B,
                                fill_var=centile_int_norm.unlog, 
                                fill_name="Sex Difference (Scaled)", 
                                fill_color="ggthemes::Orange-Blue Diverging", 
-                               fill_limits=c(-0.07, 0.07),
+                               fill_limits=c(-12000, 12000),
                                height_list=c(1.03, 4.5, .93), 
                                return_plt = FALSE,
                                legend_position = "bottom")
@@ -1296,7 +1244,7 @@ full_dom_plt_sigmaB <- plot_cv_brain(df=dominance_plt_df_B,
                                      fill_var=sigma_int_norm.unlog, 
                                      fill_name="Sex Difference (Scaled)", 
                                      fill_color="ggthemes::Orange-Blue Diverging", 
-                                     fill_limits=c(-0.03, 0.03), 
+                                     fill_limits=c(-3500, 3500), 
                                      height_list=c(1.03, 4.5, .93), 
                                      return_plt = FALSE,
                                       legend_position = "bottom")
