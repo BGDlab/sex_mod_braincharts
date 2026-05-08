@@ -234,6 +234,7 @@ for (dx_name in dx_levels) {
                           facet_var = "model",
                           height_list = c(1.03, 4.5, .93),
                           direction = -1,
+                          keep_levels = TRUE,
                           return_plt = TRUE)
   
   #add title
@@ -291,6 +292,7 @@ dx_brain_plt <- plot_cv_brain(df = dx_all,
                           height_list=c(5,1.1), 
                           return_plt = FALSE, 
                           include_global = FALSE,
+                          keep_levels = TRUE,
                           direction = -1,
                           rel_widths = c(6,.5))
 
@@ -422,15 +424,39 @@ dx_brain_change_plt <- plot_cv_brain(df = cent_test_change,
                           fill_var = sig_mod, 
                           fill_name = "Model", 
                           fill_color=NULL,
-                          fill_values = c("both" = "#89B7CFFF", 
+                          fill_values = c("both" = "#393470", 
                                          "full" = "#216936FF" , 
                                         "null" = "#A8BFAAFF"),
                           fill_limits = c("both", "full", "null"),
                           facet_var= "dx_tested",
+                          keep_levels = TRUE,
                           return_plt = TRUE, 
                           include_global = TRUE,
                           rel_widths = c(6,.5)) 
 ggsave("figs/supplement/dx_brain_change_plt.png", dx_brain_change_plt, width=17, height=8, dpi=600, bg = "white")
+```
+
+alt plot for OSSD
+
+```{r}
+cent_test_change_sub <- cent_test_change %>%
+  filter(dx_tested == "GAD" | dx_tested == "ADHD")
+
+dx_brain_change_plt2 <- plot_cv_brain(df = cent_test_change_sub, 
+                          fill_var = sig_mod, 
+                          fill_name = "Model", 
+                          fill_color=NULL,
+                          fill_values = c("both" = "#393470", 
+                                         "full" = "#216936FF" , 
+                                        "null" = "#A8BFAAFF"),
+                          fill_limits = c("both", "full", "null"),
+                          facet_var= "dx_tested",
+                          keep_levels = TRUE,
+                          return_plt = TRUE, 
+                          include_global = TRUE,
+                          rel_widths = c(6,.5)) 
+ggsave("figs/ossd/dx_brain_change_plt.png", dx_brain_change_plt2, height=8.5, width=7.1, dpi=600, bg = "white")
+
 ```
 
 ##Exteremeness
@@ -637,7 +663,7 @@ table(ext_cent_fish_df$sig_fdr, ext_cent_fish_df$dx_tested)
 ext_cent_fish_df %>%
   filter(sig_fdr==TRUE) %>%
   group_by(model, dx_tested) %>%
-  count()
+  dplyr::count()
 ```
 
 ```{r}
@@ -673,6 +699,7 @@ for (dx_name in dx_levels) {
                           fill_limits = sym_range,
                           height_list = c(1.03, 4.5, .93),
                           facet_var = "ext",
+                          keep_levels = TRUE,
                           return_plt = FALSE)
 
   null_parts <- plot_cv_brain(df = dx.df_null,
@@ -682,7 +709,8 @@ for (dx_name in dx_levels) {
                           fill_limits = sym_range,
                           height_list = c(1.03, 4.5, .93),
                           facet_var = "ext",
-                          return_plt = FALSE
+                          return_plt = FALSE,
+                          keep_levels = TRUE
   )
 
   # Helper to assemble one brain panel (without legend) + visible title
@@ -767,6 +795,7 @@ high_plt <- plot_cv_brain(df = dx_high,
                           facet_var = "dx_tested",
                           height_list=c(5,1.1), 
                           return_plt = FALSE, 
+                          keep_levels = TRUE,
                           include_global = TRUE,
                           rel_widths = c(6,.5))
 upper_combo <- plot_grid(
@@ -791,7 +820,8 @@ low_plt <- plot_cv_brain(df = dx_low,
                           fill_limits = sym_range,
                           facet_var = "dx_tested",
                           height_list=c(5,1.1), 
-                          return_plt = FALSE, 
+                          return_plt = FALSE,
+                         keep_levels = TRUE,
                           include_global = TRUE,
                           rel_widths = c(6,.5))
 
@@ -917,12 +947,13 @@ high_plt <- plot_cv_brain(df = change_high_nas,
                           fill_var = sig_mod, 
                           fill_name = "Model", 
                           fill_color=NULL,
-                           fill_values = c("both" = "#89B7CFFF", 
+                           fill_values = c("both" = "#393470", 
                                          "full" = "#216936FF" , 
                                         "null" = "#A8BFAAFF"),
                           fill_limits = c("both", "full", "null"),
                           facet_var= "dx_tested",
-                          return_plt = FALSE, 
+                          return_plt = FALSE,
+                          keep_levels = TRUE,
                           include_global = TRUE,
                           rel_widths = c(6,.5))
 upper_combo <- plot_grid(
@@ -944,13 +975,14 @@ low_plt <- plot_cv_brain(df = change_low_nas,
                           fill_var = sig_mod, 
                           fill_name = "Model", 
                           fill_color=NULL,
-                           fill_values = c("both" = "#89B7CFFF", 
+                           fill_values = c("both" = "#393470", 
                                          "full" = "#216936FF" , 
                                         "null" = "#A8BFAAFF"),
                           fill_limits = c("both", "full", "null"),
                           facet_var= "dx_tested",
                           return_plt = FALSE, 
                           include_global = TRUE,
+                          keep_levels = TRUE,
                           rel_widths = c(6,.5))
 
 #lower plot

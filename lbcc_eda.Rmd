@@ -736,7 +736,7 @@ save
 ```
 
 remove NDAR-SCZGlu
-```{r}
+```{r, eval=FALSE}
 samp_A_old <- fread("./data/cv_sample_A.csv")
 samp_B_old <- fread("./data/cv_sample_B.csv")
 
@@ -791,28 +791,6 @@ cv_demo_table <- full_df %>%
   )
 cv_demo_table
 gtsave(cv_demo_table, "figs/supplement/cv_demo_tbl.html")
-```
-
-sample plot for talk
-
-```{r}
-samples_alt_plt <- full_df %>%
-   mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
-         age_yrs = (age_days-280)/365.25) %>%
-  ggplot() +
-  geom_boxplot(aes(x=reorder(study, age_yrs, FUN = mean), y=age_yrs, color=Sex)) +
-  facet_wrap(~sample) +
-  scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D")) +
-  theme_linedraw(base_size=16) +
-  theme(axis.text.x= element_blank(), axis.ticks.x=element_blank(), legend.position = "bottom") +
-  labs(color = "Sex", y="Age (years)", x="Study")
-ggsave(
-  "figs/supplement/cv_samples_alt.png",
-  plot   = samples_alt_plt,
-  width  = 14,
-  height = 7,
-  dpi = 600
-)
 ```
 
 
@@ -1078,16 +1056,4 @@ samp_plt <- case_control_demo_df %>%
   facet_wrap(~dx_tested) +
   labs(color = "Sex", y="Age (years)", x="Diagnosis")
 ggsave("figs/supplement/cv_samples_pts.png", samp_plt)
-
-#simplified version for talk
-samp_plt2 <- case_control_demo_df %>%
-  mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
-         age_yrs = (age_days-280)/365.25) %>%
-  ggplot(aes(x=dx, y=age_yrs, color=Sex))+
-  geom_boxplot() +
-  scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
-  theme_linedraw(base_size=16) +
-  facet_wrap(~dx_tested) +
-  labs(color = "Sex", y="Age (years)", x="Diagnosis")
-ggsave("figs/supplement/cv_samples_pts_simple.png", samp_plt)
 ```

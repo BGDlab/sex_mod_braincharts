@@ -39,7 +39,7 @@ library(ggsegTissue)
 
 #FIGURE 1: Age-by-Sex Effects
 
-Sample A exemplar curve(s)
+Sample B exemplar curve(s)
 
 ```{r}
 df <- fread(paste0(base_path, "data/cv_sample_B_dfs/sGMV_totalFALSE_logAgeTRUE.csv"), stringsAsFactors = TRUE, na.strings = "")
@@ -106,7 +106,7 @@ ggsave("figs/fig1.png", fig1, width=11, height=8, dpi=600, bg = "white")
 
 #FIGURE 2: Sex Effects Controlling for Total Size
 
-Sample A exemplar curve(s)
+Sample B exemplar curve(s)
 
 ```{r}
 df <- fread(paste0(base_path, "data/cv_sample_B_dfs/sGMV_totalTRUE_logAgeTRUE.csv"), stringsAsFactors = TRUE, na.strings = "")
@@ -368,7 +368,7 @@ ggsave("figs/fig3.png", med_plt, width=16, height=8.5, dpi=600, bg = "white")
 ```
 
 
-#FIGURE 4: Case-Control Differences
+#FIGURE 5: Case-Control Differences
 
 ```{r}
 #brain plot
@@ -406,7 +406,7 @@ lower_row <- plot_grid(
   labels = c("B", "C")
 )
 
-fig4 <- plot_grid(
+fig5 <- plot_grid(
   upper_row,
   lower_row, 
   ncol = 1,
@@ -414,7 +414,7 @@ fig4 <- plot_grid(
   labels=c("A","")
 )
 
-ggsave("figs/fig4.png", fig4, width=17, height=13, dpi=600, bg = "white")
+ggsave("figs/fig5.png", fig4, width=17, height=13, dpi=600, bg = "white")
 
 ```
 
