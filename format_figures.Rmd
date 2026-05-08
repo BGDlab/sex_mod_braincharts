@@ -37,6 +37,29 @@ base_path<- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
 library(ggsegTissue)
 ```
 
+```{r}
+#reformat x to keep birth label
+reformat_x <- function(x_values, simplified=FALSE){
+  tickLabels <- c()
+  tickMarks <- c()
+  if(simplified==TRUE){
+    for (year in c(0, 25, 50, 75, 100)) {
+     tickMarks <- append(tickMarks, year * 365.25 + 280)
+    }
+    tickLabels <- c("Birth", "25", "50", "75", "100")
+  } else {
+    for (year in seq(0, 100, by = 10)) {
+      tickMarks <- append(tickMarks, year * 365.25 + 280)
+    }
+    tickLabels <- c("Birth", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100")
+  }
+  
+  unit_lab <- "(years)"
+  list(scale_x_continuous(breaks = tickMarks, labels = tickLabels), labs(x = paste("Age at Scan", unit_lab)))
+}
+
+```
+
 #FIGURE 1: Age-by-Sex Effects
 
 Sample B exemplar curve(s)
@@ -316,12 +339,28 @@ cent_group_wrap <- plot_grid(
 medoid trajectories
 
 ```{r}
-elbow <- readRDS("figs/ggobjs/cent_elbow_B.rds")
-medoid <- readRDS("figs/ggobjs/cent_kmedoid_B.rds") + 
-  labs(y="Std. Median Sex Difference") +
-  scale_fill_manual(values=c("Cluster 2 Medoid Trajectory"="#FA9A16", 
-                              "Cluster 1 Medoid Trajectory" ="#1676FA"))
+kmed_list <- readRDS(paste0(base_path,"figs/ggobjs/median_kmedoid_clust_B.rds"))
+elbow <- kmed_list[[2]]
+medoids <- kmed_list[[3]]
 
+medoid_df <- kmed_list[[1]] %>%
+  filter(pheno %in% medoids) %>%
+  mutate(cluster_label = paste("Cluster", cluster, "Medoid Trajectory"))
+
+medoid_plt <- ggplot(medoid_df) +
+  geom_hline(yintercept=0, color="gray20", linetype = "dashed") +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z, color=as.factor(cluster), group=pheno)) +
+  facet_wrap(~cluster_label, nrow=2) +
+  theme_minimal() +
+  scale_color_manual(values=c("2"="#FA9A16", 
+                              "1" ="#1676FA")) +
+  theme(legend.position = "none") +
+  reformat_x(medoid_df$age_days) +
+  labs(y="Sex Difference in Median", x="Age (years)")
+```
+
+
+```{r}
 #update colors, etc
 elbow <- elbow + theme(plot.title=element_blank()) +
   labs(y="Average\nSilhouette Width", 
@@ -352,7 +391,7 @@ top_down <- plot_grid(
 
 data_driven <- plot_grid(
   elbow,
-  medoid,
+  medoid_plt,
   nrow=2,
   rel_heights = c(1,2),
   labels = c("D", "E")
