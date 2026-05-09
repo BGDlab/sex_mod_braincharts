@@ -742,9 +742,6 @@ glob_mean_sums <- glob_mean %>%
   summarize(#age at peak sex diff
             max_sex_diff = extr_val(centile_M_minus_F_z, which_max_gc(abs(centile_M_minus_F_z))),
             age_max_sex_diff = extr_val(age_days, which_max_gc(abs(centile_M_minus_F_z))),
-            #age at min sex diff
-            min_sex_diff = extr_val(centile_M_minus_F_z, which_min_gc(abs(centile_M_minus_F_z))),
-            age_min_sex_diff = extr_val(age_days, which_min_gc(abs(centile_M_minus_F_z))),
             #age peak change in sex diff
             max_deriv = extr_val(centile_M_minus_F_z, which_max_gc(abs(deriv_M_minus_F_z))),
             age_max_deriv = extr_val(age_days, which_max_gc(abs(deriv_M_minus_F_z))),
@@ -763,7 +760,6 @@ glob_mean_sums <- glob_mean %>%
             .by = pheno
             )
 
-
 #pivot and rejoin
 values_long <- glob_mean_sums %>%
   select(!starts_with("age_")) %>%
@@ -776,6 +772,37 @@ ages_long <- glob_mean_sums %>%
 
 glob_mean_sums_long <- left_join(values_long, ages_long, by = c("pheno", "metric"))
 
+#get age at min sex-diff separately to account for phenos crossing 0 multiple times
+# All zero crossings per pheno = "min sex-bias" points.
+# At each crossing, take whichever of the two flanking rows has smaller |value|.
+# Trajectories with no crossing fall back to the single closest-to-zero row.
+min_sex_diff_rows <- glob_mean %>%
+  arrange(pheno, age_days) %>%
+  group_by(pheno) %>%
+  mutate(
+    sign_now  = sign(centile_M_minus_F_z),
+    sign_next = sign(lead(centile_M_minus_F_z)),
+    crosses   = !is.na(sign_next) & sign_now != 0 & sign_next != 0 & sign_now != sign_next,
+    # mark the closer-to-zero row of each adjacent crossing pair
+    pick_here = crosses & abs(centile_M_minus_F_z) <= abs(lead(centile_M_minus_F_z)),
+    pick_next = lag(crosses & abs(centile_M_minus_F_z) >  abs(lead(centile_M_minus_F_z)),
+                    default = FALSE),
+    keep      = pick_here | pick_next,
+    any_cross = any(keep, na.rm = TRUE),
+    # fallback: if no crossing, keep the single global min |value|
+    keep      = if (any_cross[1]) keep
+                else abs(centile_M_minus_F_z) == min(abs(centile_M_minus_F_z), na.rm = TRUE)
+  ) %>%
+  filter(keep) %>%
+  ungroup() %>%
+  transmute(
+    pheno,
+    metric = "min_sex_diff",
+    value  = centile_M_minus_F_z,
+    age    = age_days
+  )
+
+glob_mean_sums_long <- bind_rows(glob_mean_sums_long, min_sex_diff_rows)
 
 #reformat x to keep birth label
 reformat_x <- function(x_values, simplified=FALSE){
