@@ -28,12 +28,14 @@ pt_df_list <- c()
 #average within pheno
 for (pheno in pheno_list) {
   f_list <- Sys.glob(paste0(csv_path, "/cent_csvs/", pheno, "_PT_", dx_val, "_cent.csv"))
-  if (length(f_list) != 2) {
-    warning(paste("2 files not found for pheno:", pheno))
+  if (length(f_list) == 0) {
+    warning(paste("no files found for pheno:", pheno, "- skipping"))
     next
-  } else {
-    pheno_df <-  rbindlist(lapply(f_list, fread_filt, "std_score"), fill=TRUE)
   }
+  if (length(f_list) != 2) {
+    warning(paste(lenght(f_list), "file(s) found for pheno:", pheno))
+  }
+  pheno_df <-  rbindlist(lapply(f_list, fread_filt, "std_score"), fill=TRUE)
   
   pheno_mean <- pheno_df %>%
     group_by(INDEX.ID, sex, dx_recode) %>%
