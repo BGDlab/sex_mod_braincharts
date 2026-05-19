@@ -33,7 +33,7 @@ for (pheno in pheno_list) {
     next
   }
   if (length(f_list) != 2) {
-    warning(paste(lenght(f_list), "file(s) found for pheno:", pheno))
+    warning(paste(length(f_list), "file(s) found for pheno:", pheno))
   }
   pheno_df <-  rbindlist(lapply(f_list, fread_filt, "std_score"), fill=TRUE)
   

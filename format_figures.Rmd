@@ -186,7 +186,7 @@ sgmv_sexdiff_plt <- traject %>%
   theme(legend.position = "none") +
   format_x_axis("log_lifespan_fetal", traject$logAge_days) +
   theme(legend.position = "none", axis.title.x = element_blank()) +
-  labs(y="Sex-Difference in\nMedian Trajectory")
+  labs(y="Sex Difference in\nMedian Trajectory")
 
 #variance sex diff trajectory
 sgmv_var_plt <- traject %>%
@@ -196,7 +196,7 @@ sgmv_var_plt <- traject %>%
   theme_linedraw() +
   theme(legend.position = "none") +
   format_x_axis("log_lifespan_fetal", traject$logAge_days) +
-  labs(y="Sex-Difference in\nVariance",
+  labs(y="Sex Difference in\nVariability (ln(CVR))",
        x ="Age (years)")
 ```
 
@@ -347,6 +347,10 @@ medoid_df <- kmed_list[[1]] %>%
   filter(pheno %in% medoids) %>%
   mutate(cluster_label = paste("Cluster", cluster, "Medoid Trajectory"))
 
+medoid_df %>%
+  group_by(pheno) %>%
+  summarise(cluster = unique(cluster))
+
 medoid_plt <- ggplot(medoid_df) +
   geom_hline(yintercept=0, color="gray20", linetype = "dashed") +
   geom_line(aes(x=age_days, y=centile_M_minus_F_z, color=as.factor(cluster), group=pheno)) +
@@ -453,7 +457,7 @@ fig5 <- plot_grid(
   labels=c("A","")
 )
 
-ggsave("figs/fig5.png", fig4, width=17, height=13, dpi=600, bg = "white")
+ggsave("figs/fig5.png", fig5, width=17, height=13, dpi=600, bg = "white")
 
 ```
 

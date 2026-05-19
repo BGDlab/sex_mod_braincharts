@@ -827,11 +827,11 @@ reformat_x <- function(x_values, simplified=FALSE){
 cent_plt_pct_mean <- glob_mean %>%
   ggplot() +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno), linewidth=1.5) +
   geom_point(
     data = glob_mean_sums_long,
     aes(x = age, y = value, color = pheno, shape = metric),
-    size = 3
+    size = 4
   ) +
   scale_shape_manual(
     values = c(
@@ -866,11 +866,19 @@ cent_plt_pct_mean <- glob_mean %>%
     ),
     name = "Phenotype"
   ) +
-  theme_linedraw() +
+  theme_minimal() +
   reformat_x(glob_mean$age_days) +
   labs(y="% Maximum Sex-Difference")
 saveRDS(cent_plt_pct_mean, "figs/ggobjs/glob_trajectories.rds")
-ggsave("figs/supplement/glob_trajectories.png", cent_plt_pct_mean, dpi=600, width=11, height=5)
+ggsave("figs/glob_trajectories.png", cent_plt_pct_mean, dpi=600, width=11, height=5)
+```
+
+look at sGMV
+
+```{r}
+glob_mean_sums_long %>% 
+  filter(pheno=="sGMV") %>%
+  mutate(age=(age-280)/365.25)
 ```
 
 ###Convergence vs Divergence
@@ -1810,7 +1818,7 @@ bar_simple <- group_final %>%
   group_fill_scale +
   guides(x = guide_axis(angle = 45)) +
   labs(y="Percentage") +
-  theme_linedraw(base_size=14) +
+  theme_linedraw(base_size=16) +
   theme(axis.title = element_blank(), legend.position = "none")
 ggsave("./figs/ossd/group_bar.png", bar_simple, dpi=600, bg = "white", width=4, height=7)
 ```
@@ -2126,7 +2134,9 @@ clust_fun <- function(df, clust_var, k){
   return(out)
 }
 
-plot_clust <- function(data_with_clusters, clust_var, df){
+plot_clust <- function(cent_clust, clust_var, df){
+  data_with_clusters <- cent_clust[[1]]
+  medoids <- cent_clust[[3]]
   data_with_clusters <- data_with_clusters %>%
     mutate(cluster=factor(cluster, ordered=TRUE))
   
@@ -2217,7 +2227,7 @@ for (df in list(LR.df_tot.uA, LR.df_tot.uB)){
   print(elbow)
   
   #Plot
-  cent_clust_plt <- plot_clust(cent_clust[[1]], "centile_M_minus_F_z", df)
+  cent_clust_plt <- plot_clust(cent_clust, "centile_M_minus_F_z", df)
   
   #update plots
   cent_clust_plt[[1]] <- cent_clust_plt[[1]] +
@@ -2270,7 +2280,7 @@ for (df in list(LR.df_tot.uA, LR.df_tot.uB)){
   print(elbow)
   
   #Plot
-  sig_clust_plt <- plot_clust(sig_clust[[1]], "logcv_M_div_F", df)
+  sig_clust_plt <- plot_clust(sig_clust, "logcv_M_div_F", df)
   
   #update plots
   sig_clust_plt[[1]] <- sig_clust_plt[[1]] +

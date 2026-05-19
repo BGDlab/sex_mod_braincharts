@@ -16,7 +16,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, RESI, ggpubr, cowplot, EnvStats, binom)
+pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, ggpubr, cowplot, EnvStats, binom)
 
 #devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)
@@ -227,8 +227,8 @@ for (dx_name in dx_levels) {
 
   # Build plot
   dx_plt <- plot_cv_brain(df = dx.df_uncor,
-                          fill_var = d,
-                          fill_name = "Cohen's D",
+                          fill_var = case.control_resi,
+                          fill_name = "S",
                           fill_color = "ggthemes::Gold-Purple Diverging",
                           fill_limits = sym_range,
                           facet_var = "model",
@@ -285,7 +285,7 @@ sym_range <- c(-.5, .5)
 
 dx_brain_plt <- plot_cv_brain(df = dx_all, 
                           fill_var = case.control_resi, 
-                          fill_name = "RESI", 
+                          fill_name = "S", 
                           fill_color = "ggthemes::Gold-Purple Diverging", 
                           fill_limits = sym_range,
                           facet_var= "dx_tested",
@@ -340,7 +340,7 @@ dx_bxplt <- ggplot(cent_df, aes(x=pheno, y=std_score_full, color=control)) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
         axis.title.x=element_blank(),
         legend.position = "bottom") +
-  labs(y="Standard Score")
+  labs(y="Centile Z-score")
 
 saveRDS(dx_bxplt, "figs/ggobjs/dx_bxplt.rds")
 ```
@@ -440,7 +440,8 @@ alt plot for OSSD
 
 ```{r}
 cent_test_change_sub <- cent_test_change %>%
-  filter(dx_tested == "GAD" | dx_tested == "ADHD")
+  filter(dx_tested == "GAD" | dx_tested == "ADHD") %>%
+  filter(!(pheno %in% vent_list))
 
 dx_brain_change_plt2 <- plot_cv_brain(df = cent_test_change_sub, 
                           fill_var = sig_mod, 
@@ -451,11 +452,18 @@ dx_brain_change_plt2 <- plot_cv_brain(df = cent_test_change_sub,
                                         "null" = "#A8BFAAFF"),
                           fill_limits = c("both", "full", "null"),
                           facet_var= "dx_tested",
-                          keep_levels = TRUE,
-                          return_plt = TRUE, 
-                          include_global = TRUE,
-                          rel_widths = c(6,.5)) 
-ggsave("figs/ossd/dx_brain_change_plt.png", dx_brain_change_plt2, height=8.5, width=7.1, dpi=600, bg = "white")
+                          keep_levels = FALSE,
+                          return_plt = TRUE,
+                          height_list=c(4,1), 
+                          include_global = FALSE,
+                          rel_widths = c(6,1.4)) 
+ggsave("figs/ossd/dx_brain_change_plt.png", dx_brain_change_plt2, height=7, width=5, dpi=600, bg = "white")
+```
+
+playing around with more OSSD talk plots
+
+```{r}
+plot_cortex(df, fill_var, facet_var, show_cv_facet_labels = FALSE, margin_top = 5, keep_levels = FALSE)
 
 ```
 
@@ -900,7 +908,7 @@ table(ext_test_change$sig_mod)
 ext_test_change %>%
   filter(sig_mod != "both") %>%
   group_by(dx_tested, ext, sig_mod) %>%
-  count()
+  dplyr::count()
 
 ext_test_change %>%
   filter(sig_mod != "both") %>%
