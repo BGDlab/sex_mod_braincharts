@@ -66,7 +66,7 @@ do
     fi
       
   #write config file
-  echo -e "$dx\t$split" >> "$config_file"
+  echo -e "$dx\t$total" >> "$config_file"
 
 done
  #add numbering
