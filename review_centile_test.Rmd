@@ -454,10 +454,10 @@ dx_brain_change_plt2 <- plot_cv_brain(df = cent_test_change_sub,
                           facet_var= "dx_tested",
                           keep_levels = FALSE,
                           return_plt = TRUE,
-                          height_list=c(4,1), 
+                          height_list=c(5,1), 
                           include_global = FALSE,
                           rel_widths = c(6,1.4)) 
-ggsave("figs/ossd/dx_brain_change_plt.png", dx_brain_change_plt2, height=7, width=5, dpi=600, bg = "white")
+ggsave("figs/ossd/dx_brain_change_plt.png", dx_brain_change_plt2, height=6.8, width=6.5, dpi=600, bg = "white")
 ```
 
 playing around with more OSSD talk plots
