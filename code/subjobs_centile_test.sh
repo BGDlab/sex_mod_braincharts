@@ -16,10 +16,10 @@ echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
 
 #PARSE CONFIG FILE
 DX=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
-SPLIT=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
+TOTAL=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
 
 echo "DX: $DX"
-echo "SPLIT: $SPLIT"
+echo "TOTAL: $TOTAL"
 
 #------------------
 
@@ -29,7 +29,7 @@ SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/co
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $BASE/code/centile_test.R $DX $SPLIT
+    Rscript $BASE/code/centile_test.R $DX $TOTAL
 
 # Done!
 echo "Job finished running!"

@@ -7,10 +7,15 @@ library(EnvStats)
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
 dx_val <- as.character(args[1])
+total   <- as.character(args[2])
+stopifnot(total %in% c("TRUE", "FALSE"))
+
+#when total-corrected models are used, compare full vs null2; otherwise full vs null
+null_model <- if (total == "TRUE") "null2" else "null"
 
 #set paths
 base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
-csv_path <- paste0(base_path, "cv_sample_?_test/*totalFALSE*")
+csv_path <- paste0(base_path, "cv_sample_?_test/*total", total, "*")
 save_path <- paste0(base_path, "dx_tests/")
 
 #get pheno list
@@ -58,7 +63,7 @@ print(length(pt_df_list))
 
 pt_df <- pt_df_list %>% purrr::reduce(dplyr::full_join, by = c("INDEX.ID", "sex", "dx_recode"))
 stopifnot(nrow(pt_df) == length(unique(pt_df$INDEX.ID)))
-fwrite(pt_df, paste0(save_path, dx_val, "_mean_scores.csv")) #figure out where to save
+fwrite(pt_df, paste0(save_path, dx_val, "_total", total, "_mean_scores.csv")) #figure out where to save
 
 cn_df_list <- c()
 ##READ IN CONTROLS
@@ -80,7 +85,7 @@ stopifnot(nrow(cn_df) == length(unique(cn_df$INDEX.ID)))
 
 #T TEST TO COMPARE MEAN Z SCORES IN EACH PHENO
 #also tests differences in between-model changes
-std_cols <- names(cn_df)[grepl("std_score", names(cn_df))]
+std_cols <- grep(paste0("_std_score_(full|", null_model, ")$"), names(cn_df), value = TRUE)
 
 t_results <- map_dfr(std_cols, function(col) {
   #print(col)
@@ -108,7 +113,7 @@ t_results <- map_dfr(std_cols, function(col) {
 })
 
 #save
-fwrite(t_results, file=paste0(save_path, dx_val, "_casecontrol_test.csv"))
+fwrite(t_results, file=paste0(save_path, dx_val, "_total", total, "_casecontrol_test.csv"))
 
 #TEST EXTREMENESS & CHANGES IN EXTREMENESS ACROSS MODELS IN CASES V CONTROLS
 sum_df <- data.frame()
@@ -126,21 +131,21 @@ for (df in list(cn_df, pt_df)){
   # --- CHUNKED pivot_longer to avoid vec_interleave_indices() size limit ---
   chunk_size <- 50  # number of files per chunk; tune down if still hitting the limit
   
-  cent_cols <- grep("centile", names(df), value = TRUE)
+  cent_cols <- grep(paste0("_centile_(full|", null_model, ")$"), names(df), value = TRUE)
   id_cols   <- c("INDEX.ID", "sex", "dx_recode")
-  phenos_in_data <- unique(sub("_centile_(full|null)$", "", cent_cols))
-  
+  phenos_in_data <- unique(sub(paste0("_centile_(full|", null_model, ")$"), "", cent_cols))
+
   chunks <- split(phenos_in_data, ceiling(seq_along(phenos_in_data) / chunk_size))
-  
+
   cent_csv <- rbindlist(lapply(chunks, function(pheno_chunk) {
-    cols_chunk <- cent_cols[sub("_centile_(full|null)$", "", cent_cols) %in% pheno_chunk]
+    cols_chunk <- cent_cols[sub(paste0("_centile_(full|", null_model, ")$"), "", cent_cols) %in% pheno_chunk]
     sub_df <- df[, c(id_cols, cols_chunk), with = FALSE]
-    
+
     sub_df %>%
       pivot_longer(
         cols = all_of(cols_chunk),
         names_to = c("pheno", "model"),
-        names_pattern = "(.+)_centile_(full|null)"
+        names_pattern = paste0("(.+)_centile_(full|", null_model, ")")
       ) %>%
       filter(!is.na(value) & !is.na(model)) %>%
       mutate(ext = case_when(
@@ -198,8 +203,8 @@ for (df in list(cn_df, pt_df)){
 sum_df$dx_tested <- dx_val
 diffs_df$dx_tested <- dx_val
 
-fwrite(sum_df, file=paste0(save_path, dx_val, "_extcent_sum.csv"))
-fwrite(diffs_df, paste0(save_path, dx_val, "_extcent_diffs.csv"))
+fwrite(sum_df, file=paste0(save_path, dx_val, "_total", total, "_extcent_sum.csv"))
+fwrite(diffs_df, paste0(save_path, dx_val, "_total", total, "_extcent_diffs.csv"))
 
 #SIGNIFICANCE TESTING using Fisher's Exact test of proportions
 run_fisher <- function(n_CN, n_PT, n_total_CN, n_total_PT) {
@@ -237,4 +242,4 @@ fisher_final <- fisher_df %>%
 
 fisher_final$dx_tested <- dx_val
 
-fwrite(fisher_final, paste0(save_path, dx_val, "_extcent_fisher.csv"))
+fwrite(fisher_final, paste0(save_path, dx_val, "_total", total, "_extcent_fisher.csv"))
