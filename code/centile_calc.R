@@ -50,12 +50,16 @@ pheno <- get_y(mod_list$full) %>% as.character()
 
 all_list <- c(unlist(pred_list), pheno, "INDEX.ID", "dx", "dx_recode")
 
+valid_sites <- unique(df.og$study_site)
+
 # print(length(all_list))
 # print(all_list)
 
 #drop extra variables
 df_clean <- df %>%
   dplyr::select(all_of(all_list)) %>%
+  #drop any study sites not in original model
+  dplyr::filter(study_site %in% valid_sites) %>%
   na.omit()
 stopifnot(length(unique(df_clean$dx_recode))==2)
 

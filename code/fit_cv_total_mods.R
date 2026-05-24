@@ -59,6 +59,7 @@ if (log_age == TRUE & sm == "pb"){
 
 #loop over fs moments
 moment_list <- c("none", "mu", "both", "all")
+moment_list2 <- c("mu", "both", "all") #make sure total is at least in mu
 
 #initialize empty lists
 mod_count <- 0
@@ -69,7 +70,7 @@ summary_df <- data.frame()
 #FIT MODEL
 for (fs_include in moment_list){
   
-  for (total_include in moment_list){
+  for (total_include in moment_list2){
 
     for (nu in nu_list){
     nu_name <- names(nu_list)[nu_list==nu]
