@@ -19,9 +19,9 @@ library(gamlssTools)
 library(ggrain)
 ```
 
-load data - prelim version of LBCC 3.0, waiting on Lena to look into missing sex info
+load data - LBCC 3.1
 ```{r}
-df <- fread("/mnt/isilon/bgdlab_processing/LBCC_releases/v3_Penn/v3_0_0_penn.csv", na.strings = c("", NA))
+df <- fread("/mnt/isilon/bgdlab_processing/LBCC_releases/v3_Penn/v3_1_0_penn.csv", na.strings = c("", NA))
 ```
 
 ```{r}
@@ -431,14 +431,11 @@ remove intersex subj, dummy-code sex and sex*age, add totals for CT and SA
 ```{r}
 unique(df_with_slip$sex)
 sum(is.na(df_with_slip$sex))
-
-df_filt1 <- df_with_slip %>%
-  filter(study != "SYS-Adolescents")  #weird bad sGMV values, removing
 ```
 
 ```{r}
 #get starting counts
-df_filt1 %>%
+df_with_slip %>%
   mutate(is_slip = ifelse(study=="SLIP", T, F),
          INDEX.ID = paste(study, participant, sex, sep="|")) %>%
   group_by(is_slip) %>%
@@ -446,11 +443,11 @@ df_filt1 %>%
             n_subj = n_unique(INDEX.ID),
             n_study = n_unique(study))
 
-nrow(df_filt1) #starting scan count
-n_unique(df_filt1$study)
+nrow(df_with_slip) #starting scan count
+n_unique(df_with_slip$study)
 
 #keep just Male or Female, define new cols
-df_filt <- df_filt1 %>%
+df_filt <- df_with_slip %>%
   dplyr::filter(sex != "intersex" & sex != "Unknown") %>%
   mutate(sexMale = ifelse(sex=="male" | sex == "Male", 1, 0),
          sexMale_x_age = ifelse(sex=="male"| sex == "Male", age_days, 0),
@@ -464,7 +461,7 @@ df_filt <- df_filt1 %>%
          INDEX.ID = paste(study, participant, sex, sep="|")) %>%
   mutate(study_site = as.factor(stringr::str_replace(study_site, "site-site-", "site-"))) #remove duplicates
 
-nrow(df_filt) -  nrow(df_filt1)
+nrow(df_filt) -  nrow(df_with_slip)
 #skim(df_filt)
 ```
 
@@ -645,7 +642,7 @@ Splitting data into 50-50 train and testing, stratified by site and sex. Using t
 table(df_clean3$study_site, df_clean3$sexMale)
 ```
 
-going to drop small sites (<10 subjects per sex) for now, but alternatives could be grouping small sites together? 
+going to drop small sites (<10 subjects per sex)
 
 ```{r}
 valid_sites <- df_clean3 %>%
@@ -735,25 +732,40 @@ save
 #fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
 ```
 
-remove NDAR-SCZGlu
-```{r, eval=FALSE}
-samp_A_old <- fread("./data/cv_sample_A.csv")
-samp_B_old <- fread("./data/cv_sample_B.csv")
+info by study
 
-samp_A <- samp_A_old %>%
-  filter(study != "NDAR-SCZGlu")
-nrow(samp_A_old) - nrow(samp_A)
+```{r}
+full_df %>%
+  mutate(sex = ifelse(sexMale==0, "Female", "Male")) %>%
+  group_by(study, sex) %>%
+  summarise(min_age = min(age_days),
+            max_age = max(age_days)) %>%
+  mutate(min_years = (min_age-280)/365.25,
+         max_years = (max_age-280)/365.25) %>%
 
-samp_B <- samp_B_old %>%
-  filter(study != "NDAR-SCZGlu")
-nrow(samp_B_old) - nrow(samp_B)
-
-fwrite(samp_A, "./data/cv_sample_A.csv")
-fwrite(samp_B, "./data/cv_sample_B.csv")
-
-samp_A$sample <- "A"
-samp_B$sample <- "B"
-full_df <- rbind(samp_A, samp_B)
+full_demo_table <- full_df %>%
+  mutate(sex = ifelse(sexMale==0, "Female", "Male")) %>%
+  group_by(study, sex) %>%
+  summarise(
+    n_studies = n_distinct(study_site),
+    N = n(),
+    mean_age = mean((age_days - 280) / 365.25, na.rm = TRUE),
+    sd_age = sd((age_days - 280) / 365.25, na.rm = TRUE),
+    min_age = min((age_days - 280) / 365.25, na.rm = TRUE),
+    max_age = max((age_days - 280) / 365.25, na.rm = TRUE),
+    mean_surf_holes = mean(SurfaceHoles, na.rm = TRUE),
+    'Volume Pipeline' = unique(fs_version_GM),
+    'SA Pipeline' = unique(fs_version_SA),
+    'CT Pipeline' = unique(fs_version_CT),
+  ) %>%
+  mutate(
+    `N Sites` = as.character(n_studies),
+    `Age (years), Mean (SD)` = paste0(round(mean_age, 2), " (", round(sd_age, 2), ")"),
+    `Age Range (years)` = paste(round(min_age, 2), "-", round(max_age, 2)),
+  ) %>%
+   select(study, sex, `N Sites`, `N`, `Age (years), Mean (SD)`, `Age Range (years)`, 
+          'Volume Pipeline', 'SA Pipeline', 'CT Pipeline')
+write_csv(full_demo_table, "figs/supplement/study_demo_tbl.csv")
 ```
 
 demographics by split
@@ -942,17 +954,6 @@ df_pt_recode2 <- df_pt_recode %>%
   filter(!(study=="UKB" & (dx_recode=="ASD" | dx_recode=="SCZ")))
   
 #fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
-```
-
-remove NDAR-SCZGlu
-```{r}
-valid_sites <- unique(full_df$study_site)
-df_pt_recode2_old <- fread("./data/v3_pts_cleaned.csv")
-df_pt_recode2 <- df_pt_recode2_old %>%
-  filter(study != "NDAR-SCZGlu")
-nrow(df_pt_recode2_old) - nrow(df_pt_recode2)
-
-fwrite(df_pt_recode2, "./data/v3_pts_cleaned.csv")
 ```
 
 site-match to controls
