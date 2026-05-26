@@ -624,16 +624,6 @@ write out full dataframe
 #fwrite(df_clean, "./data/v3_CN_cleaned.csv")
 ```
 
-remove NDAR-SCZGlu
-```{r}
-df_clean_old <- fread("./data/v3_CN_cleaned.csv")
-df_clean <- df_clean_old %>%
-  filter(study != "NDAR-SCZGlu")
-nrow(df_clean_old) - nrow(df_clean)
-
-fwrite(df_clean, "./data/v3_CN_cleaned.csv")
-```
-
 ###Split for CV Modeling
 
 Splitting data into 50-50 train and testing, stratified by site and sex. Using this [reference](https://stackoverflow.com/questions/74573270/stratified-data-splitting-in-r).

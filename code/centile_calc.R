@@ -122,3 +122,4 @@ fwrite(df_cn, file=paste0(save_path, "/cent_csvs/", pheno, "_CN_", dx_val, "_cen
 df_pt <- df_full_cent %>%
   filter(dx_recode!=cn_level)
 fwrite(df_pt, file=paste0(save_path, "/cent_csvs/", pheno, "_PT_", dx_val, "_cent.csv"))
+print(paste("N cases:", nrow(df_pt)))

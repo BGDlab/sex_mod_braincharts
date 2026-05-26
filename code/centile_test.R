@@ -63,7 +63,7 @@ print(length(pt_df_list))
 
 pt_df <- pt_df_list %>% purrr::reduce(dplyr::full_join, by = c("INDEX.ID", "sex", "dx_recode"))
 stopifnot(nrow(pt_df) == length(unique(pt_df$INDEX.ID)))
-fwrite(pt_df, paste0(save_path, dx_val, "_total", total, "_mean_scores.csv")) #figure out where to save
+fwrite(pt_df, paste0(save_path, dx_val, "_total", total, "_mean_scores.csv"))
 
 cn_df_list <- c()
 ##READ IN CONTROLS
