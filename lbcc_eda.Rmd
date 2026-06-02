@@ -707,7 +707,7 @@ samp_plt <- full_df %>%
   geom_rain(alpha=.4) +
   scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
   theme_linedraw() +
-  labs(color = "Sex", y="Age (years)", x="Subset")
+  labs(color = "Sex", y="Age (years)", x="Split-Half")
 ggsave("figs/supplement/cv_samples.png", samp_plt)
 
 #confirm correct sites
@@ -722,17 +722,11 @@ save
 #fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
 ```
 
+
+####Demo Tables & Figs
 info by study
 
 ```{r}
-full_df %>%
-  mutate(sex = ifelse(sexMale==0, "Female", "Male")) %>%
-  group_by(study, sex) %>%
-  summarise(min_age = min(age_days),
-            max_age = max(age_days)) %>%
-  mutate(min_years = (min_age-280)/365.25,
-         max_years = (max_age-280)/365.25) %>%
-
 full_demo_table <- full_df %>%
   mutate(sex = ifelse(sexMale==0, "Female", "Male")) %>%
   group_by(study, sex) %>%
@@ -784,7 +778,6 @@ cv_demo_table <- full_df %>%
   pivot_longer(-sample, names_to = "Statistic", values_to = "value") %>%
   pivot_wider(names_from = sample, values_from = "value") %>%
   gt(rowname_col = "Statistic") %>%
-  tab_header(title = "Table S1. Demographics by Subsample") %>%
   tab_options(
     table.font.size = 12,
     heading.title.font.size = 14,
@@ -822,7 +815,6 @@ cv_demo_table <- full_df %>%
   pivot_longer(-sample, names_to = "Statistic", values_to = "value") %>%
   pivot_wider(names_from = sample, values_from = "value") %>%
   gt(rowname_col = "Statistic") %>%
-  tab_header(title = "Table S2. Demographics by Subsample with Surface Holes Data") %>%
   tab_options(
     table.font.size = 12,
     heading.title.font.size = 14,
@@ -841,7 +833,7 @@ samp_plt <- full_df %>%
   geom_rain(alpha=.4) +
   scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
   theme_linedraw() +
-  labs(color = "Sex", y="Age (years)", x="Subset")
+  labs(color = "Sex", y="Age (years)", x="Split-Half")
 ggsave("figs/supplement/cv_samples_surfhole.png", samp_plt)
 
 #check min age
