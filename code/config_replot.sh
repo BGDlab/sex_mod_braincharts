@@ -26,7 +26,6 @@ if [[ -z "$total" || -z "$log_age" || -z "$train_test" ]]; then
 fi
 
 # Print arguments
-echo "log scale pheno = $log_pheno"
 echo "include total value = $total"
 echo "train or test model = $train_test"
 echo "log scale age = $log_age"
