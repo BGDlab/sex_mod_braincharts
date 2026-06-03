@@ -42,20 +42,36 @@ pheno <- model$mu.terms[[2]] %>% as.character()
 
 pred_list <- list_predictors(model)
 
-#check if age is log-scaled
+# pick age var
 if ("logAge_days" %in% pred_list){
-  age_var <- "logAge_days"
-  print("simulate data for plotting")
-  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+  age_var      <- "logAge_days"
+  sex_age_term <- "sexMale_x_logAge = sexMale * logAge_days"
   vars_of_interest <- c("sexMale_x_logAge", age_var, "sexMale")
 } else {
-  print("simulate data for plotting")
-  age_var <- "age_days"
-  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
+  age_var      <- "age_days"
+  sex_age_term <- "sexMale_x_age = sexMale * age_days"
   vars_of_interest <- c("sexMale_x_age", age_var, "sexMale")
 }
 
-#define nuisance covars to residualize from points
+# build special_term; if total-corrected, hold the total var at 0 for plotting
+special_term <- sex_age_term
+if (isTRUE(total)){
+  total_candidates <- c("TBV", "mean.CT", "total.SA")
+  total_var <- intersect(total_candidates, pred_list)
+  if (length(total_var) == 1){
+    special_term <- c(sex_age_term, paste0(total_var, "=0"))
+    message("total==TRUE, zeroing ", total_var, " in sim_data")
+  } else if (length(total_var) == 0){
+    warning("total==TRUE but no known total var (TBV/mean.CT/total.SA) in pred_list; not zeroing")
+  } else {
+    stop("multiple total vars in pred_list: ", paste(total_var, collapse = ", "))
+  }
+}
+
+print("simulate data for plotting")
+sim_df <- sim_data(df, age_var, factor_var = "sexMale", special_term = special_term)
+
+# residualize points
 resid_terms <- setdiff(pred_list, vars_of_interest)
     
 p <- make_centile_fan(model, df, 

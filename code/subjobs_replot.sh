@@ -32,7 +32,7 @@ echo "SAVE PATH: $SAVE_PATH"
 
 #------------------
 
-SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.12.sif"
+SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.13.sif"
 
 script=$BASE/code/replot_centiles.R
 

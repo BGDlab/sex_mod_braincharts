@@ -140,13 +140,9 @@ test_mod$call$data <- "df"
 test_mod$call$family <- test_mod$family[[1]]
 list_predictors(test_mod)
 
-sim_df1 <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+sim_df1 <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = c("sexMale_x_logAge = sexMale * logAge_days", "TBV=0"))
 vars_of_interest <- c("sexMale_x_logAge", "logAge_days", "sexMale", "TBV")
 resid_terms <- setdiff(list_predictors(test_mod), vars_of_interest)
-
-#manually set tbv to zero rather than mean
-sim_df1$'1'$TBV <- 0
-sim_df1$'0'$TBV <- 0
 
 sGMV_fan_tbv <- make_centile_fan(gamlssModel=test_mod,
                  df=df,
