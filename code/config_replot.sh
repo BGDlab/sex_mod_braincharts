@@ -111,7 +111,7 @@ do
       if [ ${#matches[@]} -eq 1 ]; then
         mod="${matches[0]}"
         # tab-delimited: csv, model, traintest, split, total, save_path
-        echo -e "$file\t$mod\t$train_test\t$split\t$total\t$save_path" >> "$config_file"
+        echo -e "$file\t$mod\t$train_test\t$total\t$save_path" >> "$config_file"
       elif [ ${#matches[@]} -eq 0 ]; then
         echo "Warning: No matching model found in '$save_dir' for '$pheno_line'" >&2
       else
@@ -126,5 +126,4 @@ do
 
   n=$(wc -l < "$config_file")
   echo "wrote $n rows to $config_file"
-  echo "submit with: sbatch --array=1-$n ./code/subjobs_replot.sh $config_file"
 done

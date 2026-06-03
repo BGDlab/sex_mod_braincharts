@@ -19,14 +19,12 @@ echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
 DF=$(awk        -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
 MODEL=$(awk     -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
 TRAINTEST=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
-SPLIT=$(awk     -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
-TOTAL=$(awk     -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
-SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
+TOTAL=$(awk     -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
+SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
 
 echo "DF: $DF"
 echo "MODEL: $MODEL"
 echo "TRAIN/TEST: $TRAINTEST"
-echo "SPLIT-HALF: $SPLIT"
 echo "TOTAL: $TOTAL"
 echo "SAVE PATH: $SAVE_PATH"
 
@@ -41,7 +39,7 @@ echo "SCRIPT: $script"
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $script "$DF" "$MODEL" "$TRAINTEST" "$SPLIT" "$TOTAL" "$SAVE_PATH"
+    Rscript $script $DF $MODEL $TRAINTEST $TOTAL $SAVE_PATH
 
 
 # Done!
