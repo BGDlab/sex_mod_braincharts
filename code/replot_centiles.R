@@ -19,11 +19,8 @@ print(args)
 df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 model <- readRDS(args[2]) #model to fit
 traintest <- as.character(args[3])
-split <- as.character(args[4])
-total <- as.logical(args[5])
-save_path <- as.character(args[6])
-
-birth <- log(280, base=10)
+total <- as.logical(args[4])
+save_path <- as.character(args[5])
 
 if (total == TRUE){
   pt_show <- FALSE
@@ -32,7 +29,7 @@ if (total == TRUE){
 }
     
 model$call$data <- "df"
-model$call$family <- "BCCG"
+model$call$family <- model$family[[1]]
     
 print(df)
 print(model)
@@ -48,24 +45,27 @@ if ("logAge_days" %in% pred_list){
   print("simulate data for plotting")
   sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
   vars_of_interest <- c("sexMale_x_logAge", age_var, "sexMale")
+  birth <- log(280, base=10)
 } else {
   print("simulate data for plotting")
   age_var <- "age_days"
   sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
   vars_of_interest <- c("sexMale_x_age", age_var, "sexMale")
+  birth <- 280
 }
 
 #define nuisance covars to residualize from points
 resid_terms <- setdiff(pred_list, vars_of_interest)
     
-p <- make_centile_fan(model, df, 
+p <- make_centile_fan(gamlssModel=model, 
+                      df=df, 
                       x_var=age_var, 
-                      color_var="sexMale", 
-                      desiredCentiles = c(0.5, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95),
+                      color_var="sexMale",
+                      get_peaks=TRUE, 
+                      desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                       sim_data_list = sim_df,
-                      show_points = pt_show,
                       remove_point_effect = resid_terms,
-                      x_scale=un_log) +
+                      x_axis="log_lifespan_fetal") +
       theme_linedraw() +
       #theme(plot.title = element_blank()) +
       xlab("Age days") +
@@ -75,9 +75,9 @@ p <- make_centile_fan(model, df,
 
 
 #name - pheno, TRAIN or TEST, _plot.png
-fname <- print(save_path, pheno, "_", traintest, "_plot.png")
-fname_rds <- print(save_path, pheno, "_", traintest, "_plot.rds")
+fname     <- file.path(save_path, paste0(pheno, "_", traintest, "_plot.png"))
+fname_rds <- file.path(save_path, paste0(pheno, "_", traintest, "_plot.rds"))
 
-print("saving plot")
+print(paste("saving plot to", fname))
 ggsave(filename = fname, plot = p, width = 8, height = 5)
 saveRDS(p, fname_rds)
