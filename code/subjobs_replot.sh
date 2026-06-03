@@ -1,10 +1,11 @@
 #!/bin/bash
 #
 #SBATCH --job-name=replots
-#SBATCH --time=24:00:00
+#SBATCH --time=2:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=5G
+#SBATCH --mem-per-cpu=7G
+#SBATCH --array=1-241
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_plot/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_plot/R-%A_%a.err
 
@@ -20,17 +21,19 @@ DF=$(awk        -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}'
 MODEL=$(awk     -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
 TRAINTEST=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
 TOTAL=$(awk     -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
-SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
+SPLIT=$(awk     -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
+SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
 
 echo "DF: $DF"
 echo "MODEL: $MODEL"
 echo "TRAIN/TEST: $TRAINTEST"
 echo "TOTAL: $TOTAL"
+echo "SPLIT: $SPLIT"
 echo "SAVE PATH: $SAVE_PATH"
 
 #------------------
 
-SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.13.sif"
+SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.14.sif"
 
 script=$BASE/code/replot_centiles.R
 
@@ -39,7 +42,7 @@ echo "SCRIPT: $script"
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $script $DF $MODEL $TRAINTEST $TOTAL $SAVE_PATH
+    Rscript $script $DF $MODEL $TRAINTEST $TOTAL $SPLIT $SAVE_PATH
 
 
 # Done!

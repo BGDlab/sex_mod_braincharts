@@ -111,7 +111,7 @@ do
       if [ ${#matches[@]} -eq 1 ]; then
         mod="${matches[0]}"
         # tab-delimited: csv, model, traintest, split, total, save_path
-        echo -e "$file\t$mod\t$train_test\t$total\t$save_path" >> "$config_file"
+        echo -e "$file\t$mod\t$train_test\t$total\t$split\t$save_path" >> "$config_file"
       elif [ ${#matches[@]} -eq 0 ]; then
         echo "Warning: No matching model found in '$save_dir' for '$pheno_line'" >&2
       else
