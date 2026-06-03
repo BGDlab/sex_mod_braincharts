@@ -75,9 +75,10 @@ p <- make_centile_fan(model, df,
 
 
 #name - pheno, TRAIN or TEST, _plot.png
-fname <- print(save_path, pheno, "_", traintest, "_plot.png")
-fname_rds <- print(save_path, pheno, "_", traintest, "_plot.rds")
+fname     <- file.path(save_path, paste0(pheno, "_", traintest, "_plot.png"))
+fname_rds <- file.path(save_path, paste0(pheno, "_", traintest, "_plot.rds"))
 
-print("saving plot")
+print(paste("saving plot to", fname))
+dir.create(save_path, showWarnings = FALSE, recursive = TRUE)
 ggsave(filename = fname, plot = p, width = 8, height = 5)
 saveRDS(p, fname_rds)
