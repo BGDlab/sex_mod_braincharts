@@ -56,7 +56,7 @@ sbatch code/subjobs_cv_mods_test.sh ./code/config_files/cv_sample_B_totalTRUE_lo
 5. Compile and visualize results, trajectory analyses: `review_test_models.Rmd`
 
 ### Sensitivity Analyses: Weighting by SurfaceHoles
-1. Prepare each split-half for model training: `sensitivity_df_prep.Rmd`
+1. Prepare each split-half for model training: `code/sensitivity_df_prep.Rmd`
 2. Train models weighted by QC: `code/config_cv_mods_weighted.sh`, `code/fit_cv_mods_weighted.R`, `code/subjobs_cv_mods_weighted.sh`
 ```
 #sex-moderated models
@@ -91,7 +91,7 @@ sbatch code/subjobs_cv_mods_test_weighted.sh ./code/config_files/cv_sample_A_tot
 sbatch code/subjobs_cv_mods_test_weighted.sh ./code/config_files/cv_sample_B_totalTRUE_logAgeTRUE_weighted_test_config.txt
 ```
 
-4. Compile and visualize results: `review_test_models.Rmd`
+4. Compile and visualize results: `review_centile_test.Rmd`
 
 ## Case-Control Analyses of Normative Scores
 1. Derive normative scores from each split-half's sex-moderated model: `code/subjobs_centile_calc.sh`, `code/centile_calc.R`, `code/config_centile_calc.sh`
@@ -115,9 +115,11 @@ Main manuscript figures were assembled using `format_figures.Rmd`.
 Nicely formatted centile fan plots were created using: `code/config_replot.sh`, `code/replot_centiles.R`, `code/subjobs_replot.sh`. These plots were compiled into the supplemental PDF using `code/plot_all_phenotypes_train_vs_test.R`.
 The supplemental PDF showing sex bias trajectories in median and variability for each phenotype was created using `code/replot_diff_trajectories.R`.
 
-Other scripts used for plotting, 
-formatting, and viewing figures are `code/grab_pngs.R`,
-`code/plot_cv_brain.R`, and `code/subjob_grab_pngs.sh`.
+Other scripts used for plotting, formatting, and viewing figures are `code/grab_pngs.R`, `code/plot_cv_brain.R`, and `code/subjob_grab_pngs.sh`.
 
 ## Misc
-The following scripts are used to check outputs: `code/check_errors.sh`, `code/config_check_convergence.sh`, `code/subjobs_check_convergence.sh`
+- `code/gamlss_fit_funs.R`: helper functions used to fit gamlss models
+- `code/check_errors.sh`: check errors from SLURM jobs
+- `code/centile_cor.R`: check correlations between reference/normative scores derived from each split-half test model
+- `code/config_check_convergence.sh`, `code/check_convergence.R`, `code/subjobs_check_convergence.sh`: stand-alone checks that models converged successfully
+- `code/test_rs_integral.R`: unit test for function calculating Riemann-Stieltjes integral `rs_integral()`
