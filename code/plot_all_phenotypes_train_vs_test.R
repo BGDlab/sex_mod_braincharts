@@ -9,13 +9,12 @@ library(png)
 
 base_dir <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
 
-# Phenotype universe
 sa_list     <- readRDS(file.path(base_dir, "pheno_lists/cortical_surf.rds"))
 ct_list     <- readRDS(file.path(base_dir, "pheno_lists/cortical_thickness.rds"))
 vol_list    <- readRDS(file.path(base_dir, "pheno_lists/cortical_vols.rds"))
 global_list <- readRDS(file.path(base_dir, "pheno_lists/global_vols.rds"))
 sub_list    <- readRDS(file.path(base_dir, "pheno_lists/subcortical_vols.rds"))
-pheno_list  <- c(sa_list, ct_list, vol_list, global_list, sub_list)
+pheno_list  <- c(global_list, sub_list, vol_list, sa_list, ct_list)
 
 directions <- list(
   list(train = "A", test = "B"),
@@ -30,9 +29,10 @@ find_png <- function(sample, role, total, pheno) {
     base_dir,
     sprintf("cv_sample_%s_%s", sample, role),
     sprintf("*_total%s*logAgeTRUE_pbmods", total),
-    "replots",
-    sprintf("%s_plot.png", pheno)
+    "replot",
+    sprintf("%s_*_plot.png", pheno)
   )
+  #print(pattern)
   hits <- Sys.glob(pattern)
   hits <- hits[!grepl("weighted", hits, fixed = TRUE)]
   if (length(hits) == 0) NA_character_ else hits[1]

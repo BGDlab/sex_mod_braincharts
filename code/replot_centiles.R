@@ -32,9 +32,7 @@ if (total == TRUE){
     
 model$call$data <- "df"
 model$call$family <- model$family[[1]]
-    
-print(df)
-print(model)
+
   
 #CENTILE FAN PLOT
 pheno <- model$mu.terms[[2]] %>% as.character()
@@ -88,6 +86,7 @@ p <- make_centile_fan(gamlssModel=model,
                       desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
                       show_points=pt_show,
                       sim_data_list = sim_df,
+                      label_centiles = "legend",
                       point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
                       color_manual = c('0' = "#c05f0d", '1' = "#38688D"),
                       remove_point_effect = resid_terms,
