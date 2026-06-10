@@ -54,7 +54,7 @@ do
   
   #make dir to save each pheno's filtered test df
   df_savedir=$data_path/cv_sample_${split}_age2plus
-  if ! [ -d $df_savedir]
+  if ! [ -d $df_savedir ]
   then
     mkdir $df_savedir
   fi
