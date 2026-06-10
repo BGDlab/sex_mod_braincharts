@@ -55,6 +55,15 @@ valid_sites <- unique(df.og$study_site)
 # print(length(all_list))
 # print(all_list)
 
+# age2plus models are only fit on age_days >= 2yr + 280d gestation (see sensitivity_df_prep.Rmd),
+# so drop younger patients to avoid extrapolated centiles
+if (grepl("age2plus_", mod_path)) {
+  two_yrs <- 365.25 * 2 + 280
+  n_pre <- nrow(df)
+  df <- df %>% dplyr::filter(age_days >= two_yrs)
+  print(paste0("age2plus mode: filtered patient df from ", n_pre, " to ", nrow(df), " rows (age_days >= ", two_yrs, ")"))
+}
+
 #drop extra variables
 df_clean <- df %>%
   dplyr::select(all_of(all_list)) %>%
