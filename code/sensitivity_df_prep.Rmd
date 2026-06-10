@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 ```
 
-Prep split-half dataframes for sensitivity analyses with stricter scan QC
+Prep split-half dataframes for sensitivity analyses
 
 ```{r, warning=FALSE}}
 if(!require('pacman')) {
@@ -17,6 +17,8 @@ if(!require('pacman')) {
 }
 pacman::p_load(data.table, ggplot2, dplyr)
 ```
+
+##Weighting by Euler
 
 load data cleaned data
 ```{r}
@@ -127,7 +129,26 @@ og_splits %>%
 ```
 
 save
-```{r}
+```{r, eval=FALSE}
 fwrite(og_sample_A_weight, "./data/cv_sample_A_euler.csv")
 fwrite(og_sample_B_weight, "./data/cv_sample_B_euler.csv")
+```
+
+##Cortical Thickness without Infants
+Rerun CT in ages 2+
+
+```{r}
+two_yrs <- 365.25*2 + 280
+og_sample_A_age2plus <- og_sample_A %>%
+  filter(age_days >= two_yrs)
+stopifnot(table(og_sample_A_age2plus$fs_version_CT)[["FSInfant"]] ==0)
+
+og_sample_B_age2plus <- og_sample_B %>%
+  filter(age_days >= two_yrs)
+stopifnot(table(og_sample_B_age2plus$fs_version_CT)[["FSInfant"]] ==0)
+```
+
+```{r, eval=FALSE}
+fwrite(og_sample_A_age2plus, "./data/cv_sample_A_age2plus.csv")
+fwrite(og_sample_B_age2plus, "./data/cv_sample_B_age2plus.csv")
 ```

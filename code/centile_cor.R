@@ -3,6 +3,7 @@ library(data.table)
 library(dplyr)
 library(purrr)
 library(EnvStats)
+library(ggplot2)
 
 #set paths
 base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
@@ -13,8 +14,12 @@ dx_levels    <- c("ADHD", "ALZ", "ASD", "GAD", "MDD", "SCZ")
 total_levels <- c("TRUE", "FALSE")
 
 #get pheno list
-lists <- list.files(paste0(base_path, "pheno_lists"), pattern = "\\.rds$", full.names = TRUE)
-pheno_list <- do.call(c, lapply(lists, readRDS))
+sa_list     <- readRDS(file.path(base_path, "pheno_lists/cortical_surf.rds"))
+ct_list     <- readRDS(file.path(base_path, "pheno_lists/cortical_thickness.rds"))
+vol_list    <- readRDS(file.path(base_path, "pheno_lists/cortical_vols.rds"))
+global_list <- readRDS(file.path(base_path, "pheno_lists/global_vols.rds"))
+sub_list    <- readRDS(file.path(base_path, "pheno_lists/subcortical_vols.rds"))
+pheno_list  <- c(global_list, sub_list, vol_list, sa_list, ct_list)
 
 fread_filt <- function(f, string, split){
   fread(f) %>%
@@ -78,18 +83,40 @@ all_results <- rbindlist(
   fill = TRUE
 )
 
+all_results <- all_results %>% 
+  mutate(pheno_cat = factor(case_when(
+    pheno %in% global_list ~ "Global Vol",
+    pheno %in% vol_list ~ "Regional Vol",
+    pheno %in% sub_list ~ "Subcortical Vol",
+    pheno %in% sa_list ~ "Regional SA",
+    pheno %in% ct_list ~ "Regional CT",
+    TRUE ~ NA_character_)))
+
 #combined output
 fwrite(all_results, paste0(save_path, "split_correlations_ALL.csv"))
 
-p <- all_results %>%
+all_results %>%
   group_by(total, dx, measure) %>%
   summarise(mean_r=mean(r)) %>%
   ggplot() +
   geom_col(aes(x=measure, y=mean_r, fill=dx), position="dodge") +
   facet_wrap(~total)
 
-p <- all_results %>%
+all_results %>%
   group_by(total, dx, measure) %>%
   ggplot() +
   geom_boxplot(aes(x=measure, y=r, fill=dx), position="dodge") +
   facet_wrap(~total)
+
+all_results %>%
+  group_by(total, pheno_cat, measure) %>%
+  ggplot() +
+  geom_boxplot(aes(x=measure, y=r, fill=pheno_cat), position="dodge") +
+  facet_wrap(~total)
+
+#lowest corr
+all_results %>%
+  filter(total==TRUE) %>%
+  group_by(measure, pheno) %>%
+  summarise(mean_r=mean(r)) %>%
+  slice_min(mean_r, n = 10)
