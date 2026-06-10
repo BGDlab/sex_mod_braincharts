@@ -17,6 +17,7 @@ full_df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
 base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 total <- as.character(args[4])
+df_save_path <- as.character(args[5])
 
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("train", "test", filename_no_ext)
@@ -52,6 +53,11 @@ if (total == "FALSE"){
   na.omit() %>%
     trunc_coverage(c(total, age_var)) #drop points at ends if too sparse
 }
+
+#write out dataframe
+total_tf <- ifelse(total=="FALSE", "FALSE", "TRUE")
+df_filename <- paste0(df_save_path,"/", pheno, "_total", total_tf, "_test_df.csv")
+fwrite(df, df_filename)
 
 ##### FIT TEST MODEL #####
 #check if this pheno is already run, and if so, load
