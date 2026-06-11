@@ -281,20 +281,21 @@ plot_cv_brain <- function(df,
                           height_list = c(1.03, 4.5, .93),
                           return_plt = TRUE,
                           include_global = TRUE,
+                          include_subcort = TRUE,
                           rel_widths = c(3, .6),
                           direction = 1,
                           fill_values = NULL,
                           legend_position = "right",
                           keep_levels = FALSE) {
   show_cv_labels <- !include_global
-  
+
   # define legend_margin first so it's available everywhere below
   legend_margin <- if (legend_position == "bottom") {
     ggplot2::margin(5, 0, 0, 0)
   } else {
     ggplot2::margin(0, 0, 0, 5)
   }
-  
+
   cortex_plt <- plot_cortex(
     df, {{ fill_var }}, facet_var,
     show_cv_facet_labels = show_cv_labels,
@@ -303,9 +304,11 @@ plot_cv_brain <- function(df,
   )
   cortex_plt <- format_fill_var(df, {{ fill_var }}, cortex_plt, fill_name, fill_color, fill_limits, direction, fill_values, keep_levels = keep_levels)
 
-  subcort_plt <- plot_subcortex(df, {{ fill_var }}, facet_var, keep_levels = keep_levels)
-  subcort_plt <- format_fill_var(df, {{ fill_var }}, subcort_plt, fill_name, fill_color, fill_limits, direction, fill_values, keep_levels = keep_levels)
-  
+  if (include_subcort) {
+    subcort_plt <- plot_subcortex(df, {{ fill_var }}, facet_var, keep_levels = keep_levels)
+    subcort_plt <- format_fill_var(df, {{ fill_var }}, subcort_plt, fill_name, fill_color, fill_limits, direction, fill_values, keep_levels = keep_levels)
+  }
+
   # build a dummy plot using the full dataset to ensure all levels appear in legend
   dummy_plt <- ggplot2::ggplot(df, ggplot2::aes(x = 1, y = 1, fill = {{ fill_var }})) +
     ggplot2::geom_tile() +
@@ -329,33 +332,34 @@ plot_cv_brain <- function(df,
     glob_plt <- plot_global(df, {{ fill_var }}, facet_var, legend_position = legend_position, keep_levels = keep_levels)
     glob_plt <- format_fill_var(df, {{ fill_var }}, glob_plt, fill_name, fill_color, fill_limits, direction, fill_values, keep_levels = keep_levels)
   }
-  
+
   if (return_plt == TRUE) {
-    if (include_global) {
+    if (include_global & include_subcort) {
       plts <- cowplot::plot_grid(
-        glob_plt,
-        cortex_plt,
-        subcort_plt,
-        ncol = 1,
-        nrow = 3,
+        glob_plt, cortex_plt, subcort_plt,
+        ncol = 1, nrow = 3,
         rel_heights = height_list,
-        align = "v",
-        axis = "lr",
-        greedy = TRUE
+        align = "v", axis = "lr", greedy = TRUE
+      )
+    } else if (!include_global & include_subcort) {
+      plts <- cowplot::plot_grid(
+        cortex_plt, subcort_plt,
+        ncol = 1, nrow = 2,
+        rel_heights = height_list,
+        align = "v", axis = "lr", greedy = TRUE
+      )
+    } else if (include_global & !include_subcort) {
+      plts <- cowplot::plot_grid(
+        glob_plt, cortex_plt,
+        ncol = 1, nrow = 2,
+        rel_heights = height_list,
+        align = "v", axis = "lr", greedy = TRUE
       )
     } else {
-      plts <- cowplot::plot_grid(
-        cortex_plt,
-        subcort_plt,
-        ncol = 1,
-        nrow = 2,
-        rel_heights = height_list,
-        align = "v",
-        axis = "lr",
-        greedy = TRUE
-      )
+      #cortex-only: skip plot_grid so a length-3 height_list default doesn't error
+      plts <- cortex_plt
     }
-    
+
     if (legend_position == "bottom") {
       full_plt_obj <- cowplot::plot_grid(
         plts, legend,
@@ -370,14 +374,13 @@ plot_cv_brain <- function(df,
         rel_widths = rel_widths
       )
     }
-    
+
     return(full_plt_obj)
   } else {
-    if (include_global) {
-      plt_list <- list(glob_plt, cortex_plt, subcort_plt, legend)
-    } else {
-      plt_list <- list(cortex_plt, subcort_plt, legend)
-    }
-    return(plt_list)
+    panels <- list()
+    if (include_global) panels <- c(panels, list(glob_plt))
+    panels <- c(panels, list(cortex_plt))
+    if (include_subcort) panels <- c(panels, list(subcort_plt))
+    return(c(panels, list(legend)))
   }
 }
