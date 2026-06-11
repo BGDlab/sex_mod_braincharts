@@ -99,7 +99,7 @@ all_results <- rbindlist(
 
 all_results <- all_results %>%
   mutate(pheno_cat = factor(case_when(
-    pipeline == "age2plus" & pheno %in% ct_list ~ "Regional CT (age2plus)",
+    pipeline == "age2plus" & pheno %in% ct_list ~ "Regional CT (Age 2+)",
     pheno %in% global_list ~ "Global Vol",
     pheno %in% vol_list ~ "Regional Vol",
     pheno %in% sub_list ~ "Subcortical Vol",
@@ -123,11 +123,15 @@ all_results %>%
   geom_boxplot(aes(x=measure, y=r, fill=dx), position="dodge") +
   facet_wrap(~total)
 
-all_results %>%
+facet_labels <- c("centile" = "Centile", "std_score" = "Centile Z-score")
+p <- all_results %>%
   group_by(total, pheno_cat, measure) %>%
   ggplot() +
-  geom_boxplot(aes(x=measure, y=r, fill=pheno_cat), position="dodge") +
-  facet_wrap(~total)
+  geom_boxplot(aes(x=total, y=r, fill=pheno_cat), position="dodge") +
+  facet_wrap(~measure, labeller = labeller(measure = facet_labels)) +
+  labs(fill="IDP Category", x="Total-Size Corrected") +
+  theme_bw()
+ggsave("figs/supplement/centile_cor.png", p, bg = "white")
 
 #lowest corr
 all_results %>%
