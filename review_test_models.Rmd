@@ -642,13 +642,13 @@ LR.df_plot %>%
             mean_resi = mean(sig_resi, na.rm=T)) %>%
   mutate(pct_sig = (n_sig/n)*100)
 
-#find phenos where both weighted and unweighted are significant
+#find phenos where both 2+ and full CT models are significant
 LR.df_agree <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all" & age2plus == FALSE) %>%
+  dplyr::filter(total==TRUE & effect=="sex_all" & weighted==FALSE & pheno_cat=="Regional CT") %>%
   group_by(cv_sample, pheno) %>%
   filter(
     all(sig_fdr == TRUE) &        # all rows must be sig
-    n_distinct(weighted) == 2     # both levels of weighted must be present
+    n_distinct(age2plus) == 2     # both levels of weighted must be present
   ) %>%
   ungroup()
 
@@ -704,15 +704,16 @@ fwrite(LR_table, "figs/supplement/significance_test_results.csv")
 Read in sexdiff csvs
 ```{r}
 sex_diffs_paths <- Sys.glob(file.path(test_path, "cent_csvs/*_sexdiffs.csv"))
-stopifnot(length(sex_diffs_paths) <= (length(pheno_list)*2*2*2))+(68*2) #two splits, weighted & unweighted, uniform and not uniform
+sex_diffs_paths <- sex_diffs_paths[stringr::str_detect(sex_diffs_paths, "totalTRUE")] #only total-size-corrected
+
+stopifnot(length(sex_diffs_paths) <= (length(pheno_list)*2*2*2) + (68*2)) #two splits, weighted & unweighted, uniform and not uniform, plus age2plus CT (68 phenos * 2 splits)
 
 # Read all matching CSVs
 output_fread_sd <- lapply(sex_diffs_paths, fread)
 length(output_fread_sd)
 names(output_fread_sd) <- sex_diffs_paths
-#stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
 
-sexdiffs.df_all <- bind_rows(output_fread_sd, .id="file") %>%
+sexdiffs_tbv_all <- bind_rows(output_fread_sd, .id="file") %>%
   mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
          weighted = stringr::str_detect(file, "weight"),
@@ -737,140 +738,17 @@ sexdiffs.df_all <- bind_rows(output_fread_sd, .id="file") %>%
   mutate(deriv_M_minus_F_z.unlog = deriv_M_minus_F_z*deriv_age,
          deriv_logcv_M_div_F.unlog = deriv_logcv_M_div_F*deriv_age)
 
-sexdiffs.df <- sexdiffs.df_all %>% filter(uniform==FALSE)
-sexdiffs.df.u <- sexdiffs.df_all %>% filter(uniform==TRUE)
+sexdiffs.df <- sexdiffs_tbv_all %>% filter(uniform==FALSE)
+sexdiffs.df.u <- sexdiffs_tbv_all %>% filter(uniform==TRUE)
 
 
 rm(output_fread_sd) #save space
-rm(sexdiffs.df_all)
 ```
 
 write out separate dfs
 ```{r}
-sexdiffs_tbv <- sexdiffs.df %>%
+sexdiffs_tbv <- sexdiffs_tbv_all %>%
   filter(weighted==FALSE & total==TRUE & age2plus == FALSE)
-
-sexdiffs_tbv_all <- sexdiffs.df %>%
-  filter(total==TRUE)
-
-sexdiffs <- sexdiffs.df %>%
-  filter(weighted==FALSE & total==FALSE & age2plus == FALSE)
-```
-
-Plot
-
-```{r, eval=FALSE}
-for (df in list(sexdiffs_tbv, sexdiffs)){
-  t <- as.character(unique(df$total))
-  print(t)
-  
-  #median centile
-  cent_df <- df %>%
-    dplyr::select(centile_M_minus_F, pheno, logAge_days, pheno_cat, cv_sample, centile_M_minus_F_z) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days)
-  
-  cent_plt <- cent_df %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
-    labs(y="50th Centile Sex-Difference")
-  n <- paste0("figs/misc/sexdiffs_tbv",t,"_cent.png")
-  ggsave(n, cent_plt)
-  print(cent_plt)
-  
-  cent_plt2 <- cent_df %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-    format_x_axis("log_lifespan_fetal", cent_df$logAge_days) +
-    labs(y="Scaled 50th Centile Sex-Difference")
-  
-  print(cent_plt2)
-  n <- paste0("figs/misc/sexdiffs_tbv",t,"_cent_scaled.png")
-  ggsave(n, cent_plt2)
-
-  #sigma
-  sig_df <- df %>%
-    dplyr::select(logcv_M_div_F, pheno, logAge_days, pheno_cat, cv_sample) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days)
-  
-  sig_plt <- sig_df %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=logcv_M_div_F, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-    format_x_axis("log_lifespan_fetal", sig_df$logAge_days) +
-    labs(y="log CV Ratio")
-  print(sig_plt)
-  n <- paste0("figs/misc/sexdiffs_tbv",t,"_cv.png")
-  ggsave(n, sig_plt)
-  
-  #derivatives
-  deriv_df <- df %>%
-    dplyr::select(deriv_M_minus_F_z, pheno, logAge_days, pheno_cat, cv_sample, deriv_M_minus_F) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days)
-  
-  deriv_plt <- deriv_df %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=deriv_M_minus_F, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-    format_x_axis("log_lifespan_fetal", deriv_df$logAge_days) +
-    labs(y="50th Centile Difference Derivative")
-  print(deriv_plt)
-  n <- paste0("figs/misc/sexdiffs_tbv",t,"_deriv.png")
-  ggsave(n, deriv_plt)
-  
-  deriv_plt2 <- deriv_df %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=deriv_M_minus_F_z, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-    format_x_axis("log_lifespan_fetal", deriv_df$logAge_days) +
-    labs(y="Scaled 50th Centile Difference Derivative")
-  print(deriv_plt2)
-  
-  n <- paste0("figs/misc/sexdiffs_tbv",t,"_deriv_scaled.png")
-  ggsave(n, deriv_plt2)
-}
-```
-
-interactive plots
-```{r, eval=FALSE}
-cent_plt <- sexdiffs_tbv %>%
-  dplyr::select(centile_M_minus_F_z, pheno, logAge_days, pheno_cat, cv_sample) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days) %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-    labs(y="Scaled 50th Centile Sex-Difference")
-ggplotly(cent_plt)
-
-deriv_plt <- sexdiffs_tbv %>%
-  dplyr::select(deriv_M_minus_F_z, pheno, logAge_days, pheno_cat, cv_sample) %>%
-    na.omit() %>%
-    arrange(pheno, logAge_days) %>%
-    ggplot() +
-    geom_line(aes(x=logAge_days, y=deriv_M_minus_F_z, group=pheno, color=pheno)) +
-    facet_grid(pheno_cat~cv_sample, scales="free_y") +
-    theme_linedraw() +
-    theme(legend.position = "none") +
-    labs(y="Scaled 50th Centile Difference Derivative")
-ggplotly(deriv_plt)
 ```
 
 ###Plots

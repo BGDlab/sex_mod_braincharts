@@ -63,23 +63,9 @@ fwrite(df, df_filename)
 #check if this pheno is already run, and if so, load
 model <- NULL
 
-if (file.exists(file_full)){
-  print("loading pre-fit model")
-  model <- tryCatch({readRDS(file_full)
-  }, error = function(e){
-    message(e$message, "- trying again")
-    tryCatch({readRDS(file_full)
-    }, error = function(e){
-      message(e$message, "- refit")
-      NULL
-    })
-  })
-}
-if (is.null(model)){
-  model <- gamlss_lambda_rep(base_mod, 
+model <- gamlss_lambda_rep(base_mod, 
                              null_mod="false",
                              keep_lambdas=TRUE)
-}
 
 #if model isn't fit, skip to next loop
 if (is.null(model)) {

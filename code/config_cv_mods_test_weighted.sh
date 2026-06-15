@@ -48,6 +48,14 @@ do
     fi
   
     touch $config_file
+    
+  #make dir to save each pheno's filtered test df
+  df_savedir=$data_path/cv_sample_${split}_euler
+  if ! [ -d $df_savedir ]
+  then
+    mkdir $df_savedir
+  fi
+  df_savedir=$(realpath $df_savedir)
   
   #get split df
   file=$(realpath $data_path/cv_sample_${split}_euler.csv)
@@ -119,7 +127,7 @@ do
           og_mod=$(realpath "${matches[0]}")
           
           # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$og_mod\t$save_path\t$tot" >> "$config_file"
+          echo -e "$file\t$og_mod\t$save_path\t$tot\t$df_savedir" >> "$config_file"
         elif [ ${#matches[@]} -eq 0 ]; then
           echo "Warning: No matching file found in '$search_path' for prefix '$pheno_line' and suffix 'weighted.rds'" >&2
           #exit 1
