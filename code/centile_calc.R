@@ -64,6 +64,10 @@ if (grepl("age2plus_", mod_path)) {
   print(paste0("age2plus mode: filtered patient df from ", n_pre, " to ", nrow(df), " rows (age_days >= ", two_yrs, ")"))
 }
 
+if (grepl("weighted_", mod_path)) {
+  print("weighted mode: using QC-weighted training model for centile calculation")
+}
+
 #drop extra variables
 df_clean <- df %>%
   dplyr::select(all_of(all_list)) %>%
