@@ -20,6 +20,7 @@ MODEL=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CO
 SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
 TBV=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CONFIGFN )
 DF_SAVE_DIR=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
+SIMDF=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
 
 
 echo "DF: $DF"
@@ -27,6 +28,7 @@ echo "TRAINING MODEL: $MODEL"
 echo "SAVE_PATH: $SAVE_PATH"
 echo "TBV-corrected: $TBV"
 echo "DF SAVE DIR: $DF_SAVE_DIR"
+echo "SIM DF: $SIMDF"
 
 #------------------
 
@@ -36,7 +38,7 @@ SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/co
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $BASE/code/fit_cv_mods_test_weighted.R $DF $MODEL $SAVE_PATH $TBV $DF_SAVE_DIR
+    Rscript $BASE/code/fit_cv_mods_test_weighted.R $DF $MODEL $SAVE_PATH $TBV $DF_SAVE_DIR $SIMDF
 
 # Done!
 echo "Job finished running!"

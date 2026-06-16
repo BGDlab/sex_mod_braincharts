@@ -6,6 +6,8 @@
 data_path=./data
 config_path=./code/config_files
 pheno_lists=./pheno_lists
+#hardcoding sim df for consistency across phenos and splits
+sim_df=$(realpath $data_path/v3_full_sim.rds)
 
 rerun="FALSE"
 
@@ -127,7 +129,7 @@ do
           og_mod=$(realpath "${matches[0]}")
           
           # Write the CSV file path and the formula to the output file (tab-delimited)
-          echo -e "$file\t$og_mod\t$save_path\t$tot\t$df_savedir" >> "$config_file"
+          echo -e "$file\t$og_mod\t$save_path\t$tot\t$df_savedir\t$sim_df" >> "$config_file"
         elif [ ${#matches[@]} -eq 0 ]; then
           echo "Warning: No matching file found in '$search_path' for prefix '$pheno_line' and suffix 'weighted.rds'" >&2
           #exit 1
