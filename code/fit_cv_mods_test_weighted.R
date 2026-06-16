@@ -18,6 +18,7 @@ base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 total <- as.character(args[4])
 df_save_path <- as.character(args[5])
+sim_df_uniform <- readRDS(args[6])
 
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("train", "test", filename_no_ext)
@@ -300,7 +301,7 @@ process_sex_diffs <- function(sim_data_list,
   return(result_df)
 }
 
-# Process sim_df 
+# Process sim_df
 result_df <- process_sex_diffs(
   sim_data_list = sim_df,
   filter_by_age = FALSE
@@ -308,5 +309,14 @@ result_df <- process_sex_diffs(
 # Save results
 print("saving sex diffs")
 fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_sexdiffs.csv"))
+
+# Process sim_df_uniform for cross-pheno comparison
+result_df2 <- process_sex_diffs(
+  sim_data_list = sim_df_uniform,
+  filter_by_age = TRUE
+)
+# Save results
+print("saving uniform sex diffs")
+fwrite(result_df2, file=paste0(save_path, "/cent_csvs/", pheno, "_uniform_sexdiffs.csv"))
 
 print("SUCCESS")
