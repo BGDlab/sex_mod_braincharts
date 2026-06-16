@@ -1717,14 +1717,14 @@ plot formatting prep
 
 ```{r}
 group_values <- c("F_diverging"="#9E3D22FF", "F_converging"="#C06636FF","F_to_M" ="#E8B960FF", 
-             "M_to_F" = "#528AA9", "M_converging"="#426f89","M_diverging"="#154063","complex" = "gray40",
+             "M_to_F" = "#528AA9", "M_converging"="#426f89","M_diverging"="#154063","Complex" = "gray40",
              "NS" = "gray75")
 
 group_color_scale <- scale_colour_manual(
   values = group_values,
   breaks = c("F_diverging", "F_converging", "F_to_M", 
              "M_to_F", "M_converging", "M_diverging", 
-             "complex", "NS"),
+             "Complex", "NS"),
   labels = c("Female Diverging", "Female Converging", "Female to Male Bias", 
              "Male to Female Bias", "Male Converging", "Male Diverging", 
              "Complex", "Stable"),
@@ -1736,7 +1736,7 @@ group_fill_scale <- scale_fill_manual(
   values = group_values,
   breaks = c("F_diverging", "F_converging", "F_to_M", 
              "M_to_F", "M_converging", "M_diverging", 
-             "complex", "NS"),
+             "Complex", "NS"),
   labels = c("Female Diverging", "Female Converging", "Female to Male Bias", 
              "Male to Female Bias", "Male Converging", "Male Diverging", 
              "Complex", "Stable"),
@@ -1749,7 +1749,7 @@ group_fill_scale2 <- scale_fill_manual(
   values = group_values,
   breaks = c("F_diverging", "F_converging", "F_to_M", 
              "M_to_F", "M_converging", "M_diverging", 
-             "complex", "NS"),
+             "Complex", "NS"),
   labels = c("Female\nDiverging", "Female\nConverging", "Female to\nMale Bias", 
              "Male to\nFemale Bias", "Male\nConverging", "Male\nDiverging", 
              "Complex", "Stable"),
@@ -1768,57 +1768,125 @@ bottom_group_legend <- get_legend(
   )
 ```
 
+Plot group outputs for each value of weighted==T/F
+
 ```{r}
-group_bar_plt_total <- group_final %>%
-  group_by(cv_sample) %>% 
-  mutate(cent_group = as.character(cent_group)) %>%
-  mutate(cent_group = ifelse(sig_fdr ==TRUE, cent_group, NA)) %>%
-  mutate(cent_group = factor(cent_group, levels = names(group_values))) %>%  
-  dplyr::count(cent_group, cv_sample) %>% 
-  mutate(perc = n / sum(n)) %>% 
-  ggplot(aes(x="TOTAL", y=perc, fill=cent_group)) +
-  geom_col(position="fill") +
-  facet_wrap(~cv_sample) +
-  geom_text(aes(label = n), 
-            position = position_fill(vjust = 0.5),
-            size = 1.5) +
-  scale_y_continuous(labels=scales::percent) +
-  labs(y="Percentage") +
-  theme_linedraw() +
-  theme(legend.position = "none",
-        axis.title.x= element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  group_fill_scale
+for (w in c(FALSE, TRUE)) {
+  plot_suffix <- if (w) "_weighted" else ""
 
-group_bar_plt <- group_final %>%
-  #filter(sig_fdr==TRUE & pheno_cat != "Global Vol") %>%
-  ggplot() +
-  geom_bar(aes(x=parent_group, fill=cent_group)) +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  group_fill_scale +
-  guides(x = guide_axis(angle = 45)) +
-  labs(y="Count") +
-  theme_linedraw() +
-  theme(axis.title.x = element_blank(),
-        legend.position = "none")
+  gf  <- group_final %>% filter(weighted == w & age2plus == FALSE)
+  gtf <- group_traj_final %>% filter(weighted == w & age2plus == FALSE)
 
-group_bar_plt_all <- plot_grid(
-    group_bar_plt_total, 
-    group_bar_plt,
-    ncol = 2,
-    rel_widths = c(1,4),
-    align = "hv",
-    axis = "lr",
-    labels=c("A", "B"))
+###BARPLOTS OF COUNTS###
+  group_bar_plt_total <- gf %>%
+    group_by(cv_sample) %>% 
+    mutate(cent_group = as.character(cent_group)) %>%
+    mutate(cent_group = ifelse(sig_fdr ==TRUE, cent_group, NA)) %>%
+    mutate(cent_group = factor(cent_group, levels = names(group_values))) %>%  
+    dplyr::count(cent_group, cv_sample) %>% 
+    mutate(perc = n / sum(n)) %>% 
+    ggplot(aes(x="TOTAL", y=perc, fill=cent_group)) +
+    geom_col(position="fill") +
+    facet_wrap(~cv_sample) +
+    geom_text(aes(label = n), 
+              position = position_fill(vjust = 0.5),
+              size = 1.5) +
+    scale_y_continuous(labels=scales::percent) +
+    labs(y="Percentage") +
+    theme_linedraw() +
+    theme(legend.position = "none",
+          axis.title.x= element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank()) +
+    group_fill_scale
+  
+  group_bar_plt <- gf %>%
+    #filter(sig_fdr==TRUE & pheno_cat != "Global Vol") %>%
+    ggplot() +
+    geom_bar(aes(x=parent_group, fill=cent_group)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+    group_fill_scale +
+    guides(x = guide_axis(angle = 45)) +
+    labs(y="Count") +
+    theme_linedraw() +
+    theme(axis.title.x = element_blank(),
+          legend.position = "none")
+  
+  group_bar_plt_all <- plot_grid(
+      group_bar_plt_total, 
+      group_bar_plt,
+      ncol = 2,
+      rel_widths = c(1,4),
+      align = "hv",
+      axis = "lr",
+      labels=c("A", "B"))
+  
+  ####BRAIN PLOTS###
+  group_final_novent <- gf %>%
+  filter(!(pheno %in% vent_list))
 
-#ggsave("figs/supplement/group_bar_plt.png", group_bar_plt_all, dpi=600, height=9, width=10, bg = "white")
+  group_brain_plt <- plot_cv_brain(group_final_novent, cent_group, "Group", fill_limits=levels(group_final$cent_group), height_list=c(1.03, 4.5, .93), return_plt = FALSE, fill_values=group_values)
+  
+  group_brain_plt[[1]] <- group_brain_plt[[1]] + group_fill_scale
+  
+  group_brain_plt[[2]] <- group_brain_plt[[2]] + group_fill_scale
+  
+  group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
+  
+  plts <- cowplot::plot_grid(
+      group_brain_plt[[1]],
+      group_brain_plt[[2]],
+      group_brain_plt[[3]],
+      ncol = 1,
+      nrow = 3,
+      rel_heights = c(1.03, 4.5, .93),
+      align = "v",
+      axis = "lr",
+      greedy = TRUE
+    ) 
+    
+  ###TRAJECTORIES###
+  group_traj_full <- gtf %>%
+    filter(sig_fdr==TRUE & cent_group != "Complex") %>%
+    arrange(pheno, age_days) %>%
+    ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
+    geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+    geom_line(aes(group=pheno), alpha=.1) +
+    facet_grid(parent_group ~ cv_sample, scales="free_y") +
+    geom_smooth(method = "gam") +
+    group_color_scale +
+    reformat_x(gtf$age_days) +
+    theme_linedraw() +
+    theme(legend.position="none") +
+    labs(y="Scaled Median Sex Difference")
+  
+  #save combined group plots for supplement
+  sub_plt <- plot_grid(NULL, plts,
+                        group_traj_full,
+                        nrow=1, rel_widths =c(.1,1,2),
+                        labels=c("C", "", "D"))
+  
+  group_plot_supplement <- plot_grid(group_bar_plt_all,
+                            sub_plt,
+                            bottom_group_legend,
+                            nrow=3,
+                            ncol=1,
+                            rel_heights = c(1, 1.1, .1))
+  ggsave(paste0("figs/supplement/groups_all_plt", plot_suffix, ".png"), group_plot_supplement, dpi=300, height=16, width=16, bg = "white")
+  
+  #clear space
+  rm(group_bar_plt_total, group_bar_plt, group_bar_plt_all,
+   group_final_novent, group_brain_plt, plts,
+   group_traj_full, sub_plt, group_plot_supplement, gf, gtf)
+  gc()
+}
 ```
 
 
 ```{r}
 #just plot B
 barplt_final <- group_final %>%
+  filter(weighted==FALSE & age2plus==FALSE) %>%
   filter(cv_sample=="B" & pheno_cat != "Ventricular Vol") %>%
   mutate(parent_group = factor(case_when(
       cent_group == "NS" ~ "Stable",
@@ -1843,98 +1911,11 @@ barplt_final <- group_final %>%
   theme_linedraw() +
   theme(axis.title.x = element_blank(), legend.position = "bottom")
 saveRDS(barplt_final, "figs/ggobjs/cent_groups_barplt_B.rds")
-```
 
-brain plots
-
-```{r}
-group_final_novent <- group_final %>%
-  filter(!(pheno %in% vent_list))
-
-group_brain_plt <- plot_cv_brain(group_final_novent, cent_group, "Group", fill_limits=levels(group_final$cent_group), height_list=c(1.03, 4.5, .93), return_plt = FALSE, fill_values=group_values)
-
-group_brain_plt[[1]] <- group_brain_plt[[1]] + group_fill_scale
-
-group_brain_plt[[2]] <- group_brain_plt[[2]] + group_fill_scale
-
-group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
-
-#recreate legends
-legend <- get_legend(
-  ggplot(group_final) +
-    geom_bar(aes(x=cv_sample, fill=cent_group)) + group_fill_scale
-  )
-
-plts <- cowplot::plot_grid(
-    group_brain_plt[[1]],
-    group_brain_plt[[2]],
-    group_brain_plt[[3]],
-    ncol = 1,
-    nrow = 3,
-    rel_heights = c(1.03, 4.5, .93),
-    align = "v",
-    axis = "lr",
-    greedy = TRUE
-  ) 
-  
-full_plt_obj <- plot_grid(plts, legend, ncol=2, rel_widths = c(3, 1))
-
-#ggsave("figs/supplement/group_brain_plt.png", full_plt_obj, dpi=600, height=8.5, width=8, bg = "white")
-```
-
-plot trajectories by group
-
-```{r}
-group_traj_final %>%
-  arrange(pheno, age_days) %>%
-  ggplot(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=cent_group)) +
-  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(alpha=sig_fdr)) +
-  #gghighlight(sig_fdr==TRUE, calculate_per_facet = TRUE) +
-  #facet_grid(cent_group ~ cv_sample, scales="free_y") +
-  ggh4x:::facet_nested(cent_group ~ pheno_cat + cv_sample, scales="free_y") +
-  group_color_scale +
-  scale_alpha_manual(values=c("TRUE"=0.7, "FALSE"=0.1))+
-  theme_bw() +
-  format_x_axis("lifespan_fetal", group_traj_final$age_days)+
-  theme(legend.position="none")
-
-group_traj_full <- group_traj_final %>%
-  filter(sig_fdr==TRUE & cent_group != "complex") %>%
-  arrange(pheno, age_days) %>%
-  ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
-  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(group=pheno), alpha=.1) +
-  facet_grid(parent_group ~ cv_sample, scales="free_y") +
-  geom_smooth(method = "gam") +
-  group_color_scale +
-  reformat_x(group_traj_final$age_days) +
-  theme_linedraw() +
-  #theme(legend.position="none") +
-  labs(y="Scaled Median Sex Difference")
-#ggsave("figs/supplement/group_traj_plt.png", group_traj_full, dpi=600, height=8, width=10, bg = "white")
-```
-
-```{r}
-#save combined group plots for supplement
-sub_plt <- plot_grid(NULL, plts,
-                      group_traj_full,
-                      nrow=1, rel_widths =c(.1,1,2),
-                      labels=c("C", "", "D"))
-
-group_plot_supplement <- plot_grid(group_bar_plt_all,
-                          sub_plt,
-                          bottom_group_legend,
-                          nrow=3,
-                          ncol=1,
-                          rel_heights = c(1, 1.1, .1))
-ggsave("figs/supplement/groups_all_plt.png", group_plot_supplement, dpi=600, height=16, width=16, bg = "white")
-```
-
-also just plot B
-```{r}
 ##BRAIN PLOT
-group_finalB <- group_final %>% filter(cv_sample=="B")
+group_finalB <- group_final %>% 
+  filter(weighted==FALSE & age2plus==FALSE) %>%
+  filter(cv_sample=="B")
 group_brain_plt <- plot_cv_brain(group_finalB, 
                                  cent_group, 
                                  "Group", 
@@ -1955,6 +1936,7 @@ saveRDS(group_brain_plt, "figs/ggobjs/cent_groups_brain_B.rds")
 
 ##TRAJECTORIES
 group_traj_plt_B <- group_traj_final %>%
+  filter(weighted==FALSE & age2plus==FALSE) %>%
   filter(sig_fdr==TRUE & cv_sample=="B" & cent_group != "complex") %>%
   arrange(pheno, age_days) %>%
   ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
@@ -1970,57 +1952,74 @@ group_traj_plt_B <- group_traj_final %>%
 saveRDS(group_traj_plt_B, "figs/ggobjs/cent_groups_traj_B.rds")
 ```
 
-
 ####Sigma
 
 ```{r}
-ggplot(prop_above_sigma_df) +
+prop_above_sigma_df_main <- prop_above_sigma_df %>% filter(weighted==FALSE & age2plus==FALSE)
+
+ggplot(prop_above_sigma_df_main) +
   geom_histogram(aes(x=prop_male)) +
   geom_vline(xintercept = .05) +
   geom_vline(xintercept = .95)
 
-table(prop_above_sigma_df$class, prop_above_sigma_df$cv_sample)
-table(prop_above_sigma_df$strict_class, prop_above_sigma_df$cv_sample)
+# > 95% lifespan in one sex
+prop_above_sigma_df %>%
+  group_by(cv_sample, weighted, age2plus) %>%
+  summarise(n_F=sum(class=="F"),
+            n_M=sum(class=="M"),
+            n_tot=n())
 
-#look at age*sex significance
-prop_above_sigma_df2 <- full_join(prop_above_sigma_df, LR.df_tot)
+#100% lifespan in one sex
+prop_above_sigma_df %>%
+  group_by(cv_sample, weighted, age2plus) %>%
+  summarise(n_F=sum(strict_class=="F"),
+            n_M=sum(strict_class=="M"),
+            n_tot=n())
 
-#see convergence vs divergence
-prop_above_sigma_df3 <- full_join(prop_above_sigma_df2, sigma_convergence_df) %>%
+#add age*sex significance info
+prop_above_sigma_df2 <- inner_join(prop_above_sigma_df, LR.df_sigagesex)
+
+#add info about convergence vs divergence
+prop_above_sigma_df3 <- inner_join(prop_above_sigma_df2, convergence_int) %>%
   mutate(class = paste(class, overall_trajectory, sep="_"))
 
 prop_above_sigma_df3 %>%
   filter(sig_fdr==TRUE) %>%
-  group_by(cv_sample, class) %>%
-  summarise(n = n())
+  group_by(weighted, age2plus, cv_sample, class) %>%
+  summarise(n = n()) %>%
+  ggplot() +
+  geom_col(aes(x=cv_sample, y=n, fill=class), position="dodge") +
+  facet_grid(weighted~age2plus)
 ```
 
 what's going on with the mixed phenotypes?
 
 ```{r}
-#add back in trajectory data
-group_sig_cd <- full_join(sexdiffs_tbv, prop_above_sigma_df3)
+#add back trajectory
+sigma_group_cd <- full_join(sexdiffs_tbv_all, prop_above_sigma_df3)
 
-group_sig_cd %>%
+sigma_group_cd %>%
+  filter(weighted==FALSE & age2plus==FALSE) %>% #ignore sensitivity for now
   filter(sig_fdr==TRUE & (class=="mixed_converging" | class=="mixed_diverging")) %>%
   arrange(pheno, logAge_days) %>%
     ggplot() +
     geom_line(aes(x=logAge_days, y=logcv_M_div_F, group=pheno, color=pheno)) +
     facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  theme(legend.position = "none")
+  theme(legend.position="none")
 
-#should work to just do m to f and f to m
-group_sig_cd_mix <- group_sig_cd %>%
+#try simple grouping by sign at start and end (Lena's method)
+sigma_group_cd_mix <- sigma_group_cd %>%
   filter(class=="mixed_converging" | class=="mixed_diverging") %>%
-  select(logAge_days, cv_sample, pheno, logcv_M_div_F) %>%
+  select(logAge_days, cv_sample, pheno, logcv_M_div_F, weighted, age2plus) %>%
   arrange(logAge_days) %>%
-  group_by(cv_sample, pheno) %>%
+  group_by(weighted, age2plus, cv_sample, pheno) %>%
   slice(c(1,n())) %>%
   mutate(sex = ifelse(logcv_M_div_F > 0 , "M", "F")) %>%
   summarise(switch = paste(first(sex), last(sex), sep = "_to_"), .groups = "drop")
-table(group_sig_cd_mix$switch, group_sig_cd_mix$cv_sample)
+table(sigma_group_cd_mix$switch, sigma_group_cd_mix$cv_sample)
 
-mixed_sig_plt2 <- full_join(group_sig_cd, group_sig_cd_mix) %>%
+sigma_mixed_plt2 <- full_join(sigma_group_cd, sigma_group_cd_mix) %>%
+  filter(weighted==FALSE & age2plus==FALSE) %>%
   filter(class=="mixed_converging" | class=="mixed_diverging" & sig_fdr==TRUE) %>%
   arrange(pheno, logAge_days) %>%
     ggplot() +
@@ -2028,19 +2027,18 @@ mixed_sig_plt2 <- full_join(group_sig_cd, group_sig_cd_mix) %>%
     facet_grid(switch~cv_sample, scales="free_y") +
   theme(legend.position="none")
 
-ggplotly(mixed_sig_plt2)
+#ggplotly(sigma_mixed_plt2)
 ```
-
 sample A rh.CT.lateraloccipital is the only feature thats wiggly, doesn't just switch M-F or vice versa
 
 ```{r}
-group_sig_traj_final <- full_join(group_sig_cd, group_sig_cd_mix) %>%
+group_sig_traj_final <- full_join(sigma_group_cd, sigma_group_cd_mix) %>%
   mutate(sig_group=case_when(
     class=="mixed_converging" | class=="mixed_diverging" ~ switch,
     TRUE ~ class
   )) %>%
   mutate(sig_group = case_when(
-    sig_group == "F_to_F" | sig_group == "M_to_M" ~ "complex",
+    sig_group == "F_to_F" | sig_group == "M_to_M" ~ "Complex",
     TRUE ~ sig_group
   )) %>%
   mutate(parent_group = case_when(
@@ -2052,175 +2050,144 @@ group_sig_traj_final <- full_join(group_sig_cd, group_sig_cd_mix) %>%
   ))
 
 group_sig_final <- group_sig_traj_final %>%
-  select(cv_sample, total, weighted, pheno, pheno_cat, class, prop_male, strict_class, resi, sig_fdr, overall_trajectory, switch, sig_group, label, parent_group) %>%
-  unique() %>%
-  #filter(!(pheno %in% vent_list))  %>%
-  mutate(sig_group = ifelse(sig_fdr==FALSE, "NS", sig_group))
+  select(cv_sample, total, weighted, age2plus, pheno, pheno_cat, class,
+         prop_male, strict_class, resi, sig_fdr, overall_trajectory,
+         switch, sig_group, label, parent_group) %>%
+  distinct() %>%
+  mutate(sig_group = if_else(sig_fdr == FALSE, "NS", sig_group))
 ```
 
 ```{r}
 #GET FINAL COUNTS
 #group
 group_sig_final %>%
-  group_by(cv_sample, sig_group) %>%
+  filter(age2plus==FALSE) %>%
+  group_by(weighted, cv_sample, sig_group) %>%
   summarise(n = n()) %>%
   mutate(pct = (n / sum(n))*100)
 
 #parent groups
 group_sig_final %>%
-  group_by(cv_sample, parent_group) %>%
+  filter(age2plus==FALSE) %>%
+  group_by(weighted, cv_sample, parent_group) %>%
   summarise(n = n()) %>%
   mutate(pct = (n / sum(n))*100)
-
-#group - just looking at significant age*sex
-group_sig_final %>%
-  #filter(sig_group != "NS") %>%
-  group_by(cv_sample, sig_group) %>%
-  summarise(n = n()) %>%
-  mutate(pct = (n / sum(n))*100)%>%
-  arrange(desc(pct), by_group=T)
 ```
 
-bar plot
+
+Plot group outputs for each value of weighted==T/F
 
 ```{r}
-sig_group_bar_plt_total <- group_sig_final %>%
-  group_by(cv_sample) %>% 
-  mutate(sig_group = as.character(sig_group)) %>%
-  mutate(sig_group = ifelse(sig_fdr ==TRUE, sig_group, NA)) %>%
-  mutate(sig_group = factor(sig_group, levels = names(group_values))) %>%  
-  dplyr::count(sig_group, cv_sample) %>% 
-  mutate(perc = n / sum(n)) %>% 
-  ggplot(aes(x="TOTAL", y=perc, fill=sig_group)) +
-  geom_col(position="fill") +
-  facet_wrap(~cv_sample) +
-  geom_text(aes(label = n), 
-            position = position_fill(vjust = 0.5),
-            size = 1.5) +
-  scale_y_continuous(labels=scales::percent) +
-  labs(y="Percentage") +
-  theme_linedraw() +
-  theme(legend.position = "none",
-        axis.title.x= element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  group_fill_scale
+for (w in c(FALSE, TRUE)) {
+  plot_suffix <- if (w) "_weighted" else ""
 
-sig_group_bar_plt <- group_sig_final %>%
-  #filter(sig_fdr==TRUE & pheno_cat != "Global Vol") %>%
-  ggplot() +
-  geom_bar(aes(x=parent_group, fill=sig_group)) +
-  facet_grid(pheno_cat~cv_sample, scales="free_y") +
-  group_fill_scale +
-  guides(x = guide_axis(angle = 45)) +
-  labs(y="Count") +
-  theme_linedraw() +
-  theme(axis.title.x = element_blank(),
-        legend.position = "none")
+  gf  <- group_sig_final %>% filter(weighted == w & age2plus == FALSE)
+  gtf <- group_sig_traj_final %>% filter(weighted == w & age2plus == FALSE)
 
-sig_group_bar_plt_all <- plot_grid(
-    sig_group_bar_plt_total, 
-    sig_group_bar_plt,
-    ncol = 2,
-    rel_widths = c(1,4),
-    align = "hv",
-    axis = "lr",
-    labels=c("A", "B"))
-
-
-#ggsave("figs/supplement/sig_group_bar_plt.png", sig_group_bar_plt_all, dpi=600, height=9, width=10, bg = "white")
-```
-
-Plot
-```{r}
-sig_group_brain_plt <- plot_cv_brain(group_sig_final, sig_group, "Group", fill_limits=levels(group_sig_final$sig_group), height_list=c(1.03, 4.5, .93), return_plt = FALSE, fill_values=group_values)
-
-sig_group_brain_plt[[1]] <- sig_group_brain_plt[[1]] + group_fill_scale
-
-sig_group_brain_plt[[2]] <- sig_group_brain_plt[[2]] + group_fill_scale
-
-sig_group_brain_plt[[3]] <- sig_group_brain_plt[[3]] + group_fill_scale
-
-#recreate legends
-legend <- get_legend(
-  ggplot(group_sig_final) +
-    geom_bar(aes(x=cv_sample, fill=sig_group)) + group_fill_scale
-  )
-
-plts <- cowplot::plot_grid(
-    sig_group_brain_plt[[1]],
-    sig_group_brain_plt[[2]],
-    sig_group_brain_plt[[3]],
-    ncol = 1,
-    nrow = 3,
-    rel_heights = c(1.03, 4.5, .93),
-    align = "v",
-    axis = "lr",
-    greedy = TRUE
-  ) 
+###BARPLOTS OF COUNTS###
+  group_bar_plt_total <- gf %>%
+    group_by(cv_sample) %>% 
+    mutate(sig_group = as.character(sig_group)) %>%
+    mutate(sig_group = ifelse(sig_fdr ==TRUE, sig_group, NA)) %>%
+    mutate(sig_group = factor(sig_group, levels = names(group_values))) %>%  
+    dplyr::count(sig_group, cv_sample) %>% 
+    mutate(perc = n / sum(n)) %>% 
+    ggplot(aes(x="TOTAL", y=perc, fill=sig_group)) +
+    geom_col(position="fill") +
+    facet_wrap(~cv_sample) +
+    geom_text(aes(label = n), 
+              position = position_fill(vjust = 0.5),
+              size = 1.5) +
+    scale_y_continuous(labels=scales::percent) +
+    labs(y="Percentage") +
+    theme_linedraw() +
+    theme(legend.position = "none",
+          axis.title.x= element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank()) +
+    group_fill_scale
   
-full_plt_obj <- plot_grid(plts, legend, ncol=2, rel_widths = c(3, 1))
+  group_bar_plt <- gf %>%
+    #filter(sig_fdr==TRUE & pheno_cat != "Global Vol") %>%
+    ggplot() +
+    geom_bar(aes(x=parent_group, fill=sig_group)) +
+    facet_grid(pheno_cat~cv_sample, scales="free_y") +
+    group_fill_scale +
+    guides(x = guide_axis(angle = 45)) +
+    labs(y="Count") +
+    theme_linedraw() +
+    theme(axis.title.x = element_blank(),
+          legend.position = "none")
+  
+  group_bar_plt_all <- plot_grid(
+      group_bar_plt_total, 
+      group_bar_plt,
+      ncol = 2,
+      rel_widths = c(1,4),
+      align = "hv",
+      axis = "lr",
+      labels=c("A", "B"))
+  
+  ####BRAIN PLOTS###
+  group_final_novent <- gf %>%
+  filter(!(pheno %in% vent_list))
 
-#ggsave("figs/supplement/sigma_group_brain_plt.png", full_plt_obj, dpi=600, height=8.5, width=8, bg = "white")
+  group_brain_plt <- plot_cv_brain(group_final_novent, sig_group, "Group", fill_limits=levels(group_final$sig_group), height_list=c(1.03, 4.5, .93), return_plt = FALSE, fill_values=group_values)
+  
+  group_brain_plt[[1]] <- group_brain_plt[[1]] + group_fill_scale
+  
+  group_brain_plt[[2]] <- group_brain_plt[[2]] + group_fill_scale
+  
+  group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
+  
+  plts <- cowplot::plot_grid(
+      group_brain_plt[[1]],
+      group_brain_plt[[2]],
+      group_brain_plt[[3]],
+      ncol = 1,
+      nrow = 3,
+      rel_heights = c(1.03, 4.5, .93),
+      align = "v",
+      axis = "lr",
+      greedy = TRUE
+    ) 
+    
+  ###TRAJECTORIES###
+  group_traj_full <- gtf %>%
+    filter(sig_fdr==TRUE & sig_group != "Complex") %>%
+    arrange(pheno, age_days) %>%
+    ggplot(aes(x=age_days, y=logcv_M_div_F, color=sig_group)) +
+    geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+    geom_line(aes(group=pheno), alpha=.1) +
+    facet_grid(parent_group ~ cv_sample, scales="free_y") +
+    geom_smooth(method = "gam") +
+    group_color_scale +
+    reformat_x(gtf$age_days) +
+    theme_linedraw() +
+    theme(legend.position="none") +
+    labs(y="Scaled Median Sex Difference")
+  
+  #save combined group plots for supplement
+  sub_plt <- plot_grid(NULL, plts,
+                        group_traj_full,
+                        nrow=1, rel_widths =c(.1,1,2),
+                        labels=c("C", "", "D"))
+  
+  group_plot_supplement <- plot_grid(group_bar_plt_all,
+                            sub_plt,
+                            bottom_group_legend,
+                            nrow=3,
+                            ncol=1,
+                            rel_heights = c(1, 1.1, .1))
+  ggsave(paste0("figs/supplement/groups_sigma_all_plt", plot_suffix, ".png"), group_plot_supplement, dpi=300, height=16, width=16, bg = "white")
+  
+  #clear space
+  rm(group_bar_plt_total, group_bar_plt, group_bar_plt_all,
+   group_final_novent, group_brain_plt, plts,
+   group_traj_full, sub_plt, group_plot_supplement, gf, gtf)
+  gc()
+}
 ```
-
-
-plot trajectories by group
-
-```{r}
-group_sig_traj_full <- group_sig_traj_final %>%
-  filter(sig_fdr==TRUE & sig_group != "complex") %>%
-  arrange(pheno, age_days) %>%
-  ggplot(aes(x=age_days, y=logcv_M_div_F, color=sig_group)) +
-  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(group=pheno), alpha=.1) +
-  facet_grid(parent_group ~ cv_sample, scales="free_y") +
-  geom_smooth(method = "gam") +
-  group_color_scale +
-  reformat_x(group_sig_traj_final$age_days) +
-  theme_linedraw() +
-  theme(legend.position="none") +
-  labs(y="Scaled Median Sex Difference")
-```
-
-```{r}
-#save combined group plots for supplement
-sub_plt <- plot_grid(NULL, plts,
-                      group_sig_traj_full,
-                      nrow=1, rel_widths =c(.1,1,2),
-                      labels=c("C", "", "D"))
-
-group_sigma_plot_supplement <- plot_grid(sig_group_bar_plt_all,
-                          sub_plt,
-                          bottom_group_legend,
-                          nrow=3,
-                          ncol=1,
-                          rel_heights = c(1, 1.1, .1))
-ggsave("figs/supplement/groups_sigma_all_plt.png", group_sigma_plot_supplement, dpi=600, height=16, width=16, bg = "white")
-```
-
-also just plot B
-```{r}
-##BRAIN PLOT
-group_sig_finalB <- group_sig_final %>% filter(cv_sample=="B")
-group_brain_plt <- plot_cv_brain(group_sig_finalB, sig_group, "Group", fill_limits=levels(group_sig_finalB$sig_group), height_list=c(1.03, 4.5, .93), return_plt = FALSE, fill_values=group_values)
-
-group_brain_plt[[1]] <- group_brain_plt[[1]] + group_fill_scale
-
-group_brain_plt[[2]] <- group_brain_plt[[2]] + group_fill_scale
-
-group_brain_plt[[3]] <- group_brain_plt[[3]] + group_fill_scale
-
-#recreate legends
-group_brain_plt[[4]] <- get_legend(
-  ggplot(group_sig_finalB) +
-    geom_bar(aes(x=cv_sample, fill=sig_group)) + group_fill_scale
-  )
-
-
-saveRDS(group_brain_plt, "figs/ggobjs/sig_groups_brain_B.rds")
-```
-
 
 ###Data-Driven Clustering
 
