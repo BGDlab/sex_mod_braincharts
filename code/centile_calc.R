@@ -50,7 +50,14 @@ pheno <- get_y(mod_list$full) %>% as.character()
 
 all_list <- c(unlist(pred_list), pheno, "INDEX.ID", "dx", "dx_recode")
 
-valid_sites <- unique(df.og$study_site)
+# identify factor predictors in the model and grab the levels seen during fitting
+# (generalizes the previous study_site-only filter; required because weighted models'
+# trunc_coverage step can drop e.g. fs_version_GM = "synthseg-young" rows)
+pred_vec <- unique(unlist(pred_list))
+factor_preds <- pred_vec[pred_vec %in% names(df.og)]
+factor_preds <- factor_preds[vapply(factor_preds, function(p) is.factor(df.og[[p]]), logical(1))]
+valid_levels <- lapply(factor_preds, function(p) unique(as.character(df.og[[p]])))
+names(valid_levels) <- factor_preds
 
 # print(length(all_list))
 # print(all_list)
@@ -70,10 +77,18 @@ if (grepl("weighted_", mod_path)) {
 
 #drop extra variables
 df_clean <- df %>%
-  dplyr::select(all_of(all_list)) %>%
-  #drop any study sites not in original model
-  dplyr::filter(study_site %in% valid_sites) %>%
-  na.omit()
+  dplyr::select(all_of(all_list))
+
+#drop rows with factor levels not present in the model's training data
+for (fp in names(valid_levels)) {
+  n_pre <- nrow(df_clean)
+  df_clean <- df_clean %>% dplyr::filter(as.character(.data[[fp]]) %in% valid_levels[[fp]])
+  if (nrow(df_clean) < n_pre) {
+    print(paste0("dropped ", n_pre - nrow(df_clean), " rows with unseen ", fp, " levels"))
+  }
+}
+
+df_clean <- df_clean %>% na.omit()
 stopifnot(length(unique(df_clean$dx_recode))==2)
 
 ##### CALCULATE CENTILES #####
