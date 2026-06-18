@@ -740,7 +740,7 @@ sexdiffs_tbv_all <- bind_rows(output_fread_sd, .id="file") %>%
 
 sexdiffs.df <- sexdiffs_tbv_all %>% filter(uniform==FALSE)
 sexdiffs.df.u <- sexdiffs_tbv_all %>% 
-  filter(uniform==TRUE & weighted == FALSE & age2plus == FALSE)
+  filter(uniform==TRUE & age2plus == FALSE)
 
 
 rm(output_fread_sd) #save space
@@ -2316,25 +2316,34 @@ return(plt_list)
 
 prep dfs
 ```{r}
-LR.df_tot.u <- full_join(LR.df_tot, sexdiffs.df.u) %>%
-  filter(sig_fdr==TRUE & total==TRUE & weighted==FALSE)
+#add age-by-sex significance info
+LR.df_tot.u <- inner_join(LR.df_sigagesex, sexdiffs.df.u) %>%
+  filter(sig_fdr==TRUE & total==TRUE)
 
 LR.df_tot.uA <- LR.df_tot.u %>%
-  filter(cv_sample=="A")
+  filter(cv_sample=="A" & weighted==FALSE)
 
 LR.df_tot.uB <- LR.df_tot.u %>%
-  filter(cv_sample=="B")
+  filter(cv_sample=="B" & weighted==FALSE)
+
+#also save out weighted for sensitivity analyses
+LR.df_tot.uA_w <- LR.df_tot.u %>%
+  filter(cv_sample=="A" & weighted==TRUE)
+
+LR.df_tot.uB_w <- LR.df_tot.u %>%
+  filter(cv_sample=="B" & weighted==TRUE)
 ```
 
 cluster and plot - wrapping for simplicity
 ```{r}
-for (df in list(LR.df_tot.uA, LR.df_tot.uB)){
+for (df in list(LR.df_tot.uA, LR.df_tot.uB, LR.df_tot.uA_w, LR.df_tot.uB_w)){
   cv_sample <- unique(df[["cv_sample"]])
+  w <- unique(df[["weighted"]])
   
   #Cluster
   cent_clust <- clust_fun(df, "centile_M_minus_F_z", 2)
   #save outputs
-  rds_name <- paste0("figs/ggobjs/median_kmedoid_clust_", cv_sample, ".rds")
+  rds_name <- paste0("figs/ggobjs/median_kmedoid_clust_", cv_sample, "_weighted", w, ".rds")
   saveRDS(cent_clust, rds_name)
   
   #get elbow plt
@@ -2373,7 +2382,7 @@ for (df in list(LR.df_tot.uA, LR.df_tot.uB)){
   nrow=1,
   rel_widths=c(10,1))
   
-  file_name <- paste0("figs/supplement/cent_kmedoid_", cv_sample, ".png")
+  file_name <- paste0("figs/supplement/cent_kmedoid_", cv_sample, "_weighted", w, ".png")
   ggsave(file_name, cent_clust_wrap, dpi=600, height=8, width=13, bg = "white")
 }
 ```
@@ -2381,13 +2390,14 @@ for (df in list(LR.df_tot.uA, LR.df_tot.uB)){
 ####Sigma
 
 ```{r}
-for (df in list(LR.df_tot.uA, LR.df_tot.uB)){
+for (df in list(LR.df_tot.uA, LR.df_tot.uB, LR.df_tot.uA_w, LR.df_tot.uB_w)){
   cv_sample <- unique(df[["cv_sample"]])
+  w <- unique(df[["weighted"]])
   
   #Cluster
   sig_clust <- clust_fun(df, "logcv_M_div_F", 2)
   #save outputs
-  rds_name <- paste0("figs/ggobjs/sigma_kmedoid_clust_", cv_sample, ".rds")
+  rds_name <- paste0("figs/ggobjs/sigma_kmedoid_clust_", cv_sample, "_weighted", w, ".rds")
   saveRDS(sig_clust, rds_name)
   
   #get elbow plt
@@ -2426,7 +2436,7 @@ for (df in list(LR.df_tot.uA, LR.df_tot.uB)){
   nrow=1,
   rel_widths=c(10,.5))
   
-  file_name <- paste0("figs/supplement/sigma_kmedoid_", cv_sample, ".png")
+  file_name <- paste0("figs/supplement/sigma_kmedoid_", cv_sample, "_weighted", w, ".png")
   ggsave(file_name, sig_clust_wrap, dpi=600, height=8, width=13, bg = "white")
 }
 ```
