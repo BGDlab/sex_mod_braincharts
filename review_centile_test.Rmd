@@ -26,7 +26,7 @@ ct_list <- readRDS("./pheno_lists/cortical_thickness.rds")
 vol_list <- readRDS("./pheno_lists/cortical_vols.rds")
 global_list <- readRDS("./pheno_lists/global_vols.rds")
 sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
-pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
+pheno_list <- c(global_list, vol_list, sa_list, ct_list, sub_list)
 #just looking at non-TBV-corrected results for now
 test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/dx_tests"
 
@@ -55,7 +55,9 @@ cn_paths <- Sys.glob(file.path(glob_path, "cent_csvs/*_*_*cent.csv")) %>%
 # Read all matching CSVs
 cent_df_list <- lapply(c(paths, cn_paths), function(f){
   fread(f) %>%
-    select(any_of(c("dx_recode", "dx_tested", "sex", "sexMale")), 
+    mutate(weighted  = stringr::str_detect(f, "weight"),
+         age2plus = stringr::str_detect(f, "age2plus")) %>%
+    select(any_of(c("dx_recode", "dx_tested", "sex", "age2plus", "weighted")), 
            ends_with("std_score_full")) %>%
     mutate(control = ifelse(grepl("CN", dx_recode), "CN", "PT"),
            dx_tested  = sub("CN_", "", dx_recode)) %>%
@@ -88,6 +90,8 @@ names(output_fread) <- paths
 cent_test.df_full <- bind_rows(output_fread, .id="file") %>%
   mutate(dx_tested = stringr::str_extract(basename(file), "[^_]+"),
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
+         weighted  = stringr::str_detect(file, "weight"),
+         age2plus = stringr::str_detect(file, "age2plus"),
          pi = n_cn/(n_cn+n_pt),
          #flipping sign so that neg effect means pts < CN
          d = -d) %>%
@@ -140,12 +144,15 @@ cent_test.df_uncor <- cent_test.df_full %>%
   filter(total==FALSE)
 
 cent_test.df_uncor %>%
+  filter(age2plus==FALSE) %>%
   ggplot() +
   geom_bar(aes(x=dx_tested, fill=dx_sig_fdr)) +
-  facet_wrap(~model)
+  facet_grid(weighted~model)
+
+#just focus on main analyses for now
   
 uncor_d_plt <- cent_test.df_uncor %>%
-  filter(dx_sig_fdr == TRUE) %>%
+  filter(dx_sig_fdr == TRUE & weighted == FALSE & age2plus==FALSE) %>%
   ggplot() +
   geom_col(aes(x=pheno, y= d, fill=model), position="dodge") +
   theme(axis.text.x = element_blank()) +
@@ -153,7 +160,7 @@ uncor_d_plt <- cent_test.df_uncor %>%
 #ggplotly(uncor_d_plt)
 
 cent_test.df_uncor %>%
-  filter(dx_sig_fdr == TRUE & pheno %in% global_list) %>%
+  filter(dx_sig_fdr == TRUE & pheno %in% global_list & weighted == FALSE & age2plus==FALSE) %>%
   ggplot() +
   geom_col(aes(x=dx_tested, y= case.control_resi), position="dodge") +
   theme_bw() +
@@ -161,6 +168,7 @@ cent_test.df_uncor %>%
   facet_grid(model~pheno)
 
 cent_test.df_uncor %>% 
+  filter(weighted == FALSE & age2plus==FALSE) %>%
   mutate(effect_dir = sign(d)) %>%
   filter(dx_sig_fdr==TRUE & model == "full") %>%
   group_by(dx_tested, pheno_cat, effect_dir) %>%
@@ -173,7 +181,7 @@ for (dx_name in dx_levels) {
 
   # Filter and rename
   dx.df_uncor <- cent_test.df_uncor %>%
-    dplyr::filter(dx_tested == dx_name & model !="diff") %>%
+    dplyr::filter(dx_tested == dx_name & model !="diff" & weighted == FALSE & age2plus==FALSE) %>%
     dplyr::rename(sig_fdr = dx_sig_fdr) %>%
     mutate(model = case_when(
       model == "full" ~ "Sex-Moderated Model",
@@ -220,7 +228,7 @@ dx_plt <- plot_grid(
   dx_lower <- tolower(dx_name)
   ggplot2::ggsave(
     paste0("figs/supplement/", dx_lower, "_totalFALSE_ttest_brainplt.png"),
-    dx_plt, dpi = 600, height=9.35, width=7.1, bg = "white"
+    dx_plt, dpi = 300, height=9.35, width=7.1, bg = "white"
   )
 
   message("Saved plots for: ", dx_name)
@@ -234,7 +242,7 @@ brain plots across dx for just full model
 vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle", "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
 
 dx_all <- cent_test.df_uncor %>%
-  dplyr::filter(model == "full") %>%
+  dplyr::filter(model == "full" & weighted == FALSE & age2plus==FALSE) %>%
   filter(!(pheno %in% vent_list)) %>%
   dplyr::rename(sig_fdr = dx_sig_fdr)
 
@@ -261,19 +269,23 @@ saveRDS(dx_brain_plt, "figs/ggobjs/dx_totalFALSE_brain_plt.rds")
 boxplot
 
 ```{r}
+#just main analyses
+cent_df_main <- cent_df %>% 
+  filter(weighted==FALSE & age2plus==FALSE)
+
 ####get sig plots
-y_pos <- cent_df %>%
+y_pos <- cent_df_main %>%
   group_by(dx_tested, pheno) %>%
   summarise(y_pos = max(std_score_full, na.rm = TRUE) + 0.6, .groups = "drop")
 
 pvals <- cent_test.df_uncor %>%
-  filter(pheno %in% global_list) %>%
+  filter(pheno %in% global_list & weighted==FALSE & age2plus==FALSE) %>%
   filter(model=="full") %>%
   mutate(dx_sig_fdr = ifelse(dx_sig_fdr==TRUE, "*", NA))
 
 pvals <- left_join(pvals, y_pos, by = c("dx_tested", "pheno"))
 
-dx_bxplt <- ggplot(cent_df, aes(x=pheno, y=std_score_full, color=control)) +
+dx_bxplt <- ggplot(cent_df_main, aes(x=pheno, y=std_score_full, color=control)) +
   geom_hline(yintercept = 0, color = "darkgray", linetype = "dashed") +
   geom_boxplot(outlier.size = .5) +
   geom_text(
@@ -304,6 +316,125 @@ dx_bxplt <- ggplot(cent_df, aes(x=pheno, y=std_score_full, color=control)) +
 saveRDS(dx_bxplt, "figs/ggobjs/dx_totalFALSE_bxplt.rds")
 ```
 
+
+also get weighted analyses
+
+```{r}
+for (dx_name in dx_levels) {
+
+  # Filter and rename
+  dx.df_uncor <- cent_test.df_uncor %>%
+    dplyr::filter(dx_tested == dx_name & model !="diff" & weighted == TRUE & age2plus==FALSE) %>%
+    dplyr::rename(sig_fdr = dx_sig_fdr) %>%
+    mutate(model = case_when(
+      model == "full" ~ "Sex-Moderated Model",
+      model == "null" ~ "Sex-Intercept Model"
+    ))
+
+  # Compute symmetric range for color scale
+  d_range <- range(dx.df_uncor$d, na.rm = TRUE)
+  sym_range <- c(-max(abs(d_range)), max(abs(d_range)))
+
+  # Build plot
+  dx_plt <- plot_cv_brain(df = dx.df_uncor,
+                          fill_var = case.control_resi,
+                          fill_name = "S",
+                          fill_color = "ggthemes::Gold-Purple Diverging",
+                          fill_limits = sym_range,
+                          facet_var = "model",
+                          height_list = c(1.03, 4.5, .93),
+                          direction = -1,
+                          keep_levels = TRUE,
+                          return_plt = TRUE)
+  
+  #add title
+  title <- ggdraw() + 
+  draw_label(
+    paste(dx_name, "effects on z-scores from scan-quality-weighted models"),
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+  
+dx_plt <- plot_grid(
+  title, dx_plt,
+  ncol = 1,
+  # rel_heights values control vertical title margins
+  rel_heights = c(0.1, 1)
+)
+
+  # Save
+  dx_lower <- tolower(dx_name)
+  ggplot2::ggsave(
+    paste0("figs/supplement/", dx_lower, "_totalFALSE_weighted_ttest_brainplt.png"),
+    dx_plt, dpi = 300, height=9.35, width=7.1, bg = "white"
+  )
+
+  message("Saved plots for: ", dx_name)
+}
+```
+
+thickness in ages 2 plus
+
+```{r}
+for (dx_name in dx_levels) {
+
+  # Filter and rename
+  dx.df_uncor <- cent_test.df_uncor %>%
+    dplyr::filter(dx_tested == dx_name & model != "diff" & pheno %in% ct_list & age2plus == TRUE) %>%
+    dplyr::rename(sig_fdr = dx_sig_fdr) %>%
+    mutate(model = case_when(
+      model == "full" ~ "Sex-Moderated Model",
+      model == "null" ~ "Sex-Intercept Model"
+    ))
+
+  # Compute symmetric range for color scale
+  d_range <- range(dx.df_uncor$d, na.rm = TRUE)
+  sym_range <- c(-max(abs(d_range)), max(abs(d_range)))
+
+  # Build plot (CT only — no global/subcort rows)
+  dx_plt <- plot_cv_brain(df = dx.df_uncor,
+                          fill_var = case.control_resi,
+                          fill_name = "S",
+                          fill_color = "ggthemes::Gold-Purple Diverging",
+                          fill_limits = sym_range,
+                          facet_var = "model",
+                          direction = -1,
+                          keep_levels = TRUE,
+                          include_global = FALSE,
+                          include_subcort = FALSE,
+                          return_plt = TRUE)
+
+  # Tight title — anchored to bottom of its strip, no extra bottom margin
+  title <- ggdraw() +
+    draw_label(
+      paste(dx_name, "effects on z-scores\nfrom models in ages 2+ years"),
+      x = 0, hjust = 0, y = 1, vjust = 1,
+      size = 11
+    ) +
+    theme(plot.margin = margin(2, 0, 0, 7))
+
+  dx_plt <- plot_grid(
+    title, dx_plt,
+    ncol = 1,
+    rel_heights = c(0.06, 1)
+  )
+
+  # Save (shorter height, slightly wider so brains fill the box)
+  dx_lower <- tolower(dx_name)
+  ggplot2::ggsave(
+    paste0("figs/supplement/", dx_lower, "_totalFALSE_age2plus_ttest_brainplt.png"),
+    dx_plt, dpi = 300, height = 2.6, width = 5, bg = "white"
+  )
+
+  message("Saved plots for: ", dx_name)
+}
+```
+
 ###Total-Size Corrected
 
 save csv with size corrected and uncorrected results
@@ -311,7 +442,7 @@ save csv with size corrected and uncorrected results
 ```{r}
 cent_test_csv <- cent_test.df_full %>%
   filter((total == FALSE & model != "diff") | (total == TRUE & model == "full")) %>%
-  select(total, model, dx_tested, pheno_cat, pheno, t_stat, d, case.control_resi, mean_df1, mean_df2, n_cn, n_pt, p_value, dx_p.val_fdr, dx_sig_fdr) %>%
+  select(total, model, dx_tested, weighted, age2plus, pheno_cat, pheno, t_stat, d, case.control_resi, mean_df1, mean_df2, n_cn, n_pt, p_value, dx_p.val_fdr, dx_sig_fdr) %>%
   rename(total_size_corrected = total,
          idp_category = pheno_cat,
          idp = pheno,
@@ -327,14 +458,19 @@ cent_test_csv <- cent_test.df_full %>%
 
 fwrite(cent_test_csv, "figs/supplement/case_control_ttests.csv")
 ```
+
 Also plot across dx
 
 brain plots across dx for just full model
 
 ```{r}
 dx_all <- cent_test.df_full %>%
-  dplyr::filter(model == "full" & total == TRUE) %>%
+  dplyr::filter(model == "full" & total == TRUE & weighted==FALSE) %>%
+  #for ct, use age2plus model
+  filter((age2plus==TRUE & pheno %in% ct_list) | (age2plus==FALSE & !(pheno %in% ct_list))) %>%
   dplyr::rename(sig_fdr = dx_sig_fdr)
+
+table(dx_all$age2plus, dx_all$pheno_cat)
 
 # Compute symmetric range for color scale
 range(dx_all$case.control_resi, na.rm = TRUE)
@@ -352,9 +488,37 @@ dx_brain_plt_total <- plot_cv_brain(df = dx_all,
                           direction = -1,
                           rel_widths = c(6,.5))
 
-ggsave("figs/supplement/dx_totalTRUE_brain_plt.png", dx_brain_plt_total, width=17, height=8, dpi=600, bg = "white")
+ggsave("figs/supplement/dx_totalTRUE_brain_plt.png", dx_brain_plt_total, width=17, height=8, dpi=300, bg = "white")
 ```
 
+
+weighted models
+
+```{r}
+dx_all_weighted <- cent_test.df_full %>%
+  dplyr::filter(model == "full" & total == TRUE & weighted==TRUE) %>%
+  #for ct, use age2plus model
+  #filter((age2plus==TRUE & pheno %in% ct_list) | (age2plus==FALSE & !(pheno %in% ct_list))) %>%
+  dplyr::rename(sig_fdr = dx_sig_fdr)
+
+# Compute symmetric range for color scale
+range(dx_all_weighted$case.control_resi, na.rm = TRUE)
+sym_range <- c(-.45, .45) #keep consistent with original phot
+
+dx_brain_plt_weighted_total <- plot_cv_brain(df = dx_all_weighted, 
+                          fill_var = case.control_resi, 
+                          fill_name = "S", 
+                          fill_color = "ggthemes::Gold-Purple Diverging", 
+                          fill_limits = sym_range,
+                          facet_var= "dx_tested",
+                          return_plt = TRUE, 
+                          include_global = TRUE,
+                          keep_levels = TRUE,
+                          direction = -1,
+                          rel_widths = c(6,.5))
+
+ggsave("figs/supplement/dx_totalTRUE_weighted_brain_plt.png", dx_brain_plt_weighted_total, width=17, height=8, dpi=300, bg = "white")
+```
 
 ###Change
 
@@ -362,8 +526,8 @@ How do results differ across full and null models?
 
 ```{r}
 cent_test_change <- cent_test.df_uncor %>%
-  filter(model != "diff") %>%
-  group_by(dx_tested, pheno_cat, pheno, label) %>% 
+  filter(model != "diff" & age2plus==FALSE) %>%
+  group_by(dx_tested, weighted, pheno_cat, pheno, label) %>% 
   #first make sure model converged in both
   filter(n() == 2) %>%
   #then filter to significant vals
@@ -381,7 +545,7 @@ cent_test_change <- cent_test.df_uncor %>%
 table(cent_test_change$sig_mod)
 
 cent_disagree_plt <- cent_test_change %>%
-  filter(sig_mod != "both") %>%
+  filter(sig_mod != "both" & weighted==FALSE) %>%
   ggplot() +
     geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
     scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
@@ -392,6 +556,46 @@ cent_disagree_plt <- cent_test_change %>%
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1), legend.position = "bottom") +
     labs(y="Incongruous IDPs", x="", fill="Brain Chart \nModel")
 saveRDS(cent_disagree_plt, "figs/ggobjs/cent_disagree_bar_plt.rds")
+
+#compare with weighted
+cent_disagree_plt_supp <- cent_test_change %>%
+  filter(sig_mod != "both") %>%
+  ggplot() +
+    geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
+    scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
+                        values = c("full" = "#216936FF",
+                                   "null" = "#A8BFAAFF")) +
+    facet_grid(weighted ~ dx_tested,
+               labeller = labeller(weighted = c("TRUE" = "QC-Weighted", "FALSE" = "Unweighted"))) +
+    theme_linedraw() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1), legend.position = "bottom") +
+    labs(y="Incongruous IDPs", x="", fill="Brain Chart \nModel")
+ggsave("figs/supplement/cent_disagree_bar_plt.png", cent_disagree_plt_supp, bg = "white")
+
+#also look at age2plus mods
+cent_test.df_uncor %>%
+  filter(model != "diff" & age2plus==TRUE) %>%
+  group_by(dx_tested, weighted, pheno_cat, pheno, label) %>% 
+  #first make sure model converged in both
+  filter(n() == 2) %>%
+  #then filter to significant vals
+  filter(dx_sig_fdr == "TRUE") %>%
+  summarise(
+    sig_mod = case_when(
+      n() == 1 ~ model,                          # significant in only one model
+      n() == 2 & length(unique(sign(d))) > 1 ~ "opposite",  # both sig, opposite signs
+      n() == 2 ~ "both"                          # both sig, same sign
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(sig_mod = factor(sig_mod, levels = c("both", "opposite", "full", "null"))) %>%
+  filter(sig_mod != "both")%>%
+  ggplot() +
+    geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
+    scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
+                        values = c("full" = "#216936FF",
+                                   "null" = "#A8BFAAFF")) +
+    facet_wrap(~ dx_tested, nrow=1)
 ```
 
 Male-biased disorders -> false positives, female-biased disorders -> false negatives? severe disorders with prominent neuroanatomical effects are well-captured by both models
@@ -399,9 +603,11 @@ Male-biased disorders -> false positives, female-biased disorders -> false negat
 plot on brains
 
 ```{r}
-cent_test_change$sig_fdr <- TRUE #all sig by definition
+cent_test_change_unweighted <- cent_test_change %>% filter(weighted==FALSE)
 
-dx_brain_change_plt <- plot_cv_brain(df = cent_test_change, 
+cent_test_change_unweighted$sig_fdr <- TRUE #all sig by definition
+
+dx_brain_change_plt <- plot_cv_brain(df = cent_test_change_unweighted, 
                           fill_var = sig_mod, 
                           fill_name = "Model", 
                           fill_color=NULL,
@@ -414,7 +620,7 @@ dx_brain_change_plt <- plot_cv_brain(df = cent_test_change,
                           return_plt = TRUE, 
                           include_global = TRUE,
                           rel_widths = c(6,.5)) 
-ggsave("figs/supplement/dx_brain_change_plt.png", dx_brain_change_plt, width=17, height=8, dpi=600, bg = "white")
+ggsave("figs/supplement/dx_brain_change_plt.png", dx_brain_change_plt, width=17, height=8, dpi=300, bg = "white")
 ```
 
 
@@ -430,7 +636,10 @@ ext_cent_fish <- lapply(paths, fread)
 names(ext_cent_fish) <- paths
 
 ext_cent_fish_df <- rbindlist(ext_cent_fish, idcol = "file") %>%
-  mutate(total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)")) %>%
+  mutate(dx_tested = stringr::str_extract(basename(file), "[^_]+"),
+         total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
+         weighted  = stringr::str_detect(file, "weight"),
+         age2plus = stringr::str_detect(file, "age2plus")) %>%
   group_by(total, model) %>%
   mutate(
     p_fdr = p.adjust(
@@ -462,22 +671,23 @@ ext_cent_fish_df <- rbindlist(ext_cent_fish, idcol = "file") %>%
     pheno == "CBV" ~ "Cerebellum",
     TRUE ~ label
   )) %>%
-  mutate(pct_diff = pct_PT - pct_CN) #pos -> cases overrepresented, neg -> cases under-represented
+  mutate(pct_diff = pct_PT - pct_CN) %>% #pos -> cases overrepresented, neg -> cases under-represented
+  select(!file)
 
 table(ext_cent_fish_df$sig_fdr, ext_cent_fish_df$dx_tested)
 
 ext_cent_fish_df %>%
   filter(sig_fdr==TRUE) %>%
-  group_by(total, model, dx_tested) %>%
+  group_by(dx_tested, weighted, age2plus, total, model) %>%
   dplyr::count()
 ```
 
 ```{r}
 ext_cent_fish_df %>%
-  filter(sig_fdr==TRUE & total==FALSE & model == "full") %>%
+  filter(sig_fdr==TRUE & total==FALSE & model == "full" & age2plus==FALSE) %>%
   ggplot() +
   geom_histogram(aes(x=pct_diff, fill=dx_tested), position="identity", alpha=.5) +
-  facet_wrap(~ext)
+  facet_grid(weighted~ext)
 ```
 
 plot on brains
@@ -487,7 +697,7 @@ for (dx_name in dx_levels) {
 
   # Filter and rename
   dx.df_uncor <- ext_cent_fish_df %>%
-    dplyr::filter(dx_tested == dx_name & total == FALSE)
+    dplyr::filter(dx_tested == dx_name & total == FALSE & age2plus==FALSE & weighted==FALSE)
 
   # Compute symmetric range for color scale
   d_range <- range(dx.df_uncor$pct_diff, na.rm = TRUE)
@@ -567,7 +777,7 @@ for (dx_name in dx_levels) {
   dx_lower <- tolower(dx_name)
   ggplot2::ggsave(
     paste0("figs/supplement/", dx_lower, "_totalFALSE_ext_brainplt.png"),
-    dx_plt, dpi = 600, height = 8.5, width = 12, bg = "white"
+    dx_plt, dpi = 300, height = 8.5, width = 12, bg = "white"
   )
 
   message("Saved plots for: ", dx_name)
@@ -575,11 +785,181 @@ for (dx_name in dx_levels) {
 }
 ```
 
+
+also plot weighted sensitivity
+
+```{r}
+for (dx_name in dx_levels) {
+
+  # Filter and rename
+  dx.df_uncor <- ext_cent_fish_df %>%
+    dplyr::filter(dx_tested == dx_name & total == FALSE & age2plus==FALSE & weighted==TRUE)
+
+  # Compute symmetric range for color scale
+  d_range <- range(dx.df_uncor$pct_diff, na.rm = TRUE)
+  sym_range <- c(-max(abs(d_range)), max(abs(d_range)))
+
+  # Split by model
+  dx.df_full <- dx.df_uncor %>% dplyr::filter(model == "full")
+  dx.df_null <- dx.df_uncor %>% dplyr::filter(model == "null")
+
+  # Build plot components (without auto-assembling full figure)
+  full_parts <- plot_cv_brain(df = dx.df_full,
+                          fill_var = pct_diff,
+                          fill_name = "Percent\nDiff",
+                          fill_color = "grDevices::Blue-Red 3",
+                          fill_limits = sym_range,
+                          height_list = c(1.03, 4.5, .93),
+                          facet_var = "ext",
+                          keep_levels = TRUE,
+                          return_plt = FALSE)
+
+  null_parts <- plot_cv_brain(df = dx.df_null,
+                          fill_var = pct_diff,
+                          fill_name = "Percent\nDiff",
+                          fill_color = "grDevices::Blue-Red 3",
+                          fill_limits = sym_range,
+                          height_list = c(1.03, 4.5, .93),
+                          facet_var = "ext",
+                          return_plt = FALSE,
+                          keep_levels = TRUE
+  )
+
+  # Helper to assemble one brain panel (without legend) + visible title
+  assemble_panel <- function(parts, title_text, heights = c(1.03, 4.5, .93)) {
+    panel <- cowplot::plot_grid(
+      parts[[1]], parts[[2]], parts[[3]],
+      ncol = 1, nrow = 3,
+      rel_heights = heights,
+      align = "v", axis = "lr", greedy = TRUE
+    )
+
+    title_plot <- cowplot::ggdraw() +
+      cowplot::draw_label(
+        title_text,
+        x = 0.5, y = 0.5, hjust = 0.5, vjust = 0.5,
+        fontface = "bold", size = 13
+      )
+
+    cowplot::plot_grid(
+      title_plot, panel,
+      ncol = 1,
+      rel_heights = c(0.12, 1)
+    )
+  }
+
+  plt_full_titled <- assemble_panel(
+    full_parts,
+    paste(dx_name, "effects from QC-weighted sex-moderated model")
+  )
+
+  plt_null_titled <- assemble_panel(
+    null_parts,
+    paste(dx_name, "effects from QC-weighted sex-intercept model")
+  )
+
+  # Use one shared legend (same scale, so either legend works)
+  shared_legend <- full_parts[[4]]
+
+  # Combine both panels + single legend on right
+  dx_plt <- cowplot::plot_grid(
+    cowplot::plot_grid(plt_full_titled, plt_null_titled, ncol = 2),
+    shared_legend,
+    ncol = 2,
+    rel_widths = c(12, 1)
+  )
+
+  # Save
+  dx_lower <- tolower(dx_name)
+  ggplot2::ggsave(
+    paste0("figs/supplement/", dx_lower, "_totalFALSE_weighted_ext_brainplt.png"),
+    dx_plt, dpi = 300, height = 8.5, width = 12, bg = "white"
+  )
+
+  message("Saved plots for: ", dx_name)
+  
+}
+```
+
+thickness in ages 2 plus
+
+```{r}
+# helper: stack a tight title above a single cortex panel
+titled_cortex <- function(cortex_plt, title_text) {
+  title <- ggdraw() +
+    draw_label(
+      title_text,
+      x = 0.5, y = 1, hjust = 0.5, vjust = 1,
+      fontface = "bold", size = 11
+    ) +
+    theme(plot.margin = margin(2, 0, 0, 0))
+  plot_grid(title, cortex_plt, ncol = 1, rel_heights = c(0.08, 1))
+}
+
+for (dx_name in dx_levels) {
+
+  dx.df_uncor <- ext_cent_fish_df %>%
+    dplyr::filter(dx_tested == dx_name & total == FALSE &
+                  age2plus == TRUE & weighted == FALSE)
+
+  # symmetric color scale on pct_diff
+  pd_max <- max(abs(range(dx.df_uncor$pct_diff, na.rm = TRUE)))
+  sym_range <- c(-pd_max, pd_max)
+
+  brain_args <- list(
+    fill_var = quote(pct_diff),
+    fill_name = "Percent\nDiff",
+    fill_color = "grDevices::Blue-Red 3",
+    fill_limits = sym_range,
+    facet_var = "ext",
+    include_global = FALSE,
+    include_subcort = FALSE,
+    keep_levels = TRUE,
+    return_plt = FALSE
+  )
+
+  # plot_cv_brain returns list(cortex, legend) here — 2 elements, not 4
+  full_parts <- do.call(plot_cv_brain,
+                        c(list(df = dx.df_uncor %>% filter(model == "full")),
+                          brain_args))
+  null_parts <- do.call(plot_cv_brain,
+                        c(list(df = dx.df_uncor %>% filter(model == "null")),
+                          brain_args))
+
+  plt_full <- titled_cortex(
+    full_parts[[1]],
+    paste(dx_name, "effects from\nsex-moderated models in ages 2+")
+  )
+  plt_null <- titled_cortex(
+    null_parts[[1]],
+    paste(dx_name, "effects from\nsex-intercept models in ages 2+")
+  )
+
+  # shared legend (same scale across both models)
+  shared_legend <- full_parts[[2]]
+
+  dx_plt <- plot_grid(
+    plot_grid(plt_full, plt_null, ncol = 2),
+    shared_legend,
+    ncol = 2,
+    rel_widths = c(12, 1)
+  )
+
+  dx_lower <- tolower(dx_name)
+  ggplot2::ggsave(
+    paste0("figs/supplement/", dx_lower, "_totalFALSE_age2plus_ext_brainplt.png"),
+    dx_plt, dpi = 300, height = 3, width = 8, bg = "white"
+  )
+
+  message("Saved plots for: ", dx_name)
+}
+```
+
 brainplots across dx
 
 ```{r}
 dx_all <- ext_cent_fish_df %>%
-  dplyr::filter(model == "full" & total == FALSE) %>%
+  dplyr::filter(model == "full" & total == FALSE & weighted==FALSE & age2plus==FALSE) %>%
   mutate(dx_ext = paste(dx_tested, ext, sep="_"))
 
 # Compute symmetric range for color scale
@@ -653,7 +1033,7 @@ ext_brain_plt <- plot_grid(
   rel_widths=c(10,1)
 )
 
-ggsave("figs/supplement/extreme_dx_totalFALSE_brainplt.png", ext_brain_plt, width=18, height=16, dpi=600, bg = "white")
+ggsave("figs/supplement/extreme_dx_totalFALSE_brainplt.png", ext_brain_plt, width=18, height=16, dpi=300, bg = "white")
 ```
 
 ###Total-Size Corrected
@@ -663,7 +1043,7 @@ save csv with size corrected and uncorrected results
 ```{r}
 ext_test_csv <- ext_cent_fish_df %>%
   filter(total == FALSE | (total == TRUE & model == "full")) %>%
-  select(total, model, dx_tested, ext, pheno_cat, pheno, pct_CN, pct_PT, pct_diff, fisher_stat, fisher_p, p_fdr, sig_fdr) %>%
+  select(total, weighted, age2plus, model, dx_tested, ext, pheno_cat, pheno, pct_CN, pct_PT, pct_diff, fisher_stat, fisher_p, p_fdr, sig_fdr) %>%
   rename(idp_category = pheno_cat,
          idp = pheno,
          p.val = fisher_p,
@@ -685,7 +1065,9 @@ plot
 
 ```{r}
 dx_all <- ext_cent_fish_df %>%
-  dplyr::filter(model == "full" & total == TRUE) %>%
+  dplyr::filter(model == "full" & total == TRUE & weighted==FALSE) %>%
+  #for ct, use age2plus model
+  filter((age2plus==TRUE & pheno %in% ct_list) | (age2plus==FALSE & !(pheno %in% ct_list))) %>%
   mutate(dx_ext = paste(dx_tested, ext, sep="_"))
 
 # Compute symmetric range for color scale
@@ -759,77 +1141,31 @@ ext_brain_plt <- plot_grid(
   rel_widths=c(10,1)
 )
 
-ggsave("figs/supplement/extreme_dx_totalTRUE_brainplt.png", ext_brain_plt, width=18, height=16, dpi=600, bg = "white")
+ggsave("figs/supplement/extreme_dx_totalTRUE_brainplt.png", ext_brain_plt, width=18, height=16, dpi=300, bg = "white")
 ```
 
-###Change
-
-How do results differ across full and null models?
+plot from weighted models
 
 ```{r}
-ext_test_change <- ext_cent_fish_df %>%
-  filter(total == FALSE) %>%
-  group_by(dx_tested, pheno_cat, pheno, label, ext) %>% 
-  #first make sure model converged in both
-  filter(n() == 2) %>%
-  #then filter to significant vals
-  filter(sig_fdr == "TRUE") %>%
-  summarise(
-    sig_mod = case_when(
-      n() == 1 ~ model,                          # significant in only one model
-      n() == 2 & length(unique(sign(pct_diff))) > 1 ~ "opposite",  # both sig, opposite signs
-      n() == 2 ~ "both"                          # both sig, same sign
-    ),
-    .groups = "drop"
-  ) %>%
-  mutate(sig_mod = factor(sig_mod, levels = c("both", "opposite", "full", "null")))
+dx_all_weighted <- ext_cent_fish_df %>%
+  dplyr::filter(model == "full" & total == TRUE & weighted==TRUE) %>%
+  mutate(dx_ext = paste(dx_tested, ext, sep="_"))
 
-table(ext_test_change$sig_mod)
+# Compute symmetric range for color scale
+range(dx_all_weighted$pct_diff, na.rm = TRUE)
+sym_range <- c(-30, 30)
 
-ext_test_change %>%
-  filter(sig_mod != "both") %>%
-  group_by(dx_tested, ext, sig_mod) %>%
-  dplyr::count()
+dx_high <- dx_all_weighted %>% filter(ext=="high")
+dx_low <- dx_all_weighted %>% filter(ext=="low")
 
-ext_test_change %>%
-  filter(sig_mod != "both") %>%
-  ggplot() +
-    geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
-        scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
-                        values = c("full" = "#216936FF",
-                                   "null" = "#A8BFAAFF")) +
-    facet_grid(ext ~ dx_tested) +
-    theme_linedraw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-    labs(y="Incongruous IDPs", x="", fill="Brain Chart Model")
-```
-
-plot on brains
-
-```{r}
-ext_test_change$sig_fdr <- TRUE
-
-#add back NS phenos
-lab_df <- ext_cent_fish_df %>% 
-  select(pheno, pheno_cat, label, dx_tested) %>%
-  distinct()
-
-change_high <- ext_test_change %>% filter(ext=="high")
-change_low <- ext_test_change %>% filter(ext=="low")
-
-change_high_nas <- full_join(change_high, lab_df)
-change_low_nas <- full_join(change_low, lab_df)
-
-high_plt <- plot_cv_brain(df = change_high_nas, 
-                          fill_var = sig_mod, 
-                          fill_name = "Model", 
-                          fill_color=NULL,
-                           fill_values = c("both" = "#393470", 
-                                         "full" = "#216936FF" , 
-                                        "null" = "#A8BFAAFF"),
-                          fill_limits = c("both", "full", "null"),
-                          facet_var= "dx_tested",
-                          return_plt = FALSE,
+high_plt <- plot_cv_brain(df = dx_high, 
+                          fill_var = pct_diff, 
+                          fill_name = "Percent\nDifference",
+                          fill_color = "pals::ocean.curl", #scico::romaO
+                          fill_limits = sym_range,
+                          facet_var = "dx_tested",
+                          height_list=c(5,1.1), 
+                          return_plt = FALSE, 
                           keep_levels = TRUE,
                           include_global = TRUE,
                           rel_widths = c(6,.5))
@@ -848,21 +1184,18 @@ upper_combo_labeled <- ggdraw() +
   ) +
   draw_label("Centiles > 95%", x = 0.01, y = 0.5, angle = 90, size = 10)
 
-low_plt <- plot_cv_brain(df = change_low_nas, 
-                          fill_var = sig_mod, 
-                          fill_name = "Model", 
-                          fill_color=NULL,
-                           fill_values = c("both" = "#393470", 
-                                         "full" = "#216936FF" , 
-                                        "null" = "#A8BFAAFF"),
-                          fill_limits = c("both", "full", "null"),
-                          facet_var= "dx_tested",
-                          return_plt = FALSE, 
+low_plt <- plot_cv_brain(df = dx_low, 
+                          fill_var = pct_diff, 
+                          fill_name = "Percent\nDifference",
+                          fill_color = "pals::ocean.curl", #scico::romaO
+                          fill_limits = sym_range,
+                          facet_var = "dx_tested",
+                          height_list=c(5,1.1), 
+                          return_plt = FALSE,
+                         keep_levels = TRUE,
                           include_global = TRUE,
-                          keep_levels = TRUE,
                           rel_widths = c(6,.5))
 
-#lower plot
 lower_combo <- plot_grid(
   low_plt[[1]], low_plt[[2]], low_plt[[3]],
   ncol = 1,
@@ -878,7 +1211,7 @@ lower_combo_labeled <- ggdraw() +
   ) +
   draw_label("Centiles < 5%", x = 0.01, y = 0.5, angle = 90, size = 10)
 
-ext_brain_plt_change <- plot_grid(
+ext_brain_plt <- plot_grid(
   plot_grid(
   upper_combo_labeled,
   lower_combo_labeled,
@@ -889,5 +1222,59 @@ ext_brain_plt_change <- plot_grid(
   rel_widths=c(10,1)
 )
 
-ggsave("figs/supplement/extreme_dx_brainplt_change.png", ext_brain_plt_change, width=18, height=16, dpi=600, bg = "white")
+ggsave("figs/supplement/extreme_dx_totalTRUE_weighted_brainplt.png", ext_brain_plt, width=18, height=16, dpi=300, bg = "white")
+```
+
+###Change
+
+How do results differ across full and null models?
+
+```{r}
+ext_test_change <- ext_cent_fish_df %>%
+  filter(total == FALSE & age2plus==FALSE) %>%
+  group_by(dx_tested, weighted, pheno_cat, pheno, label, ext) %>% 
+  #first make sure model converged in both
+  filter(n() == 2) %>%
+  #then filter to significant vals
+  filter(sig_fdr == "TRUE") %>%
+  summarise(
+    sig_mod = case_when(
+      n() == 1 ~ model,                          # significant in only one model
+      n() == 2 & length(unique(sign(pct_diff))) > 1 ~ "opposite",  # both sig, opposite signs
+      n() == 2 ~ "both"                          # both sig, same sign
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(sig_mod = factor(sig_mod, levels = c("both", "opposite", "full", "null")))
+
+table(ext_test_change$sig_mod)
+
+ext_test_change %>%
+  filter(sig_mod != "both") %>%
+  group_by(dx_tested, ext, weighted, sig_mod) %>%
+  dplyr::count()
+
+ext_test_change %>%
+  filter(sig_mod != "both" & weighted==FALSE) %>%
+  ggplot() +
+    geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
+        scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
+                        values = c("full" = "#216936FF",
+                                   "null" = "#A8BFAAFF")) +
+    facet_grid(ext ~ dx_tested) +
+    theme_linedraw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    labs(y="Incongruous IDPs", x="", fill="Brain Chart Model")
+
+ext_test_change %>%
+  filter(sig_mod != "both" & weighted==TRUE) %>%
+  ggplot() +
+    geom_bar(aes(x=pheno_cat, fill=sig_mod)) +
+        scale_fill_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
+                        values = c("full" = "#216936FF",
+                                   "null" = "#A8BFAAFF")) +
+    facet_grid(ext ~ dx_tested) +
+    theme_linedraw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    labs(y="Incongruous IDPs", x="", fill="Brain Chart Model")
 ```
