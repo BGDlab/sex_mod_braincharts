@@ -9,13 +9,33 @@ print(args)
 dx_val <- as.character(args[1])
 total   <- as.character(args[2])
 stopifnot(total %in% c("TRUE", "FALSE"))
+mode    <- if (length(args) >= 3) as.character(args[3]) else "regular"
+stopifnot(mode %in% c("regular", "weighted", "age2plus"))
+print(paste0("mode: ", mode))
 
 #when total-corrected models are used, compare full vs null2; otherwise full vs null
 null_model <- if (total == "TRUE") "null2" else "null"
 
 #set paths
 base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
-csv_path <- paste0(base_path, "cv_sample_?_test/*total", total, "*")
+
+#mode-specific glob for the per-pheno _pbmods dirs holding cent_csvs/
+csv_path <- switch(mode,
+  "regular"  = paste0(base_path, "cv_sample_?_test/*total", total, "*"),
+  "weighted" = paste0(base_path, "cv_sample_?_test/weighted_*total", total, "*"),
+  "age2plus" = paste0(base_path, "cv_sample_?_test/age2plus_*total", total, "*")
+)
+
+#Sys.glob doesn't do exclusion, so for regular mode we drop weighted_/age2plus_ matches by hand
+filter_mode_paths <- function(paths) {
+  if (mode == "regular") {
+    paths <- paths[!grepl("/(weighted|age2plus)_", paths)]
+  }
+  paths
+}
+
+#suffix for output filenames so regular vs sensitivity outputs don't collide in dx_tests/
+mode_suffix <- if (mode == "regular") "" else paste0("_", mode)
 save_path <- paste0(base_path, "dx_tests/")
 
 #get pheno list
@@ -33,6 +53,7 @@ pt_df_list <- c()
 #average within pheno
 for (pheno in pheno_list) {
   f_list <- Sys.glob(paste0(csv_path, "/cent_csvs/", pheno, "_PT_", dx_val, "_cent.csv"))
+  f_list <- filter_mode_paths(f_list)
   if (length(f_list) == 0) {
     warning(paste("no files found for pheno:", pheno, "- skipping"))
     next
@@ -63,12 +84,13 @@ print(length(pt_df_list))
 
 pt_df <- pt_df_list %>% purrr::reduce(dplyr::full_join, by = c("INDEX.ID", "sex", "dx_recode"))
 stopifnot(nrow(pt_df) == length(unique(pt_df$INDEX.ID)))
-fwrite(pt_df, paste0(save_path, dx_val, "_total", total, "_mean_scores.csv"))
+fwrite(pt_df, paste0(save_path, dx_val, "_total", total, mode_suffix, "_mean_scores.csv"))
 
 cn_df_list <- c()
 ##READ IN CONTROLS
 for (pheno in pheno_list) {
   f_list <- Sys.glob(paste0(csv_path, "/cent_csvs/", pheno, "_CN_", dx_val, "_cent.csv"))
+  f_list <- filter_mode_paths(f_list)
   if (length(f_list) != 2) {
     warning(paste("2 files not found for pheno:", pheno))
     next
@@ -113,7 +135,7 @@ t_results <- map_dfr(std_cols, function(col) {
 })
 
 #save
-fwrite(t_results, file=paste0(save_path, dx_val, "_total", total, "_casecontrol_test.csv"))
+fwrite(t_results, file=paste0(save_path, dx_val, "_total", total, mode_suffix, "_casecontrol_test.csv"))
 
 #TEST EXTREMENESS & CHANGES IN EXTREMENESS ACROSS MODELS IN CASES V CONTROLS
 sum_df <- data.frame()
@@ -203,8 +225,8 @@ for (df in list(cn_df, pt_df)){
 sum_df$dx_tested <- dx_val
 diffs_df$dx_tested <- dx_val
 
-fwrite(sum_df, file=paste0(save_path, dx_val, "_total", total, "_extcent_sum.csv"))
-fwrite(diffs_df, paste0(save_path, dx_val, "_total", total, "_extcent_diffs.csv"))
+fwrite(sum_df, file=paste0(save_path, dx_val, "_total", total, mode_suffix, "_extcent_sum.csv"))
+fwrite(diffs_df, paste0(save_path, dx_val, "_total", total, mode_suffix, "_extcent_diffs.csv"))
 
 #SIGNIFICANCE TESTING using Fisher's Exact test of proportions
 run_fisher <- function(n_CN, n_PT, n_total_CN, n_total_PT) {
@@ -242,4 +264,4 @@ fisher_final <- fisher_df %>%
 
 fisher_final$dx_tested <- dx_val
 
-fwrite(fisher_final, paste0(save_path, dx_val, "_total", total, "_extcent_fisher.csv"))
+fwrite(fisher_final, paste0(save_path, dx_val, "_total", total, mode_suffix, "_extcent_fisher.csv"))

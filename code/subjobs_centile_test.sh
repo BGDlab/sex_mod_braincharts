@@ -18,9 +18,16 @@ echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
 #PARSE CONFIG FILE
 DX=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
 TOTAL=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
+MODE=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $4}' $CONFIGFN )
+
+#default to regular mode for backward compatibility with old configs that lack the MODE column
+if [[ -z "$MODE" ]]; then
+  MODE="regular"
+fi
 
 echo "DX: $DX"
 echo "TOTAL: $TOTAL"
+echo "MODE: $MODE"
 
 #------------------
 
@@ -30,7 +37,7 @@ SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/co
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $BASE/code/centile_test.R $DX $TOTAL
+    Rscript $BASE/code/centile_test.R $DX $TOTAL $MODE
 
 # Done!
 echo "Job finished running!"
