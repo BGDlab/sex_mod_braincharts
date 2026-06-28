@@ -17,7 +17,7 @@ setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
 if(!require('pacman')) {
   install.packages('pacman')
 }
-pacman::p_load(data.table, ggplot2, tidyverse, stats, skimr, rlang, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, patchwork, plotly, pracma, gcplyr, legendry, gghighlight, forcats, cowplot, sf)
+pacman::p_load(data.table, ggplot2, tidyverse, ggrepel, gamlss, ggseg, ggsegExtra, RESI, paletteer, gcplyr, legendry, cowplot)
 
 devtools::install_github("BGDlab/gamlssTools", force=TRUE)
 library(gamlssTools)

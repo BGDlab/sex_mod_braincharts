@@ -27,6 +27,14 @@ echo "TRAINING MODEL: $MODEL"
 echo "SAVE_PATH: $SAVE_PATH"
 echo "DX: $DX"
 
+#echo "=== Node: $(hostname) ==="
+#echo "=== /tmp on host: ==="
+#df -h /tmp
+#echo "=== TMPDIR env: $TMPDIR ==="
+#echo "=== SLURM_TMPDIR: $SLURM_TMPDIR ==="
+#echo "=== Free space on \$BASE: ==="
+#df -h $BASE
+
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/

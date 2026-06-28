@@ -707,8 +707,9 @@ samp_plt <- full_df %>%
   geom_rain(alpha=.4) +
   scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
   theme_linedraw() +
-  labs(color = "Sex", y="Age (years)", x="Split-Half")
-ggsave("figs/supplement/cv_samples.png", samp_plt)
+  labs(color = "Sex", y="Age (years)", x="Split-Half") +
+  coord_flip()
+ggsave("figs/supplement/cv_samples.png", samp_plt, width=7, height=4)
 
 #confirm correct sites
 stopifnot(setequal(unique(samp_A$study_site), valid_sites))
@@ -745,11 +746,12 @@ full_demo_table <- full_df %>%
   mutate(
     `N Sites` = as.character(n_studies),
     `Age (years), Mean (SD)` = paste0(round(mean_age, 2), " (", round(sd_age, 2), ")"),
-    `Age Range (years)` = paste(round(min_age, 2), "-", round(max_age, 2)),
+    `Minimum Age (years)` = round(min_age, 2),
+    `Maximum Age (years)` = round(max_age, 2)
   ) %>%
-   select(study, sex, `N Sites`, `N`, `Age (years), Mean (SD)`, `Age Range (years)`, 
+   select(study, sex, `N Sites`, `N`, `Age (years), Mean (SD)`, `Minimum Age (years)`, `Maximum Age (years)`,
           'Volume Pipeline', 'SA Pipeline', 'CT Pipeline')
-write_csv(full_demo_table, "figs/supplement/study_demo_tbl.csv")
+fwrite(full_demo_table, "figs/supplement/study_demo_tbl.csv")
 ```
 
 demographics by split
@@ -833,8 +835,9 @@ samp_plt <- full_df %>%
   geom_rain(alpha=.4) +
   scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
   theme_linedraw() +
-  labs(color = "Sex", y="Age (years)", x="Split-Half")
-ggsave("figs/supplement/cv_samples_surfhole.png", samp_plt)
+  labs(color = "Sex", y="Age (years)", x="Split-Half") +
+  coord_flip()
+ggsave("figs/supplement/cv_samples_surfhole.png", samp_plt, width=7, height=4)
 
 #check min age
 full_df %>%
@@ -1037,6 +1040,7 @@ samp_plt <- case_control_demo_df %>%
   scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
   theme_linedraw() +
   facet_wrap(~dx_tested) +
-  labs(color = "Sex", y="Age (years)", x="Diagnosis")
-ggsave("figs/supplement/cv_samples_pts.png", samp_plt)
+  labs(color = "Sex", y="Age (years)", x="Diagnosis") +
+  coord_flip()
+ggsave("figs/supplement/cv_samples_pts.png", samp_plt, width=7, height=4)
 ```

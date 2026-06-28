@@ -101,8 +101,9 @@ LR.df <- bind_rows(output_fread, .id="file") %>%
 ```
 
 ```{r, eval=FALSE}
+#main
 LR.df %>%
-  group_by(cv_sample, total, weighted) %>%
+  group_by(cv_sample, total, weighted, age2plus) %>%
   summarise(n_phenos = n_unique(pheno))
 
 A_totalFALSE <- LR.df %>%
@@ -929,7 +930,6 @@ sexdiffs_tbv_sq <- sexdiffs_tbv_all %>%
   group_by(pheno, cv_sample, weighted, age2plus) %>%
   arrange(logAge_days, .by_group = TRUE) %>%
   mutate(sq_deriv_z = get_deriv(sq_centile_diff_z, logAge_days)) %>% #
-  mutate(sq_deriv_z.unlog = sq_deriv_z*deriv_age) %>% #chain rule to convert derivative
   ungroup()
 
 #try getting integral
@@ -937,8 +937,7 @@ convergence_int <- sexdiffs_tbv_sq %>%
   group_by(pheno, cv_sample, pheno_cat, weighted, age2plus)%>%
   arrange(logAge_days, .by_group = TRUE) %>%
   na.omit() %>%
-  summarise(sq_int_z = trapz(logAge_days, sq_deriv_z),
-            sq_int_z.unlog = rs_integral(logAge_days, sq_deriv_z)) %>%
+  summarise(sq_int_z = trapz(logAge_days, sq_deriv_z)) %>%
   mutate(overall_trajectory = ifelse(sq_int_z <0 ,"converging", "diverging")) ##Should this be defined on `sq_int_z` or `sq_int_z.unlog`???
 
 #checking
@@ -1937,7 +1936,7 @@ saveRDS(group_brain_plt, "figs/ggobjs/cent_groups_brain_B.rds")
 ##TRAJECTORIES
 group_traj_plt_B <- group_traj_final %>%
   filter(weighted==FALSE & age2plus==FALSE) %>%
-  filter(sig_fdr==TRUE & cv_sample=="B" & cent_group != "complex") %>%
+  filter(sig_fdr==TRUE & cv_sample=="B" & cent_group != "Complex") %>%
   arrange(pheno, age_days) %>%
   ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +

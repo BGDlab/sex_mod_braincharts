@@ -88,12 +88,15 @@ p <- make_centile_fan(gamlssModel=model,
                       sim_data_list = sim_df,
                       label_centiles = "legend",
                       point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
-                      color_manual = c('0' = "#c05f0d", '1' = "#38688D"),
+                      color_manual = c("0" = "#c05f0d", "1" = "#38688D"),
                       remove_point_effect = resid_terms,
                       x_axis="log_lifespan_fetal") +
-      theme_linedraw() +
-      scale_color_discrete(name = "Sex", labels = c("Female", "Male")) +
-      guides(fill=FALSE) +
+        theme_linedraw() +
+      scale_color_manual(name = "Sex",
+                         values = c('0' = "#c05f0d", '1' = "#38688D"),
+                         labels = c("Female", "Male")) +
+      guides(fill = "none",
+             fill_ggnewscale_1 = "none", colour_ggnewscale_1 = "none") +
       geom_vline(xintercept=birth, color="gray20", linetype = "dashed") +
       labs(title= title_text,
            x = "Age (years)")
