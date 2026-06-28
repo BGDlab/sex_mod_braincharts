@@ -118,8 +118,7 @@ sbatch --array=1-6 code/subjobs_centile_test.sh ./code/config_files/cv_mods_tota
 
 ## Figures
 Main manuscript figures were assembled using `format_figures.Rmd`. 
-Nicely formatted centile fan plots were created using: `code/config_replot.sh`, `code/replot_centiles.R`, `code/subjobs_replot.sh`. These plots were compiled into the supplemental PDF using `code/plot_all_phenotypes_train_vs_test.R`.
-The supplemental PDF showing sex bias trajectories in median and variability for each phenotype was created using `code/replot_diff_trajectories.R`.
+Nicely formatted centile fan plots were created using: `code/config_replot.sh`, `code/replot_centiles.R`, `code/subjobs_replot.sh`. These plots, together with the sex bias trajectories in median and variability for each phenotype, were compiled into a single supplemental PDF using `code/plot_all_phenotypes_combined.R` (train/test comparison pages followed by sex-difference trajectory pages).
 
 Other scripts used for plotting, formatting, and viewing figures are `code/grab_pngs.R`, `code/plot_cv_brain.R`, and `code/subjob_grab_pngs.sh`.
 

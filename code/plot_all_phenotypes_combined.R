@@ -1,20 +1,33 @@
-# Compile train-vs-test phenotype plots into one PDF.
-# Each page = one (pheno x direction x totalTRUE/FALSE) combination,
-# with the training-model plot on top and the testing-model plot below.
-# Splits: direction A->B uses cv_sample_A_train (top) + cv_sample_B_test (bottom);
-#         direction B->A uses cv_sample_B_train (top) + cv_sample_A_test (bottom).
+# Combine train-vs-test phenotype plots and sex-difference trajectory plots
+# into a single PDF: all train/test pages first, then all sex-diff trajectory pages.
+set.seed(99999)
 
 library(grid)
 library(png)
+library(data.table)
+library(ggplot2)
+library(dplyr)
+library(gamlss)
+library(gamlssTools)
+library(cowplot)
 
 base_dir <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
+source(file.path(base_dir, "code/gamlss_fit_funs.R"))
 
+# get pheno list
 sa_list     <- readRDS(file.path(base_dir, "pheno_lists/cortical_surf.rds"))
 ct_list     <- readRDS(file.path(base_dir, "pheno_lists/cortical_thickness.rds"))
 vol_list    <- readRDS(file.path(base_dir, "pheno_lists/cortical_vols.rds"))
 global_list <- readRDS(file.path(base_dir, "pheno_lists/global_vols.rds"))
 sub_list    <- readRDS(file.path(base_dir, "pheno_lists/subcortical_vols.rds"))
 pheno_list  <- c(global_list, sub_list, vol_list, sa_list, ct_list)
+
+output_pdf <- file.path(base_dir, "all_phenotypes_combined.pdf")
+pdf(output_pdf, width = 8, height = 10, bg = "white")
+
+## ---------------------------------------------------------------------------
+## Part 1: train-vs-test phenotype plots
+## ---------------------------------------------------------------------------
 
 directions <- list(
   list(train = "A", test = "B"),
@@ -32,14 +45,10 @@ find_png <- function(sample, role, total, pheno) {
     "replot",
     sprintf("%s_*_plot.png", pheno)
   )
-  #print(pattern)
   hits <- Sys.glob(pattern)
   hits <- hits[!grepl("weighted", hits, fixed = TRUE)]
   if (length(hits) == 0) NA_character_ else hits[1]
 }
-
-output_pdf <- file.path(base_dir, "all_phenotypes_train_vs_test.pdf")
-pdf(output_pdf, width = 8, height = 10)
 
 # Header band over two equal-height image panels
 layout_vp <- viewport(layout = grid.layout(3, 1, heights = unit(c(1, 9, 9), "null")))
@@ -114,11 +123,77 @@ for (pheno in pheno_list) {
   }
 }
 
-dev.off()
-
-message(sprintf("PDF saved as: %s", output_pdf))
-message(sprintf("Wrote %d of %d pages", written, total_pages))
+message(sprintf("Part 1 (train vs test): wrote %d of %d pages", written, total_pages))
 if (length(missing_pages) > 0) {
   message(sprintf("Skipped %d pages due to missing/unreadable files:", length(missing_pages)))
   for (m in missing_pages) message("  ", m)
 }
+
+## ---------------------------------------------------------------------------
+## Part 2: sex-difference trajectory plots
+## ---------------------------------------------------------------------------
+
+csv_path <- file.path(base_dir, "cv_sample_?_test/*totalTRUE*")
+
+for (pheno in pheno_list) {
+  f_list <- Sys.glob(file.path(csv_path, "cent_csvs", sprintf("%s_sexdiffs.csv", pheno)))
+  f_list <- f_list[!grepl("weighted", f_list)] # ignore weighted models
+  if (length(f_list) == 0) {
+    warning(paste(length(f_list), "no files found for", pheno, "- skipping"))
+    next
+  } else if (length(f_list) == 1) {
+    warning(paste(length(f_list), "1 file found for", pheno))
+  }
+  # get split
+  names(f_list) <- sub(".*cv_sample_(.).*", "\\1", f_list)
+  df <- rbindlist(lapply(f_list, fread), idcol = "split", use.names = TRUE)
+
+  med_diff_plt <- ggplot(df) +
+    geom_hline(yintercept = 0, color = "gray20", linetype = "dashed") +
+    geom_line(aes(x = logAge_days, y = centile_M_minus_F_z, color = split)) +
+    format_x_axis("log_lifespan_fetal", df$logAge_days) +
+    labs(color = "Split-Half",
+         y = "Sex Difference in Median Trajectory",
+         x = "Age at Scan (years)") +
+    theme_minimal() +
+    theme(legend.position = "none")
+
+  var_diff_plt <- ggplot(df) +
+    geom_hline(yintercept = 0, color = "gray20", linetype = "dashed") +
+    geom_line(aes(x = logAge_days, y = logcv_M_div_F, color = split)) +
+    format_x_axis("log_lifespan_fetal", df$logAge_days) +
+    labs(color = "Split-Half",
+         y = "Sex Difference in Variability Trajectory",
+         x = "Age at Scan (years)") +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+  shared_legend <- get_legend(var_diff_plt, "bottom")
+  var_diff_plt <- var_diff_plt + theme(legend.position = "none")
+
+  p <- plot_grid(
+    med_diff_plt,
+    var_diff_plt,
+    shared_legend,
+    ncol = 1,
+    nrow = 3,
+    rel_heights = c(1, 1, .05)
+  )
+
+  # add a title so each pdf page is identifiable by pheno
+  p <- plot_grid(
+    ggdraw() + draw_label(pheno, fontface = "bold"),
+    p,
+    ncol = 1,
+    rel_heights = c(0.05, 1)
+  )
+
+  fname <- file.path(base_dir, "figs/trajectory_plts", sprintf("%s.png", pheno))
+  ggsave(fname, p, width = 8, height = 10, dpi = 300, bg = "white")
+
+  print(p)
+}
+
+dev.off()
+
+message(sprintf("PDF saved as: %s", output_pdf))
