@@ -34,6 +34,9 @@ run_combo <- function(dx_val, total, pipeline) {
     #age2plus pipeline only fits CT (see config_cv_mods_test_age2plus.sh)
     csv_path <- paste0(base_path, "cv_sample_?_test/age2plus_*total", total, "*")
     phenos_use <- ct_list
+  } else if (pipeline == "weighted") {
+    csv_path <- paste0(base_path, "cv_sample_?_test/weighted_*total", total, "*")
+    phenos_use <- pheno_list
   } else {
     csv_path <- paste0(base_path, "cv_sample_?_test/*total", total, "*")
     phenos_use <- pheno_list
@@ -44,7 +47,7 @@ run_combo <- function(dx_val, total, pipeline) {
     f_list <- Sys.glob(paste0(csv_path, "/cent_csvs/", pheno, "_PT_", dx_val, "_cent.csv"))
     #regular pipeline glob also matches age2plus_* dirs; drop them so we don't double-count
     if (pipeline == "regular") {
-      f_list <- f_list[!grepl("age2plus_", f_list)]
+      f_list <- f_list[!grepl("/(age2plus|weighted)_", f_list)]
     }
     if (length(f_list) != 2) {
       warning(paste(length(f_list), "file(s) found for", pheno, "dx", dx_val,
@@ -90,7 +93,7 @@ run_combo <- function(dx_val, total, pipeline) {
 
 #run over the full grid
 grid <- expand.grid(dx = dx_levels, total = total_levels,
-                    pipeline = c("regular", "age2plus"),
+                    pipeline = c("regular", "weighted", "age2plus"),
                     stringsAsFactors = FALSE)
 all_results <- rbindlist(
   Map(run_combo, grid$dx, grid$total, grid$pipeline),
@@ -105,30 +108,31 @@ all_results <- all_results %>%
     pheno %in% sub_list ~ "Subcortical Vol",
     pheno %in% sa_list ~ "Regional SA",
     pheno %in% ct_list ~ "Regional CT",
-    TRUE ~ NA_character_)))
+    TRUE ~ NA_character_)),
+    weighted = ifelse(pipeline=="weighted", "weighted", "unweighted"))
 
 #combined output
 fwrite(all_results, paste0(save_path, "split_correlations_ALL.csv"))
 
 all_results %>%
-  group_by(total, dx, measure) %>%
+  group_by(total, weighted, dx, measure) %>%
   summarise(mean_r=mean(r)) %>%
   ggplot() +
   geom_col(aes(x=measure, y=mean_r, fill=dx), position="dodge") +
-  facet_wrap(~total)
+  facet_grid(weighted~total)
 
 all_results %>%
-  group_by(total, dx, measure) %>%
+  group_by(total, weighted, dx, measure) %>%
   ggplot() +
   geom_boxplot(aes(x=measure, y=r, fill=dx), position="dodge") +
-  facet_wrap(~total)
+  facet_grid(weighted~total)
 
 facet_labels <- c("centile" = "Centile", "std_score" = "Centile Z-score")
 p <- all_results %>%
-  group_by(total, pheno_cat, measure) %>%
+  group_by(total, weighted, dx, measure) %>%
   ggplot() +
   geom_boxplot(aes(x=total, y=r, fill=pheno_cat), position="dodge") +
-  facet_wrap(~measure, labeller = labeller(measure = facet_labels)) +
+  facet_grid(weighted~measure, labeller = labeller(measure = facet_labels)) +
   labs(fill="IDP Category", x="Total-Size Corrected") +
   theme_bw()
 ggsave("figs/supplement/centile_cor.png", p, bg = "white")
