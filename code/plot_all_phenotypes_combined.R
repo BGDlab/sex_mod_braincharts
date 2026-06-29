@@ -173,7 +173,7 @@ for (pheno in pheno_list) {
     theme(legend.position = "bottom") +
     coord_cartesian(ylim = min_ylim(df$logcv_M_div_F))
 
-  shared_legend <- get_legend(var_diff_plt, "bottom")
+  shared_legend <- get_legend(var_diff_plt)
   var_diff_plt <- var_diff_plt + theme(legend.position = "none")
 
   p <- plot_grid(
