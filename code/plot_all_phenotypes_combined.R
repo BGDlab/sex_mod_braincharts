@@ -22,7 +22,7 @@ global_list <- readRDS(file.path(base_dir, "pheno_lists/global_vols.rds"))
 sub_list    <- readRDS(file.path(base_dir, "pheno_lists/subcortical_vols.rds"))
 pheno_list  <- c(global_list, sub_list, vol_list, sa_list, ct_list)
 
-output_pdf <- file.path(base_dir, "all_phenotypes_combined.pdf")
+output_pdf <- file.path(base_dir, "extended_figures.pdf")
 pdf(output_pdf, width = 8, height = 10, bg = "white")
 
 ## ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ min_ylim <- function(x) c(min(x, -0.1, na.rm = TRUE), max(x, 0.1, na.rm = TRUE))
 
 for (pheno in pheno_list) {
   f_list <- Sys.glob(file.path(csv_path, "cent_csvs", sprintf("%s_sexdiffs.csv", pheno)))
-  f_list <- f_list[!grepl("weighted", f_list)] # ignore weighted models
+  f_list <- f_list[!grepl("weighted|age2plus", f_list)] # just main analyses
   if (length(f_list) == 0) {
     warning(paste(length(f_list), "no files found for", pheno, "- skipping"))
     next

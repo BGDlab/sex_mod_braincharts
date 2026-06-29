@@ -10,7 +10,7 @@
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
 
-SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.14.sif"
+SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.15.sif"
 
 script=$BASE/code/plot_all_phenotypes_combined.R
 
