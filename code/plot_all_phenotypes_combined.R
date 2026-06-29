@@ -135,6 +135,9 @@ if (length(missing_pages) > 0) {
 
 csv_path <- file.path(base_dir, "cv_sample_?_test/*totalTRUE*")
 
+# y-limits spanning at least [-0.1, 0.1], widened to fit the data if needed.
+min_ylim <- function(x) c(min(x, -0.1, na.rm = TRUE), max(x, 0.1, na.rm = TRUE))
+
 for (pheno in pheno_list) {
   f_list <- Sys.glob(file.path(csv_path, "cent_csvs", sprintf("%s_sexdiffs.csv", pheno)))
   f_list <- f_list[!grepl("weighted", f_list)] # ignore weighted models
@@ -156,7 +159,8 @@ for (pheno in pheno_list) {
          y = "Sex Difference in Median Trajectory",
          x = "Age at Scan (years)") +
     theme_minimal() +
-    theme(legend.position = "none")
+    theme(legend.position = "none") +
+    coord_cartesian(ylim = min_ylim(df$centile_M_minus_F_z))
 
   var_diff_plt <- ggplot(df) +
     geom_hline(yintercept = 0, color = "gray20", linetype = "dashed") +
@@ -166,7 +170,8 @@ for (pheno in pheno_list) {
          y = "Sex Difference in Variability Trajectory",
          x = "Age at Scan (years)") +
     theme_minimal() +
-    theme(legend.position = "bottom")
+    theme(legend.position = "bottom") +
+    coord_cartesian(ylim = min_ylim(df$logcv_M_div_F))
 
   shared_legend <- get_legend(var_diff_plt, "bottom")
   var_diff_plt <- var_diff_plt + theme(legend.position = "none")
