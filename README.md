@@ -1,4 +1,5 @@
 # Sex-Moderated Brain Charts
+[![DOI](https://zenodo.org/badge/854610120.svg)](https://doi.org/10.5281/zenodo.21045685)
 
 ## Data Prep and QC
 Nearly all data prep, filtering, etc, is in `lbcc_eda.Rmd`. This includes identifying and writing lists of
