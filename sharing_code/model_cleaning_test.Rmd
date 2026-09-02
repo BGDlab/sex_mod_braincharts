@@ -1,0 +1,62 @@
+# Test Model Cleaning for Sharing
+
+```{r, warning=FALSE}
+set.seed(5678)
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(data.table, ggplot2, tidyverse, stats)
+remotes::install_github("BGDlab/gamlssTools@dev")
+library(gamlssTools)
+
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
+```
+
+Get 10 random models and corresponding fit csvs
+
+```{r}
+mod_paths <- Sys.glob(file.path(base, "cv_sample_?_test/*/model_objs/*full_mod.rds"))
+mod_paths <- mod_paths[!str_detect(mod_paths, "weight")] %>% sample(size = 10) #ignore weighted, grab 10
+
+
+# make df, get info to map back to df
+mod_df <- tibble(mod_path = mod_paths) %>%
+  mutate(
+    mod_dir   = basename(dirname(dirname(mod_path))),
+    cv_sample = str_extract(mod_path, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+    total     = str_extract(mod_dir, "(?<=total)(TRUE|FALSE)"),
+    log_age   = str_extract(mod_dir, "(?<=logAge)(TRUE|FALSE)"),
+    age2plus  = str_detect(mod_dir, "age2plus"),
+    pheno     = str_remove(basename(mod_path), "_.*$")     # phenos contain no "_"
+  )
+
+#find csv function
+find_csv <- function(cv_sample, pheno, total, log_age, age2plus) {
+  if (age2plus) {
+    hits <- file.path(base, "data", paste0("cv_sample_", cv_sample, "_age2plus"),
+                      paste0(pheno, "_total", total, "_test_df.csv"))
+    hits <- hits[file.exists(hits)]
+  } else {
+    hits <- Sys.glob(file.path(base, "data", paste0("cv_sample_", cv_sample, "_dfs"),
+                               paste0(pheno, "_total", total, "*logAge", log_age, ".csv")))
+  }
+  if (length(hits) == 1) hits else NA_character_
+}
+
+mod_df <- mod_df %>% 
+  rowwise() %>%
+  mutate(csv_path = find_csv(cv_sample, pheno, total, log_age, age2plus)) %>%
+  ungroup()
+
+#load
+load_pair <- function(row) {
+  mod <- readRDS(row$mod_path)
+  df  <- fread(row$csv_path, stringsAsFactors = TRUE, na.strings = "")
+  mod$call$data   <- "df"          # needed for predict/gamlssTools
+  mod$call$family <- mod$family[[1]]
+  list(model = mod, df = df, meta = row)
+}
+sample_list <- lapply(seq_len(nrow(mod_df)), function(i) load_pair(mod_df[i, ]))
+names(sample_list) <- with(mod_df, paste(cv_sample, pheno, paste0("total", total),
+                                            ifelse(age2plus, "age2plus", ""), sep = "_"))
+```
