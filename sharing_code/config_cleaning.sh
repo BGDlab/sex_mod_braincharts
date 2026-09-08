@@ -25,13 +25,15 @@ save_dir=./models_to_share
 if ! [ -d $save_dir ]
 then
   mkdir $save_dir
+fi
 save_path=$(realpath $save_dir)
 
 #fig outputs
 fig_save_dir=./sharing_code/figs
-if ! [ -d fig_save_dir ]
+if ! [ -d $fig_save_dir ]
 then
   mkdir $fig_save_dir
+fi
 fig_save_dir=$(realpath $fig_save_dir)
 
 #LOOP THROUGH SPLITS
@@ -58,7 +60,7 @@ do
 
       #find csv - handle optional _logPheno*_ in filename
       #if pheno_cat == cortical_thickness & total == TRUE -> age2plus
-      if [ $pheno_cat == "cortical_thickness" && $total == TRUE ]
+      if [[ "$pheno_cat" == "cortical_thickness" && "$total" == "TRUE" ]]; then
         model_path=./cv_sample_${split}_test/age2plus_${pheno_cat}_total${total}_logAgeTRUE_pbmods
         mapfile -t file_matches < <(find $(realpath $data_path/cv_sample_${split}_age2plus) -type f -name "${pheno_line}_total${total}*logAgeTRUE.csv" 2>/dev/null)
       else
