@@ -53,6 +53,7 @@ do
     echo "pheno list: $pheno_list"
 
     pheno_cat=$(basename -- "$pheno_list")
+    pheno_cat="${pheno_cat%.*}"
 
     #LOOP THROUGH PHENOS
     while read -r pheno_line
@@ -62,7 +63,7 @@ do
       #if pheno_cat == cortical_thickness & total == TRUE -> age2plus
       if [[ "$pheno_cat" == "cortical_thickness" && "$total" == "TRUE" ]]; then
         model_path=./cv_sample_${split}_test/age2plus_${pheno_cat}_total${total}_logAgeTRUE_pbmods
-        mapfile -t file_matches < <(find $(realpath $data_path/cv_sample_${split}_age2plus) -type f -name "${pheno_line}_total${total}*logAgeTRUE.csv" 2>/dev/null)
+        mapfile -t file_matches < <(find $(realpath $data_path/cv_sample_${split}_age2plus) -type f -name "${pheno_line}_total${total}_test_df.csv" 2>/dev/null)
       else
         model_path=./cv_sample_${split}_test/${pheno_cat}_total${total}_logAgeTRUE_pbmods
         mapfile -t file_matches < <(find $(realpath $data_path/cv_sample_${split}_dfs) -type f -name "${pheno_line}_total${total}*logAgeTRUE.csv" 2>/dev/null)
