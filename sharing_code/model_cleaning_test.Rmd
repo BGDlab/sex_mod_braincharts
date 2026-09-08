@@ -12,11 +12,11 @@ library(gamlssTools)
 base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
 ```
 
-Get 10 random models and corresponding fit csvs
+Get 50 random models and corresponding fit csvs
 
 ```{r}
 mod_paths <- Sys.glob(file.path(base, "cv_sample_?_test/*/model_objs/*full_mod.rds"))
-mod_paths <- mod_paths[!str_detect(mod_paths, "weight")] %>% sample(size = 10) #ignore weighted, grab 10
+mod_paths <- mod_paths[!str_detect(mod_paths, "weight")] %>% sample(size = 10) #ignore weighted, grab 50
 
 
 # make df, get info to map back to df
@@ -59,4 +59,68 @@ load_pair <- function(row) {
 sample_list <- lapply(seq_len(nrow(mod_df)), function(i) load_pair(mod_df[i, ]))
 names(sample_list) <- with(mod_df, paste(cv_sample, pheno, paste0("total", total),
                                             ifelse(age2plus, "age2plus", ""), sep = "_"))
+```
+
+sanitize
+```{r}
+sample_list <- lapply(sample_list, function(x) {
+  x$clean <- sanitize_gamlss(x$model, grid_n=5000)
+  x
+})
+```
+
+check results
+```{r, message = FALSE, warning = FALSE}
+comp_list <- lapply(sample_list, function(x) {
+  compare_scores(x$model, x$clean, data=x$df, fit_data1=x$df)
+})
+```
+
+plot
+```{r}
+z_df <- as.data.frame(t(vapply(comp_list, `[[`, numeric(2), "z_diffs"))) %>%
+  rename(max_z = max, mean_z = mean) %>%
+  tibble::rownames_to_column("model") %>%
+  mutate(n_tied = vapply(comp_list, function(x) as.integer(x$n_tied), integer(1))) %>%
+  separate_wider_delim(model, "_",
+                       names = c("cv_sample", "pheno", "total", "age2plus"),
+                       cols_remove = FALSE, too_few = "align_start") %>%
+  mutate(total    = str_remove(total, "total"),
+         age2plus = age2plus == "age2plus")
+
+z_df %>%
+  mutate(pheno = forcats::fct_reorder(pheno, max_z)) %>%
+  pivot_longer(c(max_z, mean_z), names_to = "stat", values_to = "diff") %>%
+  ggplot(aes(x = pheno, y = diff, color = stat, shape = total)) +
+  geom_point(size = 2.5) +
+  scale_y_log10() +
+  coord_flip() +
+  labs(y = "|difference| (log scale)", x = NULL)
+
+#greatest z-score abs diff phenos
+max(z_df$max_z)
+
+#greatest average z-zcore abs diff across phenos
+max(z_df$mean_z)
+
+range(z_df$n_tied)
+```
+
+plot centile line overlay
+
+```{r}
+lapply(sample_list, function(x){
+  sim_list <- sim_grid(x$df, "logAge_days", "sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+  plt <- compare_centile_fans(x$model,
+                              x$clean,
+                              df=x$df,
+                              x_var="logAge_days",
+                              facet_var="sexMale",
+                              sim_grid_list=sim_list,
+                              desiredCentiles = c(0.01, 0.05, 0.5, 0.95, 0.99),
+                              x_axis="log_lifespan_fetal") +
+    labs(subtitle=paste("Sample", x$meta$cv_sample, ", total-size-corrected =", x$meta$total, ", ages 2+ only =", x$meta$age2plus))
+  print(plt)
+})
+
 ```
