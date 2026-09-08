@@ -10,6 +10,12 @@ remotes::install_github("BGDlab/gamlssTools@dev")
 library(gamlssTools)
 
 base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
+
+sa_list <- readRDS(paste0(base, "/pheno_lists/cortical_surf.rds"))
+ct_list <- readRDS(paste0(base, "/pheno_lists/cortical_thickness.rds"))
+vol_list <- readRDS(paste0(base, "/pheno_lists/cortical_vols.rds"))
+global_list <- readRDS(paste0(base, "/pheno_lists/global_vols.rds"))
+sub_list <- readRDS(paste0(base, "/pheno_lists/subcortical_vols.rds"))
 ```
 
 Get 50 random models and corresponding fit csvs
@@ -86,16 +92,23 @@ z_df <- as.data.frame(t(vapply(comp_list, `[[`, numeric(2), "z_diffs"))) %>%
                        names = c("cv_sample", "pheno", "total", "age2plus"),
                        cols_remove = FALSE, too_few = "align_start") %>%
   mutate(total    = str_remove(total, "total"),
-         age2plus = age2plus == "age2plus")
+         age2plus = age2plus == "age2plus",
+         pheno_cat = factor(case_when(
+    pheno %in% global_list ~ "Global Vol",
+    pheno %in% vol_list ~ "Regional Vol",
+    pheno %in% sub_list ~ "Subcortical Vol",
+    pheno %in% sa_list ~ "Regional SA",
+    pheno %in% ct_list ~ "Regional CT",
+    TRUE ~ NA_character_)))
 
 z_df %>%
-  mutate(pheno = forcats::fct_reorder(pheno, max_z)) %>%
   pivot_longer(c(max_z, mean_z), names_to = "stat", values_to = "diff") %>%
-  ggplot(aes(x = pheno, y = diff, color = stat, shape = total)) +
-  geom_point(size = 2.5) +
-  scale_y_log10() +
-  coord_flip() +
-  labs(y = "|difference| (log scale)", x = NULL)
+  ggplot() +
+  geom_histogram(aes(x = diff, fill = pheno_cat), position="identity", alpha=.5) +
+  facet_grid(total ~ stat) +
+  scale_x_log10() +
+  labs(x = "|difference| (log scale)") +
+  theme_bw()
 
 #greatest z-score abs diff phenos
 max(z_df$max_z)
