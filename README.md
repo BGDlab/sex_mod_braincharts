@@ -1,6 +1,9 @@
 # Sex-Moderated Brain Charts
 [![DOI](https://zenodo.org/badge/854610120.svg)](https://doi.org/10.5281/zenodo.21045685)
 
+This repository correspond with the following preprint:
+Gardner M, Dorfschmidt L, Zimmerman D, et al. Brain charts for neuroanatomical sex differences across the human lifespan. bioRxiv. Published online January 1, 2026:2026.05.09.724029. doi:10.64898/2026.05.09.724029
+
 ## Data Prep and QC
 Nearly all data prep, filtering, etc, is in `lbcc_eda.Rmd`. This includes identifying and writing lists of
 imaging-derived phenotypes (IDPs) to test, which are saved in `pheno_lists/`
@@ -122,6 +125,9 @@ Main manuscript figures were assembled using `format_figures.Rmd`.
 Nicely formatted centile fan plots were created using: `code/config_replot.sh`, `code/replot_centiles.R`, `code/subjobs_replot.sh`. These plots, together with the sex bias trajectories in median and variability for each phenotype, were compiled into a single supplemental PDF using `code/plot_all_phenotypes_combined.R` (train/test comparison pages followed by sex-difference trajectory pages).
 
 Other scripts used for plotting, formatting, and viewing figures are `code/grab_pngs.R`, `code/plot_cv_brain.R`, and `code/subjob_grab_pngs.sh`.
+
+## Preparing Models for Sharing
+Models are stripped of participant-level data with `gamlssTools::sanitize_gamlss()` before sharing.
 
 ## Misc
 - `code/gamlss_fit_funs.R`: helper functions used to fit gamlss models
