@@ -64,13 +64,15 @@ plt <- ggplot(plt_df) +
 centfan_files <- sort(Sys.glob(file.path(fig_path, ".*_centfan.png")))
 
 #write histogram + centile fans as pages of one pdf
+#centile fan pngs are all saved at ggplot's default 7x7in (square), so a
+#square page fits every image exactly with no per-image aspect check needed
 pdf_path <- file.path(fig_path, out_filename)
-pdf(pdf_path, width = 8, height = 6)
+pdf(pdf_path, width = 7, height = 7)
 print(plt)
 for (f in centfan_files) {
   img <- readPNG(f)
   grid.newpage()
-  grid.raster(img, width = unit(1, "npc"))
+  grid.raster(img)
 }
 dev.off()
 
