@@ -11,14 +11,14 @@ library(gamlss)
 # install.packages("devtools")
 devtools::install_github("BGDlab/gamlssTools@dev", build_vignettes = FALSE) #currently dev version is required
 library(gamlssTools)
+devtools::source_url("https://githubusercontent.com") #source helper funs
 
 ##################################
 ### DEFINE ARGUMENTS
 ##################################
 
-#phenotypes to score - any subset of 
-# defaults to all
-full_pheno_list <- "https://githubusercontent.com" #need to update
+# phenotypes to score - any subset of phenos modeled, defaults to all
+full_pheno_list <- "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/main/sharing_code/all_phenos.txt"
 pheno_list <- readLines(full_pheno_list, warn = FALSE) %>% as.list()
 
 #logical indicating whether to score controlling for total brain size
@@ -27,10 +27,14 @@ total <- FALSE
 #data to score - set as simulated data template
 df <- fread()
 
+batch <- "study_site" # variable containing new levels - batch effects to be estimated and removed
+
 #reference data OR reference condition
 
 #filename to save outputs under
 
+# BGDlab/sex_mod_braincharts branch, tag, or commit SHA corresponding to models for reproducibiltiy
+model_ref  <- "main"
 
 ##################################
 ### VALIDATE INPUT DATA
@@ -56,32 +60,28 @@ stopifnot(
   "sexMale must contain only 0/1" = all(df$sexMale %in% c(0, 1))
 )
 
-#calculate sex x age interaction
 df <- df %>%
-  mutate(sexMale_x_logAge = sexMale * logAge_days)
+  mutate(sexMale_x_logAge = sexMale * logAge_days, #calculate sex x age interaction
+         .row_id = seq_len(n())) #stable row key
 
 ##################################
 ### CALCULATE REFERENCE SCORES
 ##################################
 print("calculating centiles...")
 
-df_cent <- lapply(pheno_list, function(pheno){
-  m <- mod_list[[mn]]
-  out_df <- pred_og_centile(
-    m,
-    og.data = df.og,
-    new.data = df_clean,
-    get.std.scores = TRUE
-  )
-  # rename columns dynamically to include pheno and model type
-  names(out_df) <- paste0(
-    pheno, "_",
-    names(out_df), "_",
-    mn
-  )
-  out_df
-})
+df_cent <- Filter(Negate(is.null),
+                  lapply(pheno_list, score_pheno, df = df, total = total, batch = batch))
 
+#rejoin to the full input data by row key
+df_full_cent <- Reduce(
+  function(a, b) dplyr::left_join(a, b, by = ".row_id"),
+  df_cent,
+  init = as.data.frame(df)
+) %>%
+  dplyr::select(-.row_id)
+
+print(paste0("scored ", length(df_cent), "/", length(pheno_list), " phenotypes on ",
+             nrow(df_full_cent), " subjects"))
 
 ##################################
 ### SAVE OUTPUTS

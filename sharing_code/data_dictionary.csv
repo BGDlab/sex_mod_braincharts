@@ -1,0 +1,249 @@
+variable,class,description,units,calculation,notes
+lh.SA.bankssts,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.bankssts,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.bankssts,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.caudalanteriorcingulate,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.caudalanteriorcingulate,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.caudalanteriorcingulate,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.caudalmiddlefrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.caudalmiddlefrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.caudalmiddlefrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.cuneus,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.cuneus,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.cuneus,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.entorhinal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.entorhinal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.entorhinal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.fusiform,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.fusiform,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.fusiform,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.inferiorparietal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.inferiorparietal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.inferiorparietal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.inferiortemporal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.inferiortemporal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.inferiortemporal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.isthmuscingulate,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.isthmuscingulate,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.isthmuscingulate,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.lateraloccipital,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.lateraloccipital,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.lateraloccipital,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.lateralorbitofrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.lateralorbitofrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.lateralorbitofrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.lingual,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.lingual,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.lingual,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.medialorbitofrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.medialorbitofrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.medialorbitofrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.middletemporal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.middletemporal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.middletemporal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.parahippocampal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.parahippocampal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.parahippocampal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.paracentral,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.paracentral,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.paracentral,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.parsopercularis,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.parsopercularis,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.parsopercularis,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.parsorbitalis,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.parsorbitalis,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.parsorbitalis,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.parstriangularis,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.parstriangularis,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.parstriangularis,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.pericalcarine,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.pericalcarine,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.pericalcarine,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.postcentral,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.postcentral,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.postcentral,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.posteriorcingulate,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.posteriorcingulate,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.posteriorcingulate,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.precentral,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.precentral,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.precentral,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.precuneus,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.precuneus,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.precuneus,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.rostralanteriorcingulate,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.rostralanteriorcingulate,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.rostralanteriorcingulate,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.rostralmiddlefrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.rostralmiddlefrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.rostralmiddlefrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.superiorfrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.superiorfrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.superiorfrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.superiorparietal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.superiorparietal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.superiorparietal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.superiortemporal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.superiortemporal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.superiortemporal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.supramarginal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.supramarginal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.supramarginal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.frontalpole,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.frontalpole,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.frontalpole,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.temporalpole,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.temporalpole,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.temporalpole,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.transversetemporal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.transversetemporal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.transversetemporal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+lh.SA.insula,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^2,,NA
+lh.GM.insula,numeric,"volume of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm^3,,NA
+lh.CT.insula,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, left hemisphere",mm,,NA
+rh.SA.bankssts,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.bankssts,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.bankssts,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.caudalanteriorcingulate,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.caudalanteriorcingulate,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.caudalanteriorcingulate,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.caudalmiddlefrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.caudalmiddlefrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.caudalmiddlefrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.cuneus,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.cuneus,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.cuneus,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.entorhinal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.entorhinal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.entorhinal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.fusiform,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.fusiform,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.fusiform,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.inferiorparietal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.inferiorparietal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.inferiorparietal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.inferiortemporal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.inferiortemporal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.inferiortemporal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.isthmuscingulate,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.isthmuscingulate,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.isthmuscingulate,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.lateraloccipital,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.lateraloccipital,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.lateraloccipital,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.lateralorbitofrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.lateralorbitofrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.lateralorbitofrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.lingual,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.lingual,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.lingual,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.medialorbitofrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.medialorbitofrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.medialorbitofrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.middletemporal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.middletemporal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.middletemporal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.parahippocampal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.parahippocampal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.parahippocampal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.paracentral,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.paracentral,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.paracentral,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.parsopercularis,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.parsopercularis,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.parsopercularis,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.parsorbitalis,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.parsorbitalis,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.parsorbitalis,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.parstriangularis,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.parstriangularis,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.parstriangularis,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.pericalcarine,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.pericalcarine,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.pericalcarine,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.postcentral,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.postcentral,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.postcentral,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.posteriorcingulate,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.posteriorcingulate,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.posteriorcingulate,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.precentral,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.precentral,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.precentral,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.precuneus,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.precuneus,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.precuneus,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.rostralanteriorcingulate,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.rostralanteriorcingulate,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.rostralanteriorcingulate,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.rostralmiddlefrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.rostralmiddlefrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.rostralmiddlefrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.superiorfrontal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.superiorfrontal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.superiorfrontal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.superiorparietal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.superiorparietal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.superiorparietal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.superiortemporal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.superiortemporal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.superiortemporal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.supramarginal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.supramarginal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.supramarginal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.frontalpole,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.frontalpole,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.frontalpole,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.temporalpole,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.temporalpole,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.temporalpole,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.transversetemporal,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.transversetemporal,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.transversetemporal,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+rh.SA.insula,numeric,"surface area of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^2,,NA
+rh.GM.insula,numeric,"volume of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm^3,,NA
+rh.CT.insula,numeric,"cortical thickness of specified region as defined by Desikan-Killiany atlas, right hemisphere",mm,,NA
+SUBC.Left.Lateral.Ventricle,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.Cerebellum.White.Matter,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.Cerebellum.Cortex,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.Thalamus.Proper,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.Caudate,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.Putamen,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.Pallidum,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.3rd.Ventricle,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.4th.Ventricle,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Brain.Stem,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.Hippocampus,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.Amygdala,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.Accumbens.area,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Left.VentralDC,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Cerebellum.White.Matter,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Cerebellum.Cortex,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Thalamus.Proper,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Caudate,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Putamen,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Pallidum,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Hippocampus,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Amygdala,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Accumbens.area,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.VentralDC,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.Right.Lateral.Ventricle,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.CC_Posterior,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.CC_Mid_Posterior,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.CC_Central,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.CC_Mid_Anterior,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+SUBC.CC_Anterior,numeric,volume of subcortical structure as defined by FreeSurfer,mm^3,,NA
+fs_version_SA,character,processing pipeline version used to derive surface area metrics from scans,NA,"""FS7_T1"" = FreeSurfer v 7 on T1w scans | ""FS6_T1"" = FreeSurfer v 6 on T1w scans | ""FS7_T1T2"" = FreeSurfer v 7 on T1 & T2w scans | ""reconall-clinical"" = FreeSurfer v &'s recon-all-clinical stream | ""FS6_T1T2"" = FreeSurfer v 6 on T1 & T2w scans | ""Custom""  = manual segmentation or other study-specific pipeline |  ""FS5.3"" = FreeSurfer v 5.3 | ""FSInfant""  = Infant FreeSurfer | ""FS6_T1FLAIR""  =  FreeSurfer v 6 on T1w & FLAIR scans |  ""FS7_T1FLAIR""  = FreeSurfer v 7 on T1w & FLAIR scans",NA
+fs_version_CT,character,processing pipeline version used to derive cortical thickness metrics from scans,NA,"""FS7_T1"" = FreeSurfer v 7 on T1w scans | ""FS6_T1"" = FreeSurfer v 6 on T1w scans | ""FS7_T1T2"" = FreeSurfer v 7 on T1 & T2w scans | ""reconall-clinical"" = FreeSurfer v &'s recon-all-clinical stream | ""FS6_T1T2"" = FreeSurfer v 6 on T1 & T2w scans | ""Custom""  = manual segmentation or other study-specific pipeline |  ""FS5.3"" = FreeSurfer v 5.3 | ""FSInfant""  = Infant FreeSurfer | ""FS6_T1FLAIR""  =  FreeSurfer v 6 on T1w & FLAIR scans |  ""FS7_T1FLAIR""  = FreeSurfer v 7 on T1w & FLAIR scans",NA
+fs_version_GM,character,processing pipeline version used to derive volumetric metrics from scans,NA,"""FS7_T1"" = FreeSurfer v 7 on T1w scans | ""FS6_T1"" = FreeSurfer v 6 on T1w scans | ""FS7_T1T2"" = FreeSurfer v 7 on T1 & T2w scans |  ""synthseg""  |  ""synthseg-young"" | ""FS6_T1T2"" = FreeSurfer v 6 on T1 & T2w scans |""Custom""  = manual segmentation or other study-specific pipeline | ""FS5.3"" = ""FS5.3"" = FreeSurfer v 5.3 | ""synthseg-robust"" |  ""FSInfant""  = Infant FreeSurfer | ""FS6_T1FLAIR""  =  FreeSurfer v 6 on T1w & FLAIR scans |  ""FS7_T1FLAIR""  = FreeSurfer v 7 on T1w & FLAIR scans",NA
+study_site,character,"site at which data was collected, concatenated with study to prevent confusion",NA,,NA
+GMV,numeric,total cortical gray matter volume ,mm^3,FreeSurfer = Total cortical gray matter volume | synthseg pipelines = left cerebral cortex + right cerebral cortex,NA
+sGMV,numeric,subcortical gray matter volume,mm^3,"FreeSurfer = Subcortical gray matter volume (thalamus, caudate nucleus, putamen, pallidum, hippocampus, amygdala, and nucleus accumbens area) | synthseg pipelines = left thalamus + left caudate + left putamen + left pallidum + left hippocampus + left amygdala + left accumbens area + right thalamus + right caudate + right putamen + right pallidum + right hippocampus + right amygdala + right accumbens area",NA
+WMV,numeric,Total cortical  white matter volume,mm^3,FreeSurfer = Total cortical or cerebral white matter volume | synthseg pipelines = left cerebral white matter + right cerebral white matter,"""cortical"" vs ""cerebral"" wording depends on FreeSurfer version"
+CSF,numeric,combined volume of ventricles,mm^3,FreeSurfer = BrainSegVol minus BrainSegVolNotVent | synthseg pipelines = “Ventricles” or left lateral ventricle + right lateral ventricle + left inferior lateral ventricle + right inferior lateral ventricle + third ventricle + fourth ventricle,NA
+CBV,numeric,cerebellar volume,mm^3,"sum of left cerebellum cortex, right cerebellum cortex, left cerebellum white matter, right cerebellum white matter",NA
+TBV,numeric,total brain tissue volume,mm^3,"sum of WMV, sGMV, GMV, and CBV",NA
+mean.CT,numeric,mean of all regional cortical thickness phenotypes ,mm,mean of all 68 Desikan-Killiany regions' thickness measures ,NA
+total.SA,numeric,sum of  regional surface area phenotypes  ,mm^2,sum across all 68 Desikan-Killiany regions' surface area measures ,NA
+sexMale,numeric,indicator of male sex,NA,0=Female | 1=Male,
+logAge_days,numeric,"post-conception age in days, log-scaled at base 10",log10(days),,"If post-conception age is unavailable, this is estimated at age from birth + 280 days"
