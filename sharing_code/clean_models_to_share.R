@@ -36,7 +36,7 @@ z_df <- data.frame(
   n_ties    = z_comp$n_tied,
   stringsAsFactors = FALSE
 )
-z_path <- file.path(fig_path, paste0(".", pheno, "_", split,"_total",total, "_zdiffs.rds"))
+z_path <- file.path(fig_path, paste0("/", pheno, "_", split,"_total",total, "_zdiffs.rds"))
 saveRDS(z_df, z_path, compress = FALSE)
 
 #plot overlay centile fans
@@ -51,5 +51,5 @@ plt <- compare_centile_fans(mod,
                             x_axis="log_lifespan_fetal") +
   facet_wrap(~sexMale, labeller=labeller(sexMale = c('0'="Female", '1'="Male"))) +
   labs(subtitle=paste("Sample", split, ", total-size-corrected =", total))
-plt_path <- file.path(fig_path, paste0(".", pheno, "_", split,"_total",total, "_centfan.png"))
+plt_path <- file.path(fig_path, paste0("/", pheno, "_", split,"_total",total, "_centfan.png"))
 ggsave(plt_path, plt)

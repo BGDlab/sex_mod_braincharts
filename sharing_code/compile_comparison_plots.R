@@ -16,8 +16,8 @@ fig_path        <- as.character(args[1])
 pheno_lists_dir <- if (length(args) >= 2) as.character(args[2]) else "./pheno_lists"
 out_filename    <- if (length(args) >= 3) as.character(args[3]) else "sharing_mod_comparison.pdf"
 
-#gather z-diff rds files (all.files=TRUE so dot-prefixed/hidden files are included too)
-zdiff_files <- list.files(fig_path, pattern = "_zdiffs\\.rds$", all.files = TRUE, full.names = TRUE)
+#gather z-diff rds files
+zdiff_files <- list.files(fig_path, pattern = "_zdiffs\\.rds$", full.names = TRUE)
 if (length(zdiff_files) == 0) {
   stop("No *_zdiffs.rds files found in ", fig_path)
 }
@@ -60,12 +60,10 @@ plt <- ggplot(plt_df) +
   labs(x = "|difference| (log scale)") +
   theme_bw()
 
-#gather already-saved centile fan pngs (all.files=TRUE so dot-prefixed/hidden files are included too)
-centfan_files <- sort(list.files(fig_path, pattern = "_centfan\\.png$", all.files = TRUE, full.names = TRUE))
+#gather already-saved centile fan pngs
+centfan_files <- sort(list.files(fig_path, pattern = "_centfan\\.png$", full.names = TRUE))
 
 #write histogram + centile fans as pages of one pdf
-#centile fan pngs are all saved at ggplot's default 7x7in (square), so a
-#square page fits every image exactly with no per-image aspect check needed
 pdf_path <- file.path(fig_path, out_filename)
 pdf(pdf_path, width = 7, height = 7)
 print(plt)
