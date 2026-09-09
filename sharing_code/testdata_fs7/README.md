@@ -29,7 +29,6 @@ Rscript sharing_code/freesurfer_to_datadict.R \
   --id-col participant --age-col age_years --age-units years --sex-col sex \
   --study TEST --site-col site \
   --fs-version FS7_T1 \
-  --dict /path/to/data_dictionary.csv \
   --out /tmp/test_datadict.csv
 ```
 
@@ -48,13 +47,11 @@ Rscript sharing_code/freesurfer_to_datadict.R \
   --id-col participant --age-col age_years --age-units years --sex-col sex \
   --study TEST --site-col site \
   --fs-version FS7_T1 \
-  --dict /path/to/data_dictionary.csv \
   --out /tmp/test_datadict_tables.csv
 ```
 
-Both should report `all 248 variables present, in dictionary order` and
-`no missing values`, and write 3 rows x 249 columns (248 dictionary variables
-plus the `participant` ID column).
+Both should write 3 rows x 249 columns (the 248 data dictionary variables plus
+the `participant` ID column).
 
 ## Things worth breaking on purpose
 

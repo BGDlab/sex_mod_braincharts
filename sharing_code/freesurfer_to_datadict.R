@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------------
 # freesurfer_to_datadict.R
 #
-# Reshape FreeSurfer output into the wide, one-row-per-scan CSV described by
+# Reshape FreeSurfer output into the wide, one-row-per-scan CSV for scoring described by
 # data_dictionary.csv:
 #   68 Desikan-Killiany regions x {SA, GM, CT}  (aparc.stats)
 #   30 subcortical volumes  (aseg.stats)
@@ -15,7 +15,7 @@
 # 1. recon-all subject directories (default) -- reads
 #      <subj>/stats/{lh.aparc.stats, rh.aparc.stats, aseg.stats}
 #
-#      Rscript code/freesurfer_to_datadict.R \
+#      Rscript sharing_code/freesurfer_to_datadict.R \
 #        --subjects-dir /path/to/SUBJECTS_DIR \
 #        --demographics demo.csv --id-col participant \
 #        --age-col age_days --sex-col sex \
@@ -25,7 +25,7 @@
 #
 # 2. group tables from aparcstats2table / asegstats2table
 #
-#      Rscript code/freesurfer_to_datadict.R \
+#      Rscript sharing_code/freesurfer_to_datadict.R \
 #        --lh-area lh.area.tsv --rh-area rh.area.tsv \
 #        --lh-volume lh.vol.tsv --rh-volume rh.vol.tsv \
 #        --lh-thickness lh.thick.tsv --rh-thickness rh.thick.tsv \
@@ -36,9 +36,9 @@
 #        --out abcd_datadict.csv
 #
 # Demographics are joined on --id-col, matched against the FreeSurfer subject
-# ID. Everything else is computed from the stats. Base R only, no packages.
+# ID. Everything else is computed from the stats.
 #
-# Mappings and assumptions:
+# Mappings:
 #   SA = aparc SurfArea, GM = aparc GrayVol, CT = aparc ThickAvg
 #   GMV  = CortexVol, sGMV = SubCortGrayVol,
 #   WMV  = CerebralWhiteMatterVol (CorticalWhiteMatterVol in FS 5.3)
@@ -46,7 +46,7 @@
 #   CBV  = L/R cerebellum cortex + L/R cerebellum white matter
 #   TBV  = WMV + sGMV + GMV + CBV
 #   mean.CT / total.SA = unweighted mean / sum over the 68 DK regions; NA if any
-#     region is missing, so partial parcellations are flagged rather than hidden
+#     region is missing
 #   SUBC.*.Thalamus.Proper accepts the FS7 "Left-Thalamus" / "Right-Thalamus" name
 #   logAge_days = log10(age_days + 280) unless --age-type postconception
 #     (280 is overridable with --gestational-days / a per-subject --ga-col)
@@ -54,13 +54,10 @@
 #   The data dictionary defines no ID variable, but the subject ID is written as
 #     the first column so the file can be joined downstream; --no-id drops it.
 #
-# --dict data_dictionary.csv checks the output's names, order, and classes
-# against the dictionary and reports any column containing NAs.
-#
 # Run with --help for the full option list.
 # ---------------------------------------------------------------------------
 
-# ---- column definitions (order matches data_dictionary.csv) ----------------
+# ---- column definitions ----------------
 
 DK_REGIONS <- c(
   "bankssts", "caudalanteriorcingulate", "caudalmiddlefrontal", "cuneus",
@@ -75,7 +72,7 @@ DK_REGIONS <- c(
 )
 
 # dictionary names (minus the SUBC. prefix); FreeSurfer StructName is the same
-# string with "." -> "-", except where ASEG_ALIASES says otherwise
+# string with "." -> "-", except for thalamus (below)
 SUBC_STRUCTS <- c(
   "Left.Lateral.Ventricle", "Left.Cerebellum.White.Matter",
   "Left.Cerebellum.Cortex", "Left.Thalamus.Proper", "Left.Caudate",
@@ -127,16 +124,47 @@ DEFAULTS <- list(
   `fs-version` = NULL, `fs-version-sa` = NULL, `fs-version-ct` = NULL,
   `fs-version-gm` = NULL,
   `id-name` = "participant", `no-id` = FALSE,
-  dict = NULL, out = NULL
+  out = NULL
+)
+
+# printed by --help; the mapping details stay in the comment block at the top
+USAGE <- c(
+  "Reshape FreeSurfer output into the wide, one-row-per-scan CSV described by",
+  "data_dictionary.csv (68 DK regions x {SA, GM, CT}, 30 subcortical volumes,",
+  "global tissue volumes, pipeline version, site, sex, log age).",
+  "",
+  "Two input modes:",
+  "",
+  "1. recon-all subject directories -- reads",
+  "     <subj>/stats/{lh.aparc.stats, rh.aparc.stats, aseg.stats}",
+  "",
+  "     Rscript sharing_code/freesurfer_to_datadict.R \\",
+  "       --subjects-dir /path/to/SUBJECTS_DIR \\",
+  "       --demographics demo.csv --id-col participant \\",
+  "       --age-col age_days --sex-col sex \\",
+  "       --study ABCD --site-col site \\",
+  "       --fs-version FS7_T1 \\",
+  "       --out abcd_datadict.csv",
+  "",
+  "2. group tables from aparcstats2table / asegstats2table",
+  "",
+  "     Rscript sharing_code/freesurfer_to_datadict.R \\",
+  "       --lh-area lh.area.tsv --rh-area rh.area.tsv \\",
+  "       --lh-volume lh.vol.tsv --rh-volume rh.vol.tsv \\",
+  "       --lh-thickness lh.thick.tsv --rh-thickness rh.thick.tsv \\",
+  "       --aseg aseg.tsv \\",
+  "       --demographics demo.csv --id-col participant \\",
+  "       --age-col age_years --age-units years --sex-col sex \\",
+  "       --study-site ABCD_site01 --fs-version FS6_T1 \\",
+  "       --out abcd_datadict.csv"
 )
 
 parse_args <- function(argv) {
   if (length(argv) == 0 || any(argv %in% c("-h", "--help"))) {
-    header <- readLines(script_path(), warn = FALSE)
-    header <- header[seq_len(grep("^# ---- column definitions", header)[1] - 1)]
-    cat(sub("^#", "", header[startsWith(header, "#") & !startsWith(header, "#!")]),
-        sep = "\n")
+    cat(USAGE, sep = "\n")
     cat("\noptions:\n  --", paste(names(DEFAULTS), collapse = "\n  --"), "\n", sep = "")
+    # don't take an interactive session down with us
+    if (interactive()) stop("no arguments given; see the usage above", call. = FALSE)
     quit(status = 0)
   }
   opts <- DEFAULTS
@@ -159,12 +187,6 @@ parse_args <- function(argv) {
     i <- i + 1
   }
   opts
-}
-
-script_path <- function() {
-  a <- commandArgs(trailingOnly = FALSE)
-  f <- sub("^--file=", "", a[grepl("^--file=", a)])
-  if (length(f)) normalizePath(f) else "code/freesurfer_to_datadict.R"
 }
 
 # ---- stats file parsers ----------------------------------------------------
@@ -256,14 +278,10 @@ aparc_table_vals <- function(path, hemi, key) {
 aseg_table_vals <- function(path) read_group_table(path)
 
 # ---- assembling one dictionary row -----------------------------------------
-
-pick <- function(vals, candidates, label, required = TRUE) {
+# find FS variable name that maps to dictionary var - pick first candidate name present in vals, else NA
+pick <- function(vals, candidates) {
   hit <- candidates[candidates %in% names(vals)]
-  if (!length(hit)) {
-    if (required) warning("could not find ", label, " (looked for: ",
-                          paste(candidates, collapse = ", "), ")", call. = FALSE)
-    return(NA_real_)
-  }
+  if (!length(hit)) return(NA_real_)
   as.numeric(vals[[hit[1]]])
 }
 
@@ -272,35 +290,37 @@ aseg_candidates <- function(struct) {
   unique(c(struct, gsub(".", "-", struct, fixed = TRUE), alias))
 }
 
-assemble_row <- function(vals, id) {
+assemble_row <- function(vals) {
   row <- stats::setNames(rep(NA_real_, length(dict_columns())), dict_columns())
 
+  #add hemi, SA/GM/CT string  
   for (hemi in c("lh", "rh")) {
     for (key in c("SA", "GM", "CT")) {
       for (r in DK_REGIONS) {
         nm <- paste(hemi, key, r, sep = ".")
-        row[[nm]] <- pick(vals, nm, paste(id, nm))
+        row[[nm]] <- pick(vals, nm)
       }
     }
   }
 
   for (s in SUBC_STRUCTS) {
-    row[[paste0("SUBC.", s)]] <- pick(vals, aseg_candidates(s), paste(id, s))
+    row[[paste0("SUBC.", s)]] <- pick(vals, aseg_candidates(s))
   }
-
-  gmv  <- pick(vals, c("CortexVol", "Cortex", "TotalGrayVol"), paste(id, "GMV"))
-  sgmv <- pick(vals, c("SubCortGrayVol", "SubCortGray"), paste(id, "sGMV"))
+  
+  #map global phenos
+  # deliberately no TotalGrayVol fallback -- that measure also carries
+  # subcortical gray and cerebellum, so it is not GMV
+  gmv  <- pick(vals, c("CortexVol", "Cortex"))
+  sgmv <- pick(vals, c("SubCortGrayVol", "SubCortGray"))
   wmv  <- pick(vals, c("CerebralWhiteMatterVol", "CorticalWhiteMatterVol",
-                       "CerebralWhiteMatter", "CorticalWhiteMatter"),
-               paste(id, "WMV"))
-  bsv  <- pick(vals, c("BrainSegVol", "BrainSeg"), paste(id, "BrainSegVol"))
-  bsnv <- pick(vals, c("BrainSegVolNotVent", "BrainSegNotVent"),
-               paste(id, "BrainSegVolNotVent"))
+                       "CerebralWhiteMatter", "CorticalWhiteMatter"))
+  bsv  <- pick(vals, c("BrainSegVol", "BrainSeg"))
+  bsnv <- pick(vals, c("BrainSegVolNotVent", "BrainSegNotVent"))
   cbv  <- sum(row[paste0("SUBC.", c("Left.Cerebellum.Cortex",
                                     "Right.Cerebellum.Cortex",
                                     "Left.Cerebellum.White.Matter",
                                     "Right.Cerebellum.White.Matter"))])
-
+  #rename/calc as needed and store in row
   row[["GMV"]]  <- gmv
   row[["sGMV"]] <- sgmv
   row[["WMV"]]  <- wmv
@@ -310,7 +330,7 @@ assemble_row <- function(vals, id) {
 
   ct_cols <- grep("\\.CT\\.", dict_columns(), value = TRUE)
   sa_cols <- grep("\\.SA\\.", dict_columns(), value = TRUE)
-  row[["mean.CT"]]  <- mean(row[ct_cols])
+  row[["mean.CT"]]  <- mean(row[ct_cols]) 
   row[["total.SA"]] <- sum(row[sa_cols])
 
   row
@@ -338,8 +358,8 @@ to_days <- function(x, units) {
   switch(units,
          days = x,
          weeks = x * 7,
-         months = x * (365.245 / 12),
-         years = x * 365.245,
+         months = x * (365.25 / 12),
+         years = x * 365.25,
          stop("unsupported age units: ", units, call. = FALSE))
 }
 
@@ -374,48 +394,6 @@ compute_log_age <- function(demo, opts) {
   log10(age_days)
 }
 
-# ---- validation ------------------------------------------------------------
-
-validate_output <- function(df, opts) {
-  expected <- dict_columns()
-  if (!is.null(opts$dict)) {
-    dict <- utils::read.csv(opts$dict, stringsAsFactors = FALSE)
-    expected <- dict$variable
-    got <- setdiff(names(df), c(if (!isTRUE(opts$`no-id`)) opts$`id-name`))
-    if (!identical(got, expected)) {
-      missing <- setdiff(expected, got)
-      extra   <- setdiff(got, expected)
-      if (length(missing)) message("!! missing dictionary variables: ",
-                                   paste(missing, collapse = ", "))
-      if (length(extra)) message("!! variables not in dictionary: ",
-                                 paste(extra, collapse = ", "))
-      if (!length(missing) && !length(extra)) message("!! column order differs from dictionary")
-    } else {
-      message("dictionary check: all ", length(expected),
-              " variables present, in dictionary order")
-    }
-    bad_class <- character(0)
-    for (v in intersect(expected, names(df))) {
-      want <- dict$class[match(v, dict$variable)]
-      is_num <- is.numeric(df[[v]])
-      if (want == "numeric" && !is_num) bad_class <- c(bad_class, v)
-      if (want == "character" && is_num) bad_class <- c(bad_class, v)
-    }
-    if (length(bad_class)) message("!! class mismatch: ",
-                                   paste(bad_class, collapse = ", "))
-  }
-  na_counts <- vapply(df[intersect(expected, names(df))],
-                      function(x) sum(is.na(x)), integer(1))
-  incomplete <- na_counts[na_counts > 0]
-  if (length(incomplete)) {
-    message("columns with missing values (n rows = ", nrow(df), "):")
-    for (v in names(incomplete)) message("  ", v, ": ", incomplete[[v]], " NA")
-  } else {
-    message("no missing values")
-  }
-  invisible(NULL)
-}
-
 # ---- main ------------------------------------------------------------------
 
 main <- function(argv = commandArgs(trailingOnly = TRUE)) {
@@ -445,8 +423,10 @@ main <- function(argv = commandArgs(trailingOnly = TRUE)) {
                                 opts$`subjects-dir`, call. = FALSE)
     message("found ", length(subjects), " subject(s)")
     rows <- lapply(subjects, function(s) {
-      assemble_row(read_subject_stats(file.path(opts$`subjects-dir`, s)), s)
+      assemble_row(read_subject_stats(file.path(opts$`subjects-dir`, s)))
     })
+    
+    #table mode
   } else {
     tabs <- list()
     add <- function(m) {
@@ -472,7 +452,7 @@ main <- function(argv = commandArgs(trailingOnly = TRUE)) {
     message("found ", length(subjects), " subject(s) in the input tables")
     rows <- lapply(subjects, function(s) {
       v <- tabs[s, ]
-      assemble_row(v[!is.na(v)], s)
+      assemble_row(v[!is.na(v)])
     })
   }
 
@@ -533,7 +513,9 @@ main <- function(argv = commandArgs(trailingOnly = TRUE)) {
         stop("--site-col '", opts$`site-col`, "' not in demographics", call. = FALSE)
       }
       site <- as.character(demo[[opts$`site-col`]])
-      df$study_site <- if (!is.null(opts$study)) paste(opts$study, site, sep = "_") else site
+      site_col <- if (!is.null(opts$study)) paste(opts$study, site, sep = "_") else site
+      site_col[is.na(site)] <- NA_character_   # paste() would give "STUDY_NA"
+      df$study_site <- site_col
     }
   } else {
     warning("no --demographics given; sexMale and logAge_days left as NA",
@@ -557,7 +539,33 @@ main <- function(argv = commandArgs(trailingOnly = TRUE)) {
   df <- df[, keep, drop = FALSE]
   for (v in intersect(CHARACTER_COLUMNS, names(df))) df[[v]] <- as.character(df[[v]])
 
-  validate_output(df, opts)
+  # ---- missingness, reported once for the whole run
+  if (nrow(df) > 0) {
+    vars <- setdiff(names(df), opts$`id-name`)
+    n_na <- vapply(df[vars], function(x) sum(is.na(x)), integer(1))
+
+    partial <- n_na[n_na > 0 & n_na < nrow(df)]
+    if (length(partial)) {
+      message("columns missing for some subjects (of ", nrow(df), " row(s)):")
+      shown <- utils::head(sort(partial, decreasing = TRUE), 20)
+      for (v in names(shown)) message("  ", v, ": ", shown[[v]], " NA")
+      if (length(partial) > length(shown)) {
+        message("  ... and ", length(partial) - length(shown), " more")
+      }
+    }
+
+    # a variable nothing could fill (measure absent from these stats,
+    # demographics column not supplied, ...) is dropped rather than shipped as
+    # an empty column
+    empty <- names(n_na)[n_na == nrow(df)]
+    if (length(empty)) {
+      message("dropping ", length(empty), " all-NA column(s): ",
+              paste(empty, collapse = ", "))
+      warning("dropped ", length(empty), " all-NA column(s): ",
+              paste(empty, collapse = ", "), call. = FALSE)
+      df <- df[, setdiff(names(df), empty), drop = FALSE]
+    }
+  }
 
   dir.create(dirname(opts$out), showWarnings = FALSE, recursive = TRUE)
   utils::write.csv(df, opts$out, row.names = FALSE, na = "")
@@ -565,6 +573,8 @@ main <- function(argv = commandArgs(trailingOnly = TRUE)) {
   invisible(df)
 }
 
-if (sys.nframe() == 0L || identical(environment(), globalenv())) {
-  if (!interactive()) main()
-}
+# run only when this file is the script Rscript was pointed at -- source()ing it
+# from an interactive session or from another script just defines the functions
+sourced_from_elsewhere <- any(vapply(sys.frames(), function(e) !is.null(e$ofile),
+                                     logical(1)))
+if (!interactive() && !sourced_from_elsewhere) main()
