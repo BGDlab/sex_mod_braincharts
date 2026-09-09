@@ -11,15 +11,15 @@ library(gamlss)
 # install.packages("devtools")
 devtools::install_github("BGDlab/gamlssTools@dev", build_vignettes = FALSE) #currently dev version is required
 library(gamlssTools)
-devtools::source_url("https://githubusercontent.com") #source helper funs
+devtools::source_url("https://github.com/BGDlab/sex_mod_braincharts/blob/main/sharing_code/oos_reference_scores_helper_funs.R") #source helper funs
 
 ##################################
 ### DEFINE ARGUMENTS
 ##################################
 
-# phenotypes to score - any subset of phenos modeled, defaults to all
-full_pheno_list <- "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/main/sharing_code/all_phenos.txt"
-pheno_list <- readLines(full_pheno_list, warn = FALSE) %>% as.list()
+# phenotypes to score - defaults to all
+pheno_list <- readLines("https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/main/sharing_code/all_phenos.txt", warn = FALSE) %>% as.list()
+#subset if desired
 
 #logical indicating whether to score controlling for total brain size
 total <- FALSE
