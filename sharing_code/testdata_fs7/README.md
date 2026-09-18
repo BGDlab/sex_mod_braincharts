@@ -26,7 +26,7 @@ Subject-directory mode:
 Rscript sharing_code/freesurfer_to_datadict.R \
   --subjects-dir sharing_code/testdata_fs7 \
   --demographics sharing_code/testdata_fs7/demographics.csv \
-  --id-col participant --age-col age_years --age-units years --sex-col sex \
+  --demo-id-col participant --age-col age_years --age-units years --sex-col sex \
   --study TEST --site-col site \
   --fs-version FS7_T1 \
   --out /tmp/test_datadict.csv
@@ -44,7 +44,7 @@ Rscript sharing_code/freesurfer_to_datadict.R \
   --rh-thickness sharing_code/testdata_fs7/tables/rh.aparc.thickness.tsv \
   --aseg sharing_code/testdata_fs7/tables/aseg.volume.tsv \
   --demographics sharing_code/testdata_fs7/demographics.csv \
-  --id-col participant --age-col age_years --age-units years --sex-col sex \
+  --demo-id-col participant --age-col age_years --age-units years --sex-col sex \
   --study TEST --site-col site \
   --fs-version FS7_T1 \
   --out /tmp/test_datadict_tables.csv
