@@ -4,7 +4,7 @@
 #SBATCH --time=4:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=15G
+#SBATCH --mem-per-cpu=10G
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combined_pdf/R-%A.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/combined_pdf/R-%A.err
 
