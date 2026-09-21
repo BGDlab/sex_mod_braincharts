@@ -1,16 +1,52 @@
 #helper functions for getting out-of-sample reference scores
 
-model_url <- function(pheno, split, total) {
-  sprintf(
-    "https://raw.githubusercontent.com/%s/%s/%s/%s_split%s_total%s_sharing_model.rds",
-    "BGDlab/sex_mod_braincharts", model_ref, "models_to_share", pheno, split, as.character(total)
-  )
+
+#construct filename
+model_filename <- function(pheno, split, total) {
+  sprintf("%s_split%s_total%s_sharing_model.rds", pheno, split, as.character(total))
 }
 
-read_rds_url <- function(u) {
-  con <- gzcon(url(u, open = "rb"))
+#locate one model: a file under model_dir if that is set, otherwise a URL into
+#the repo at model_ref
+model_path <- function(pheno, split, total) {
+  f <- model_filename(pheno, split, total)
+  if (!is.null(model_dir)) {
+    file.path(model_dir, f)
+  } else {
+    sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s",
+            "BGDlab/sex_mod_braincharts", model_ref, "models_to_share", f)
+  }
+}
+
+is_url <- function(p) grepl("^(https?|ftp)://", p)
+
+read_model <- function(p) {
+  if (!is_url(p)) return(readRDS(p))
+  con <- gzcon(url(p, open = "rb"))
   on.exit(close(con), add = TRUE)
   readRDS(con)
+}
+
+#with a local model directory, say up if models are missing
+check_model_dir <- function(pheno_list, total, splits = c("A", "B")) {
+  if (is.null(model_dir)) return(invisible(NULL))
+  if (!dir.exists(model_dir))
+    stop("model_dir does not exist: ", model_dir)
+
+  want <- unlist(lapply(pheno_list, function(p)
+    vapply(splits, function(s) model_path(p, s, total), character(1))))
+  gone <- want[!file.exists(want)]
+
+  if (length(gone) == length(want))
+    stop("no models for total=", as.character(total), " found in ", model_dir,
+         "\n  expected files like ", basename(want[1]))
+  if (length(gone) > 0)
+    warning(length(gone), "/", length(want), " model file(s) not in ", model_dir,
+            ":\n  ",
+            paste(basename(utils::head(gone, 10)), collapse = "\n  "),
+            if (length(gone) > 10) paste0("\n  ... and ", length(gone) - 10, " more"))
+
+  invisible(gone)
 }
 
 #numeric training ranges, recovered from the model's pb() smoothers
@@ -78,9 +114,9 @@ scorable_rows <- function(m, df, pheno, batch) {
 }
 
 #stream one split's model, z-score the rows it can handle, then discard
-score_split <- function(pheno, split, total, df, batch) {
+score_split <- function(pheno, split, total, df, batch, ref_data, min_ref) {
   m <- tryCatch(
-    read_rds_url(model_url(pheno, split, total)),
+    read_model(model_path(pheno, split, total)), #local or github url
     error = function(e) {
       warning(pheno, " split ", split, ": could not read model (", conditionMessage(e), ")")
       NULL
@@ -100,7 +136,9 @@ score_split <- function(pheno, split, total, df, batch) {
     data        = as.data.frame(df)[idx, , drop = FALSE],
     fit_data    = NULL,
     standardize = TRUE,
-    batch_term  = batch
+    batch_term  = batch,
+    ref_data = ref_data,
+    min_ref = min_ref
   )
   
   out <- data.frame(.row_id = df$.row_id[idx], z = scores$std_score)

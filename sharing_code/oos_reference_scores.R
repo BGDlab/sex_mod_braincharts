@@ -11,7 +11,7 @@ library(gamlss)
 # install.packages("devtools")
 devtools::install_github("BGDlab/gamlssTools@dev", build_vignettes = FALSE) #currently dev version is required
 library(gamlssTools)
-devtools::source_url("https://github.com/BGDlab/sex_mod_braincharts/blob/main/sharing_code/oos_reference_scores_helper_funs.R") #source helper funs
+devtools::source_url("https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/main/sharing_code/oos_reference_scores_helper_funs.R") #source helper funs
 
 ##################################
 ### DEFINE ARGUMENTS
@@ -33,7 +33,15 @@ batch <- "study_site" # variable containing new levels - batch effects to be est
 
 #filename to save outputs under
 
+#where to get the reference models from.
+#  NULL  -> stream each model from GitHub as it is needed (nothing to download,
+#           needs a working connection for the whole run)
+#  path  -> read models from a local copy of models_to_share/ (download once,
+#           then runs offline and is faster); model_ref is ignored
+model_dir <- NULL # e.g. "~/sex_mod_braincharts/models_to_share"
+
 # BGDlab/sex_mod_braincharts branch, tag, or commit SHA corresponding to models for reproducibiltiy
+# only used when model_dir is NULL
 model_ref  <- "main"
 
 ##################################
@@ -63,6 +71,9 @@ stopifnot(
 df <- df %>%
   mutate(sexMale_x_logAge = sexMale * logAge_days, #calculate sex x age interaction
          .row_id = seq_len(n())) #stable row key
+
+#with a local model directory, fail now if it is missing or incomplete
+check_model_dir(pheno_list, total)
 
 ##################################
 ### CALCULATE REFERENCE SCORES

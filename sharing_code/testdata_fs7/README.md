@@ -29,7 +29,7 @@ Rscript sharing_code/freesurfer_to_datadict.R \
   --demo-id-col participant --age-col age_years --age-units years --sex-col sex \
   --study TEST --site-col site \
   --fs-version FS7_T1 \
-  --out /tmp/test_datadict.csv
+  --out sharing_code/testdata_fs7/test_output.csv
 ```
 
 Group-table mode (same expected output, minus floating-point noise):
