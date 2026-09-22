@@ -1,0 +1,253 @@
+#Compare Centiles from Different Pipelines on Same Subject
+
+```{r}
+base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+library(stringr)
+library(tidyr)
+library(dplyr)
+library(data.table)
+library(ggplot2)
+```
+
+MDD
+
+```{r}
+mdd_test <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles.csv")) %>% 
+  filter(dx != "CN") %>%
+  select("INDEX.ID", ends_with("_z"), ends_with("_centile"))
+  
+mdd_oos <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles_OOS.csv")) %>% 
+  filter(dx != "CN") %>%
+  select("INDEX.ID", ends_with("_z"), ends_with("_centile")) %>%
+  rename_with(
+    ~case_when(
+      str_ends(., "_z$") ~ str_replace(., "_z$", "_z_oos"),
+      str_ends(., "_centile$") ~ str_replace(., "_centile$", "_centile_oos"),
+      TRUE ~ .
+    )
+  )
+mdd_truth <- fread(paste0(base_path, "dx_tests/MDD_totalFALSE_mean_scores.csv")) %>% 
+  select("INDEX.ID", ends_with("_full"))
+```
+
+```{r}
+# names(mdd_test)
+# names(mdd_oos)
+# names(mdd_truth)
+
+mdd_test_long <- mdd_test %>%
+   pivot_longer(
+    cols = ends_with("_z") | ends_with("_centile"),
+    names_pattern = "(.*)_(z|centile)$",
+    names_to = c("pheno", ".value"),
+    values_drop_na = FALSE
+  )
+
+mdd_oos_long <- mdd_oos %>%
+   pivot_longer(
+    cols = ends_with("_z_oos") | ends_with("_centile_oos"),
+    names_pattern = "(.*)_((?:z|centile)_oos)$",
+    names_to = c("pheno", ".value"),
+    values_drop_na = FALSE
+  )
+
+mdd_truth_long <- mdd_truth %>%
+   pivot_longer(
+    cols = ends_with("_std_score_full") | ends_with("_centile_full"),
+    names_pattern = "(.*)_((?:std_score|centile)_full)$",
+    names_to = c("pheno", ".value"),
+    values_drop_na = FALSE
+  ) %>%
+  filter(pheno %in% unique(mdd_oos_long$pheno))
+
+mdd_long <- inner_join(mdd_truth_long, mdd_test_long, by=c("INDEX.ID", "pheno"))
+mdd_long <- inner_join(mdd_long, mdd_oos_long, by=c("INDEX.ID", "pheno"))
+```
+
+```{r}
+mdd_long <- mdd_long %>%
+  mutate(z_diff = std_score_full - z,
+         z_diff_oos = std_score_full - z_oos,
+         centile_diff = centile_full - centile,
+         centile_diff_oos = centile_full - centile_oos)
+
+mean(mdd_long$z_diff, na.rm=T)
+mean(mdd_long$z_diff_oos, na.rm=T)
+
+mean(mdd_long$centile_diff, na.rm=T)
+mean(mdd_long$centile_diff_oos, na.rm=T)
+
+ggplot(mdd_long) +
+  geom_histogram(aes(x=z_diff), bins=50)
+
+ggplot(mdd_long) +
+  geom_histogram(aes(x=z_diff_oos), bins=50)
+
+ggplot(mdd_long) +
+  geom_histogram(aes(x=centile_diff), bins=50)
+
+ggplot(mdd_long) +
+  geom_histogram(aes(x=centile_diff_oos), bins=50)
+```
+
+ADHD
+
+```{r}
+adhd_test <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles.csv")) %>% 
+  filter(dx != "CN") %>%
+  select("INDEX.ID", ends_with("_z"), ends_with("_centile"))
+  
+adhd_oos <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles_OOS.csv")) %>% 
+  filter(dx != "CN") %>%
+  select("INDEX.ID", ends_with("_z"), ends_with("_centile")) %>%
+  rename_with(
+    ~case_when(
+      str_ends(., "_z$") ~ str_replace(., "_z$", "_z_oos"),
+      str_ends(., "_centile$") ~ str_replace(., "_centile$", "_centile_oos"),
+      TRUE ~ .
+    )
+  )
+adhd_truth <- fread(paste0(base_path, "dx_tests/ADHD_totalFALSE_mean_scores.csv")) %>% 
+  select("INDEX.ID", ends_with("_full"))
+```
+
+```{r}
+# names(adhd_test)
+# names(adhd_oos)
+# names(adhd_truth)
+
+adhd_test_long <- adhd_test %>%
+   pivot_longer(
+    cols = ends_with("_z") | ends_with("_centile"),
+    names_pattern = "(.*)_(z|centile)$",
+    names_to = c("pheno", ".value"),
+    values_drop_na = FALSE
+  )
+
+adhd_oos_long <- adhd_oos %>%
+   pivot_longer(
+    cols = ends_with("_z_oos") | ends_with("_centile_oos"),
+    names_pattern = "(.*)_((?:z|centile)_oos)$",
+    names_to = c("pheno", ".value"),
+    values_drop_na = FALSE
+  )
+
+adhd_truth_long <- adhd_truth %>%
+   pivot_longer(
+    cols = ends_with("_std_score_full") | ends_with("_centile_full"),
+    names_pattern = "(.*)_((?:std_score|centile)_full)$",
+    names_to = c("pheno", ".value"),
+    values_drop_na = FALSE
+  ) %>%
+  filter(pheno %in% unique(adhd_oos_long$pheno))
+
+adhd_long <- inner_join(adhd_truth_long, adhd_test_long, by=c("INDEX.ID", "pheno"))
+adhd_long <- inner_join(adhd_long, adhd_oos_long, by=c("INDEX.ID", "pheno"))
+```
+
+```{r}
+adhd_long <- adhd_long %>%
+  mutate(z_diff = std_score_full - z,
+         z_diff_oos = std_score_full - z_oos,
+         centile_diff = centile_full - centile,
+         centile_diff_oos = centile_full - centile_oos)
+
+mean(adhd_long$z_diff, na.rm=T)
+mean(adhd_long$z_diff_oos, na.rm=T)
+
+mean(adhd_long$centile_diff, na.rm=T)
+mean(adhd_long$centile_diff_oos, na.rm=T)
+
+ggplot(adhd_long) +
+  geom_histogram(aes(x=z_diff), bins=50)
+
+ggplot(adhd_long) +
+  geom_histogram(aes(x=z_diff_oos), bins=50)
+
+ggplot(adhd_long) +
+  geom_histogram(aes(x=centile_diff), bins=50)
+
+ggplot(adhd_long) +
+  geom_histogram(aes(x=centile_diff_oos), bins=50)
+```
+
+SCZ
+
+```{r}
+scz_test <- fread(paste0(base_path, "cv_sample_B_SCZ_test_centiles.csv")) %>% 
+  filter(dx != "CN") %>%
+  select("INDEX.ID", ends_with("_z"), ends_with("_centile"))
+  
+scz_oos <- fread(paste0(base_path, "cv_sample_B_SCZ_test_centiles_OOS.csv")) %>% 
+  filter(dx != "CN") %>%
+  select("INDEX.ID", ends_with("_z"), ends_with("_centile")) %>%
+  rename_with(
+    ~case_when(
+      str_ends(., "_z$") ~ str_replace(., "_z$", "_z_oos"),
+      str_ends(., "_centile$") ~ str_replace(., "_centile$", "_centile_oos"),
+      TRUE ~ .
+    )
+  )
+scz_truth <- fread(paste0(base_path, "dx_tests/SCZ_totalTRUE_age2plus_mean_scores.csv")) %>% 
+  select("INDEX.ID", ends_with("_full"))
+```
+
+```{r}
+# names(scz_test)
+# names(scz_oos)
+# names(scz_truth)
+
+scz_test_long <- scz_test %>%
+   pivot_longer(
+    cols = ends_with("_z") | ends_with("_centile"),
+    names_pattern = "(.*)_(z|centile)$",
+    names_to = c("pheno", ".value"),
+    values_drop_na = FALSE
+  )
+
+scz_oos_long <- scz_oos %>%
+   pivot_longer(
+    cols = ends_with("_z_oos") | ends_with("_centile_oos"),
+    names_pattern = "(.*)_((?:z|centile)_oos)$",
+    names_to = c("pheno", ".value"),
+    values_drop_na = FALSE
+  )
+
+scz_truth_long <- scz_truth %>%
+   pivot_longer(
+    cols = ends_with("_std_score_full") | ends_with("_centile_full"),
+    names_pattern = "(.*)_((?:std_score|centile)_full)$",
+    names_to = c("pheno", ".value"),
+    values_drop_na = FALSE
+  ) %>%
+  filter(pheno %in% unique(scz_oos_long$pheno))
+
+scz_long <- inner_join(scz_truth_long, scz_test_long, by=c("INDEX.ID", "pheno"))
+scz_long <- inner_join(scz_long, scz_oos_long, by=c("INDEX.ID", "pheno"))
+```
+
+```{r}
+scz_long <- scz_long %>%
+  mutate(z_diff = std_score_full - z,
+         z_diff_oos = std_score_full - z_oos,
+         centile_diff = centile_full - centile,
+         centile_diff_oos = centile_full - centile_oos)
+
+mean(scz_long$z_diff, na.rm=T)
+mean(scz_long$z_diff_oos, na.rm=T)
+
+mean(scz_long$centile_diff, na.rm=T)
+mean(scz_long$centile_diff_oos, na.rm=T)
+
+ggplot(scz_long) +
+  geom_histogram(aes(x=z_diff), bins=50)
+
+ggplot(scz_long) +
+  geom_histogram(aes(x=z_diff_oos), bins=50)
+
+ggplot(scz_long) +
+  geom_histogram(aes(x=centile_diff), bins=50)
+
+ggplot(scz_long) +
+  geom_histogram(aes(x=centile_diff_oos), bins=50)
+```

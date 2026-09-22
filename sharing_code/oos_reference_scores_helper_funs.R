@@ -147,10 +147,11 @@ score_split <- function(pheno, split, total, df, batch, ref_data, min_ref) {
 }
 
 #score a pheno against every split model and average the z-scores
-score_pheno <- function(pheno, df, total, batch, splits = c("A", "B")) {
+score_pheno <- function(pheno, df, total, batch, splits = c("A", "B"), ref_data, min_ref) {
   per_split <- Filter(Negate(is.null), lapply(splits, score_split,
                                               pheno = pheno, total = total, df = df,
-                                              batch = batch))
+                                              batch = batch, 
+                                              ref_data = ref_data, min_ref = min_ref))
   if (length(per_split) == 0) {
     warning(pheno, ": no scores")
     return(NULL)
@@ -158,7 +159,7 @@ score_pheno <- function(pheno, df, total, batch, splits = c("A", "B")) {
   
   z_tbl  <- Reduce(function(a, b) dplyr::full_join(a, b, by = ".row_id"), per_split)
   z_cols <- setdiff(names(z_tbl), ".row_id")
-  z_mat  <- as.matrix(z_tbl[, z_cols, drop = FALSE])
+  z_mat  <- as.matrix(z_tbl[, z_cols, drop = FALSE]) #pull zscores into matrix
   
   #average over whichever split models could score each subject
   n_splits <- rowSums(!is.na(z_mat))
@@ -176,6 +177,7 @@ score_pheno <- function(pheno, df, total, batch, splits = c("A", "B")) {
   
   z_mean <- rowMeans(z_mat[keep, , drop = FALSE], na.rm = TRUE)
   
+  #reformat and convert mean back to centile space
   out <- data.frame(.row_id = z_tbl$.row_id[keep], z_mean, pnorm(z_mean))
   names(out) <- c(".row_id", paste0(pheno, c("_z", "_centile")))
   out

@@ -11,34 +11,42 @@ library(gamlss)
 # install.packages("devtools")
 devtools::install_github("BGDlab/gamlssTools@dev", build_vignettes = FALSE) #currently dev version is required
 library(gamlssTools)
-devtools::source_url("https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/main/sharing_code/oos_reference_scores_helper_funs.R") #source helper funs
+remotes::install_github("andy1764/gamlss2charts@dev", build_vignettes = FALSE) #currently dev version is required
+library(gamlss2charts)
+devtools::source_url("https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/sharing/sharing_code/oos_reference_scores_helper_funs.R") #source helper funs
 
 ##################################
 ### DEFINE ARGUMENTS
 ##################################
 
 # phenotypes to score - defaults to all
-pheno_list <- readLines("https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/main/sharing_code/all_phenos.txt", warn = FALSE) %>% as.list()
+pheno_list <- readLines("https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/sharing_code/all_phenos.txt", warn = FALSE)
 #subset if desired
+# test: 20 random phenotypes
+# pheno_list <- sample(pheno_list, 100)
 
 #logical indicating whether to score controlling for total brain size
-total <- FALSE
+total <- TRUE
 
 #data to score - set as simulated data template
-df <- fread()
+df <- fread("sharing_code/testdata_fs7/test_output.csv")
 
 batch <- "study_site" # variable containing new levels - batch effects to be estimated and removed
 
 #reference data OR reference condition
+ref_data <- ~ dx == "CN"
+
+min_ref <- 75
 
 #filename to save outputs under
+out_file <- "brainchart_ref_scores.csv"
 
 #where to get the reference models from.
 #  NULL  -> stream each model from GitHub as it is needed (nothing to download,
 #           needs a working connection for the whole run)
 #  path  -> read models from a local copy of models_to_share/ (download once,
 #           then runs offline and is faster); model_ref is ignored
-model_dir <- NULL # e.g. "~/sex_mod_braincharts/models_to_share"
+model_dir <- "models_to_share"
 
 # BGDlab/sex_mod_braincharts branch, tag, or commit SHA corresponding to models for reproducibiltiy
 # only used when model_dir is NULL
@@ -81,7 +89,10 @@ check_model_dir(pheno_list, total)
 print("calculating centiles...")
 
 df_cent <- Filter(Negate(is.null),
-                  lapply(pheno_list, score_pheno, df = df, total = total, batch = batch))
+                  lapply(pheno_list, score_pheno, df = df, 
+                         total = total, 
+                         batch = batch, 
+                         ref_data = ref_data, min_ref = min_ref))
 
 #rejoin to the full input data by row key
 df_full_cent <- Reduce(
@@ -97,3 +108,4 @@ print(paste0("scored ", length(df_cent), "/", length(pheno_list), " phenotypes o
 ##################################
 ### SAVE OUTPUTS
 ##################################
+fwrite(df_full_cent, out_file)
