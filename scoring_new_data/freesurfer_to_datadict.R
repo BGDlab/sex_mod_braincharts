@@ -54,6 +54,9 @@
 #   logAge_days = log10(age_days + 280) unless --age-type postconception
 #     (280 is overridable with a per-subject --ga-col)
 #   sexMale = 1/0 via --male-values / --female-values; anything else is NA
+#   
+# SurfaceHole info is not included in the dictionary but is collected and 
+# passed through for manual QC
 #
 # Options (written as "--key value" or "--key=value"):
 #
@@ -169,6 +172,10 @@ dict_columns <- function() {
 }
 
 CHARACTER_COLUMNS <- c("fs_version_SA", "fs_version_CT", "fs_version_GM", "study_site")
+
+# QC columns carried along after the dictionary columns (not used for scoring).
+# Surface holes come from aseg.stats "# Measure" lines (FS6+)
+QC_COLUMNS <- c("lhSurfaceHoles", "rhSurfaceHoles", "SurfaceHoles")
 
 # ---- argument parsing ------------------------------------------------------
 
@@ -354,7 +361,8 @@ aseg_candidates <- function(struct) {
 }
 
 assemble_row <- function(vals) {
-  row <- stats::setNames(rep(NA_real_, length(dict_columns())), dict_columns())
+  out_cols <- c(dict_columns(), QC_COLUMNS)
+  row <- stats::setNames(rep(NA_real_, length(out_cols)), out_cols)
 
   #add hemi, SA/GM/CT string  
   for (hemi in c("lh", "rh")) {
@@ -393,6 +401,13 @@ assemble_row <- function(vals) {
   sa_cols <- grep("\\.SA\\.", dict_columns(), value = TRUE)
   row[["mean.CT"]]  <- mean(row[ct_cols]) 
   row[["total.SA"]] <- sum(row[sa_cols])
+
+  #QC: surface holes / Euler number
+  lh_holes <- pick(vals, "lhSurfaceHoles")
+  rh_holes <- pick(vals, "rhSurfaceHoles")
+  row[["lhSurfaceHoles"]] <- lh_holes
+  row[["rhSurfaceHoles"]] <- rh_holes
+  row[["SurfaceHoles"]]   <- pick(vals, "SurfaceHoles")
 
   row
 }
@@ -587,7 +602,7 @@ main <- function(argv = commandArgs(trailingOnly = TRUE)) {
   }
 
   # ---- final shape: dictionary order, dictionary classes
-  keep <- c(opts$id_name, dict_columns())
+  keep <- c(opts$id_name, dict_columns(), QC_COLUMNS)
   df <- df[, keep, drop = FALSE]
   for (v in intersect(CHARACTER_COLUMNS, names(df))) df[[v]] <- as.character(df[[v]])
 

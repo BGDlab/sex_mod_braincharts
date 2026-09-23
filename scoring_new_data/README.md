@@ -39,8 +39,8 @@ including:
 It only needs base R, with no extra packages.
 
 > **WARNING:** this script assumes data is cross-sectional (one demographics row per
-> participant), and does not include any QC filtering. Remove failed scans yourself before
-> or after conversion.
+> participant). The script also extracts SurfaceHole values for convenience but does 
+> not do any QC filtering; you must remove poor-quality scans yourself.
 
 ### Input mode A: recon-all subject directories
 
