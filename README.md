@@ -4,6 +4,9 @@
 This repository correspond with the following preprint:
 Gardner M, Dorfschmidt L, Zimmerman D, et al. Brain charts for neuroanatomical sex differences across the human lifespan. bioRxiv. Published online January 1, 2026:2026.05.09.724029. doi:10.64898/2026.05.09.724029
 
+> For instructions and information on calculating reference scores for new data from these models, see [scoring_new_data/README.md](scoring_new_data/README.md).
+
+# Manuscript Analyses
 ## Data Prep and QC
 Nearly all data prep, filtering, etc, is in `lbcc_eda.Rmd`. This includes identifying and writing lists of
 imaging-derived phenotypes (IDPs) to test, which are saved in `pheno_lists/`
@@ -126,9 +129,6 @@ Nicely formatted centile fan plots were created using: `code/config_replot.sh`, 
 
 Other scripts used for plotting, formatting, and viewing figures are `code/grab_pngs.R`, `code/plot_cv_brain.R`, and `code/subjob_grab_pngs.sh`.
 
-## Preparing Models for Sharing
-Models are stripped of participant-level data with `gamlssTools::sanitize_gamlss()` before sharing.
-
 ## Misc
 - `code/gamlss_fit_funs.R`: helper functions used to fit gamlss models
 - `code/centile_cor.R`: check correlations between reference/normative scores derived from each split-half test model
@@ -139,3 +139,11 @@ Models are stripped of participant-level data with `gamlssTools::sanitize_gamlss
 - `code/checks/check_correct_train_mod.sh`: audit `weighted_*` or `age2plus_*` train model objects against the original `BestMod.rds` selections to flag any phenotype mismatches; writes mismatched paths to `pheno_mismatches.txt`
 - `code/checks/cleanup_mismatched_phenos.sh`: delete the mismatched train+test artifacts identified by `check_correct_train_mod.sh` so the affected phenotypes can be re-run with `--rerun TRUE` (dry-run by default; pass `--apply` to actually delete)
 - `code/checks/test_rs_integral.R`: unit test for function calculating Riemann-Stieltjes integral `rs_integral()`
+
+# Preparing Models for Sharing
+Models are stripped of participant-level data with `gamlssTools::sanitize_gamlss()` before sharing. Code used to prepare
+the models and test out-of-sample scoring pipelines are saved in `sharing_code/`.
+
+# Out-of-Sample Scoring
+The brain chart models fit in this paper can be used to calculate reference scores for new data.
+See [scoring_new_data/README.md](scoring_new_data/README.md) for instructions.

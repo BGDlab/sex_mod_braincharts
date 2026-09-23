@@ -47,7 +47,7 @@ It only needs base R, with no extra packages.
 Reads `<SUBJECTS_DIR>/<subj>/stats/{lh.aparc.stats, rh.aparc.stats, aseg.stats}`.
 
 ```bash
-Rscript sharing_code/freesurfer_to_datadict.R \
+Rscript scoring_new_data/freesurfer_to_datadict.R \
   --subjects-dir /path/to/SUBJECTS_DIR \
   --demographics demo.csv --demo-id-col participant \
   --age-col age_years --age-units years --sex-col sex \
@@ -64,7 +64,7 @@ all-NA rows instead of being silently left out.
 ### Input mode B: `aparcstats2table` / `asegstats2table` group tables
 
 ```bash
-Rscript sharing_code/freesurfer_to_datadict.R \
+Rscript scoring_new_data/freesurfer_to_datadict.R \
   --lh-area lh.area.tsv --rh-area rh.area.tsv \
   --lh-volume lh.vol.tsv --rh-volume rh.vol.tsv \
   --lh-thickness lh.thick.tsv --rh-thickness rh.thick.tsv \
@@ -119,13 +119,13 @@ See `testdata_fs7/README.md` for commands for both input modes. The
 subject-directory version is:
 
 ```bash
-Rscript sharing_code/freesurfer_to_datadict.R \
-  --subjects-dir sharing_code/testdata_fs7 \
-  --demographics sharing_code/testdata_fs7/demographics.csv \
+Rscript scoring_new_data/freesurfer_to_datadict.R \
+  --subjects-dir scoring_new_data/testdata_fs7 \
+  --demographics scoring_new_data/testdata_fs7/demographics.csv \
   --demo-id-col participant --age-col age_years --age-units years --sex-col sex \
   --study TEST --site-col site \
   --fs-version FS7_T1 \
-  --out sharing_code/testdata_fs7/test_output.csv
+  --out scoring_new_data/testdata_fs7/test_output.csv
 ```
 
 ---
@@ -166,7 +166,7 @@ gamlss models to the script via `--model_dir`.
 ### Run it
 
 ```bash
-Rscript sharing_code/oos_reference_scores.R \
+Rscript scoring_new_data/oos_reference_scores.R \
   --df my_datadict.csv \
   --total FALSE \
   --ref_data "dx == 'CN'" \

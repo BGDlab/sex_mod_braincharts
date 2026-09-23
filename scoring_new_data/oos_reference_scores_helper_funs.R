@@ -2,7 +2,7 @@
 
 #argument defaults
 DEFAULTS <- list(
-  pheno_list = "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/sharing_code/all_phenos.txt", 
+  pheno_list = "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/scoring_new_data/all_phenos.txt", 
   total = NULL,
   df = NULL,
   batch = "study_site",
@@ -18,7 +18,7 @@ DEFAULTS <- list(
 USAGE <- c(
   "Score new data against the Gardner et al. brain charts (standardized/z-scores and centiles).",
   "",
-  "  Rscript sharing_code/oos_reference_scores.R \\",
+  "  Rscript scoring_new_data/oos_reference_scores.R \\",
   "    --df my_datadict.csv \\",
   "    --total TRUE \\",
   "    --out_file my_ref_scores.csv \\",

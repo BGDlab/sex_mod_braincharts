@@ -18,7 +18,7 @@
 # 1. recon-all subject directories (default) -- reads
 #      <subj>/stats/{lh.aparc.stats, rh.aparc.stats, aseg.stats}
 #
-#      Rscript sharing_code/freesurfer_to_datadict.R \
+#      Rscript scoring_new_data/freesurfer_to_datadict.R \
 #        --subjects-dir /path/to/SUBJECTS_DIR \
 #        --demographics demo.csv --demo-id-col participant \
 #        --age-col age_days --sex-col sex \
@@ -28,7 +28,7 @@
 #
 # 2. group tables from aparcstats2table / asegstats2table
 #
-#      Rscript sharing_code/freesurfer_to_datadict.R \
+#      Rscript scoring_new_data/freesurfer_to_datadict.R \
 #        --lh-area lh.area.tsv --rh-area rh.area.tsv \
 #        --lh-volume lh.vol.tsv --rh-volume rh.vol.tsv \
 #        --lh-thickness lh.thick.tsv --rh-thickness rh.thick.tsv \
@@ -200,7 +200,7 @@ USAGE <- c(
   "1. recon-all subject directories -- reads",
   "     <subj>/stats/{lh.aparc.stats, rh.aparc.stats, aseg.stats}",
   "",
-  "     Rscript sharing_code/freesurfer_to_datadict.R \\",
+  "     Rscript scoring_new_data/freesurfer_to_datadict.R \\",
   "       --subjects-dir /path/to/SUBJECTS_DIR \\",
   "       --demographics demo.csv --demo-id-col participant \\",
   "       --age-col age_days --sex-col sex \\",
@@ -210,7 +210,7 @@ USAGE <- c(
   "",
   "2. group tables from aparcstats2table / asegstats2table",
   "",
-  "     Rscript sharing_code/freesurfer_to_datadict.R \\",
+  "     Rscript scoring_new_data/freesurfer_to_datadict.R \\",
   "       --lh-area lh.area.tsv --rh-area rh.area.tsv \\",
   "       --lh-volume lh.vol.tsv --rh-volume rh.vol.tsv \\",
   "       --lh-thickness lh.thick.tsv --rh-thickness rh.thick.tsv \\",

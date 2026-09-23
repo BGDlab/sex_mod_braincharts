@@ -21,7 +21,7 @@ library(gamlss2charts)
 
 #source helpers from github; if that fails (e.g. no internet), fall back to
 #a local copy next to this script
-helper_url <- "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/sharing_code/oos_reference_scores_helper_funs.R"
+helper_url <- "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/scoring_new_data/oos_reference_scores_helper_funs.R"
 
 script_dir <- function() {
   #Rscript
