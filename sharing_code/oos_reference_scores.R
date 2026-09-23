@@ -8,12 +8,43 @@
 library(dplyr)
 library(data.table)
 library(gamlss)
-# install.packages("devtools")
-devtools::install_github("BGDlab/gamlssTools@dev", build_vignettes = FALSE) #currently dev version is required
+if (!requireNamespace("gamlssTools", quietly = TRUE))
+  remotes::install_github("BGDlab/gamlssTools@dev", upgrade = "never", build_vignettes = FALSE)
+if (!requireNamespace("gamlss2charts", quietly = TRUE))
+  remotes::install_github("andy1764/gamlss2charts@dev", upgrade = "never", build_vignettes = FALSE)
 library(gamlssTools)
-remotes::install_github("andy1764/gamlss2charts@dev", build_vignettes = FALSE) #currently dev version is required
 library(gamlss2charts)
-devtools::source_url("https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/sharing/sharing_code/oos_reference_scores_helper_funs.R") #source helper funs
+
+##################################
+### LOAD HELPER FUNCTIONS
+##################################
+
+#source helpers from github; if that fails (e.g. no internet), fall back to
+#a local copy next to this script
+helper_url <- "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/sharing_code/oos_reference_scores_helper_funs.R"
+
+script_dir <- function() {
+  #Rscript
+  f <- sub("^--file=", "", grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE))
+  if (length(f) > 0) return(dirname(normalizePath(gsub("~+~", " ", f[1], fixed = TRUE))))
+  #source()'d interactively
+  ofile <- tryCatch(sys.frame(1)$ofile, error = function(e) NULL)
+  if (!is.null(ofile)) return(dirname(normalizePath(ofile)))
+  getwd()
+}
+
+tryCatch(
+  source(helper_url),
+  error = function(e) {
+    local_helpers <- file.path(script_dir(), "oos_reference_scores_helper_funs.R")
+    if (!file.exists(local_helpers))
+      stop("could not source helper functions from GitHub (", conditionMessage(e),
+           ") and no local copy found at ", local_helpers, call. = FALSE)
+    warning("could not source helper functions from GitHub (", conditionMessage(e),
+            "); using local copy at ", local_helpers, call. = FALSE)
+    source(local_helpers)
+  }
+)
 
 ##################################
 ### DEFINE ARGUMENTS

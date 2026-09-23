@@ -16,7 +16,7 @@ DEFAULTS <- list(
 
 # printed by --help
 USAGE <- c(
-  "Score new data against the Gardner et al. brain charts (z-scores and centiles).",
+  "Score new data against the Gardner et al. brain charts (standardized/z-scores and centiles).",
   "",
   "  Rscript sharing_code/oos_reference_scores.R \\",
   "    --df my_datadict.csv \\",
