@@ -14,7 +14,7 @@ MDD
 ```{r}
 mdd_test <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles.csv")) %>% 
   filter(dx != "CN") %>%
-  select("INDEX.ID", ends_with("_z"), ends_with("_centile"))
+  select("INDEX.ID", "study_site", ends_with("_z"), ends_with("_centile"))
   
 mdd_oos <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles_OOS.csv")) %>% 
   filter(dx != "CN") %>%
@@ -90,12 +90,29 @@ ggplot(mdd_long) +
   geom_histogram(aes(x=centile_diff_oos), bins=50)
 ```
 
+any remaining assoc between ref sample size and OOS estimates?
+
+```{r}
+mdd_ref <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles.csv")) %>% 
+  filter(dx == "CN") %>%
+  #rough estimate
+  group_by(study_site) %>%
+  summarise(n_ref=n())
+
+mdd_count <- left_join(mdd_long, mdd_ref, by=c("study_site"))
+
+ggplot(mdd_count) +
+  geom_boxplot(aes(x=reorder(study_site, n_ref), y=abs(z_diff_oos))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+mdd_ref
+```
+
 ADHD
 
 ```{r}
 adhd_test <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles.csv")) %>% 
   filter(dx != "CN") %>%
-  select("INDEX.ID", ends_with("_z"), ends_with("_centile"))
+  select("INDEX.ID", "study_site", ends_with("_z"), ends_with("_centile"))
   
 adhd_oos <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles_OOS.csv")) %>% 
   filter(dx != "CN") %>%
@@ -169,6 +186,31 @@ ggplot(adhd_long) +
 
 ggplot(adhd_long) +
   geom_histogram(aes(x=centile_diff_oos), bins=50)
+```
+
+any remaining assoc between ref sample size and OOS estimates?
+
+```{r}
+adhd_ref <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles.csv")) %>% 
+  filter(dx == "CN") %>%
+  #rough estimate
+  group_by(study_site) %>%
+  summarise(n_ref=n())
+
+adhd_count <- left_join(adhd_long, adhd_ref, by=c("study_site"))
+
+ggplot(adhd_count) +
+  geom_boxplot(aes(x=reorder(study_site, n_ref), y=abs(z_diff_oos))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+adhd_ref
+
+
+#why is ABCD 12 oddly bad?
+adhd_abcd <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles.csv")) %>% 
+  filter(dx == "CN") %>%
+  filter(grepl("^study-ABCD", study_site))
+
+
 ```
 
 SCZ
