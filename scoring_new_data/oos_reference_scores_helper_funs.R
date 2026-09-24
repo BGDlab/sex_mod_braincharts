@@ -7,7 +7,7 @@ DEFAULTS <- list(
   df = NULL,
   batch = "study_site",
   ref_data = NULL,
-  min_ref = 75,
+  min_ref = 100,
   out_file = NULL,
   model_dir = NULL, #NULL=stream from github, otherwise local path to models
   model_ref = "sharing" # BGDlab/sex_mod_braincharts branch, tag, or commit SHA corresponding to models for reproducibiltiy
@@ -22,7 +22,7 @@ USAGE <- c(
   "    --df my_datadict.csv \\",
   "    --total TRUE \\",
   "    --out_file my_ref_scores.csv \\",
-  "    [--ref_data \"dx == 'CN'\"] [--min_ref 75] [--batch study_site] \\",
+  "    [--ref_data \"dx == 'CN'\"] [--min_ref 100] [--batch study_site] \\",
   "    [--pheno_list phenos.txt] [--model_dir models_to_share] [--model_ref main]",
   "",
   "required: --df, --total (TRUE/FALSE), --out_file",

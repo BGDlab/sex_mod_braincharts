@@ -186,7 +186,7 @@ underscores are interchangeable (`--min-ref` = `--min_ref`).
 | `--total` | yes | | `TRUE` scores against models that correct for total brain size; `FALSE` against uncorrected models. See below. |
 | `--out_file` | yes | | Where to write the output CSV. Its folder must already exist. |
 | `--ref_data` | | none | Which rows define the reference group for estimating batch effects. Defaults to all rows; give either a condition on columns of `--df`, e.g. `"dx == 'CN'"`, or a path to a CSV of reference rows. |
-| `--min_ref` | | `75` | Minimum number of reference rows a site needs for its batch effect to be reliably estimated. Sites with fewer get NA scores. Default based on authors' testing. |
+| `--min_ref` | | `100` | Minimum number of reference rows a site needs for its batch effect to be reliably estimated. Sites with fewer get NA scores. Default based on authors' testing. |
 | `--batch` | | `study_site` | Column holding the batch (site) variable whose effects will be estimated and removed. |
 | `--pheno_list` | | all 241 phenotypes (`all_phenos.txt` on GitHub) | To score just a subset, pass a text file of phenotypes to score, one phenotype column name per line. |
 | `--model_dir` | | none (stream from GitHub) | Alternatively, can point to a folder containing brain chart models. |
