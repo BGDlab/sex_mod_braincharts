@@ -29,7 +29,7 @@ fi
 save_path=$(realpath $save_dir)
 
 #fig outputs
-fig_save_dir=./sharing_code/figs
+fig_save_dir=./code/sharing_code/figs
 if ! [ -d $fig_save_dir ]
 then
   mkdir $fig_save_dir

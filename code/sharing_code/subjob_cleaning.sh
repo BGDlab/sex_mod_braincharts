@@ -11,7 +11,7 @@
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
 SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.16.sif"
-script=$BASE/sharing_code/clean_models_to_share.R
+script=$BASE/code/sharing_code/clean_models_to_share.R
 CONFIGFN=$BASE/code/config_files/cv_sample_logAgeTRUE_clean_config.txt
 
 #PARSE CONFIG FILE

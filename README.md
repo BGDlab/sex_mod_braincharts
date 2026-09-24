@@ -142,7 +142,7 @@ Other scripts used for plotting, formatting, and viewing figures are `code/grab_
 
 # Preparing Models for Sharing
 Models are stripped of participant-level data with `gamlssTools::sanitize_gamlss()` before sharing. Code used to prepare
-the models and test out-of-sample scoring pipelines are saved in `sharing_code/`.
+the models and test out-of-sample scoring pipelines are saved in `code/sharing_code/`.
 
 # Out-of-Sample Scoring
 The brain chart models fit in this paper can be used to calculate reference scores for new data.
