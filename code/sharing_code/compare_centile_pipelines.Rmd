@@ -210,6 +210,11 @@ adhd_abcd <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles.csv")) %>%
   filter(dx == "CN") %>%
   filter(grepl("^study-ABCD", study_site))
 
+adhd_count %>%
+    filter(study_site == "study-ABCD_site-12") %>%
+ggplot() +
+  geom_boxplot(aes(x=pheno, y=abs(z_diff_oos))) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
 
@@ -292,4 +297,52 @@ ggplot(scz_long) +
 
 ggplot(scz_long) +
   geom_histogram(aes(x=centile_diff_oos), bins=50)
+```
+
+error trying to fit lh.CT.inferiortemporal - "0 (non-NA) cases"
+
+```{r}
+model_dir <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/models_to_share/"
+m <- readRDS(paste0(model_dir, "lh.CT.inferiortemporal_splitB_totalTRUE_sharing_model.rds"))
+
+coef(m) #seems to be lack of synthseg-robust data in training set -> NA coef trying to be applied
+d <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/cv_sample_B_age2plus/lh.CT.inferiortemporal_totalTRUE_test_df.csv")
+table(d$fs_version_CT)
+
+#nope,look at original model
+og_m <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_B_test/age2plus_cortical_thickness_totalTRUE_logAgeTRUE_pbmods/model_objs/lh.CT.inferiortemporal_fsboth_pbAge_totalboth_test_age2plus_full_mod.rds")
+coef(og_m)['fs_version_CTsynthseg-robust'] #still NA!
+c(N = og_m$N, rows = nrow(d))
+
+#check design matrix
+if (!is.null(og_m$mu.x)) {
+  X <- og_m$mu.x
+  print(colSums(X[, grep("fs_version", colnames(X)), drop = FALSE]))
+  print(qr(X)$rank); print(ncol(X))
+}
+
+fo  <- og_m$mu.formula
+tl  <- attr(terms(fo), "term.labels")
+lin <- unique(unlist(lapply(tl[!grepl("^random\\(", tl)], function(t) all.vars(str2lang(t)))))
+lin                                                     # check these are all columns of d_age2plus
+X   <- model.matrix(reformulate(lin), d)
+q   <- qr(X)
+colnames(X)[q$pivot[-seq_len(q$rank)]]                  # aliased columns
+alias(lm(reformulate(lin, response = "lh.CT.inferiortemporal"), d_age2plus))$Complete
+
+tot <- setdiff(lin, c("sexMale_x_logAge", "logAge_days", "sexMale", "fs_version_CT"))
+tapply(d[[tot]], d$fs_version_CT, function(x) c(sd = sd(x), n_unique = length(unique(x))))
+
+test_df <- d
+# 1. which column did the fit's QR drop?
+q <- og_m$mu.qr
+colnames(og_m$mu.x)[q$pivot[-seq_len(q$rank)]]
+
+# 2. were synthseg-robust rows effectively weighted out?
+tapply(og_m$mu.wt,    test_df$fs_version_CT, summary)
+tapply(og_m$sigma.wt, test_df$fs_version_CT, summary)
+
+# 3. is it specific to this refit? check the train model it was built from
+base_mod <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_train/age2plus_cortical_thickness_totalTRUE_logAgeTRUE_pbmods/model_objs/lh.CT.inferiortemporal_fsboth_pbAge_totalboth_train_age2plus.rds")
+coef(base_mod, "mu")[grepl("fs_version", names(coef(base_mod, "mu")))]
 ```
