@@ -6,7 +6,7 @@ library(gamlss)
 library(gamlssTools)
 
 args <- commandArgs(trailingOnly = TRUE)
-df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "")
+df <- fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""'))
 mod <- readRDS(args[2])
 mod$call$data   <- "df"
 mod$call$family <- mod$family[[1]]

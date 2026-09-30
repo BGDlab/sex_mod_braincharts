@@ -13,7 +13,7 @@ options(warn = 1)
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-full_df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
+full_df <- fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""')) #path to csv
 base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 total <- as.character(args[4])
@@ -52,12 +52,14 @@ if (total == "FALSE"){
   df <- full_df %>%
     dplyr::select(all_of(c(pred_list, pheno, "weight"))) %>%
     na.omit() %>%
-    trunc_coverage(age_var) #drop points at ends if too sparse
+    trunc_coverage(age_var) %>% #drop points at ends if too sparse
+    droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
 } else {
   df <- full_df %>%
     dplyr::select(all_of(c(pred_list, pheno, "weight"))) %>%
   na.omit() %>%
-    trunc_coverage(c(total, age_var)) #drop points at ends if too sparse
+    trunc_coverage(c(total, age_var)) %>% #drop points at ends if too sparse
+    droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
 }
 
 #write out dataframe

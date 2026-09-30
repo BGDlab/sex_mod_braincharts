@@ -12,11 +12,11 @@ library(ggplot2)
 MDD
 
 ```{r}
-mdd_test <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles.csv")) %>% 
+mdd_test <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles.csv"), na.strings = c("NA", "", '""')) %>% 
   filter(dx != "CN") %>%
   select("INDEX.ID", "study_site", ends_with("_z"), ends_with("_centile"))
   
-mdd_oos <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles_OOS.csv")) %>% 
+mdd_oos <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles_OOS.csv"), na.strings = c("NA", "", '""')) %>% 
   filter(dx != "CN") %>%
   select("INDEX.ID", ends_with("_z"), ends_with("_centile")) %>%
   rename_with(
@@ -26,7 +26,7 @@ mdd_oos <- fread(paste0(base_path, "cv_sample_A_MDD_test_centiles_OOS.csv")) %>%
       TRUE ~ .
     )
   )
-mdd_truth <- fread(paste0(base_path, "dx_tests/MDD_totalFALSE_mean_scores.csv")) %>% 
+mdd_truth <- fread(paste0(base_path, "dx_tests/MDD_totalFALSE_mean_scores.csv"), na.strings = c("NA", "", '""')) %>% 
   select("INDEX.ID", ends_with("_full"))
 ```
 
@@ -110,11 +110,11 @@ mdd_ref
 ADHD
 
 ```{r}
-adhd_test <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles.csv")) %>% 
+adhd_test <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles.csv"), na.strings = c("NA", "", '""')) %>% 
   filter(dx != "CN") %>%
   select("INDEX.ID", "study_site", ends_with("_z"), ends_with("_centile"))
   
-adhd_oos <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles_OOS.csv")) %>% 
+adhd_oos <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles_OOS.csv"), na.strings = c("NA", "", '""')) %>% 
   filter(dx != "CN") %>%
   select("INDEX.ID", ends_with("_z"), ends_with("_centile")) %>%
   rename_with(
@@ -124,7 +124,7 @@ adhd_oos <- fread(paste0(base_path, "cv_sample_B_ADHD_test_centiles_OOS.csv")) %
       TRUE ~ .
     )
   )
-adhd_truth <- fread(paste0(base_path, "dx_tests/ADHD_totalFALSE_mean_scores.csv")) %>% 
+adhd_truth <- fread(paste0(base_path, "dx_tests/ADHD_totalFALSE_mean_scores.csv"), na.strings = c("NA", "", '""')) %>% 
   select("INDEX.ID", ends_with("_full"))
 ```
 
@@ -221,11 +221,11 @@ ggplot() +
 SCZ
 
 ```{r}
-scz_test <- fread(paste0(base_path, "cv_sample_B_SCZ_test_centiles.csv")) %>% 
+scz_test <- fread(paste0(base_path, "cv_sample_B_SCZ_test_centiles.csv"), na.strings = c("NA", "", '""')) %>% 
   filter(dx != "CN") %>%
   select("INDEX.ID", ends_with("_z"), ends_with("_centile"))
   
-scz_oos <- fread(paste0(base_path, "cv_sample_B_SCZ_test_centiles_OOS.csv")) %>% 
+scz_oos <- fread(paste0(base_path, "cv_sample_B_SCZ_test_centiles_OOS.csv"), na.strings = c("NA", "", '""')) %>% 
   filter(dx != "CN") %>%
   select("INDEX.ID", ends_with("_z"), ends_with("_centile")) %>%
   rename_with(
@@ -235,7 +235,7 @@ scz_oos <- fread(paste0(base_path, "cv_sample_B_SCZ_test_centiles_OOS.csv")) %>%
       TRUE ~ .
     )
   )
-scz_truth <- fread(paste0(base_path, "dx_tests/SCZ_totalTRUE_age2plus_mean_scores.csv")) %>% 
+scz_truth <- fread(paste0(base_path, "dx_tests/SCZ_totalTRUE_age2plus_mean_scores.csv"), na.strings = c("NA", "", '""')) %>% 
   select("INDEX.ID", ends_with("_full"))
 ```
 

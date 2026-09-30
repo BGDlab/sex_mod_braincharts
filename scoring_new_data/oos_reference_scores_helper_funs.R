@@ -98,7 +98,7 @@ parse_args <- function(argv) {
   
   #ref_data: a CSV of reference rows, or else a condition string for score_centiles()
   if (!is.null(opts$ref_data) && file.exists(opts$ref_data))
-    opts$ref_data <- as.data.frame(data.table::fread(opts$ref_data))
+    opts$ref_data <- as.data.frame(data.table::fread(opts$ref_data, na.strings = c("NA", "", '""')))
   
   opts
 }
@@ -149,6 +149,33 @@ check_model_dir <- function(model_dir, pheno_list, total, splits = c("A", "B")) 
             if (length(gone) > 10) paste0("\n  ... and ", length(gone) - 10, " more"))
 
   invisible(gone)
+}
+
+#when streaming from github, fail now if models aren't reachable at model_ref
+#rather than failing one phenotype at a time. probes a few model urls and
+#stops at the first one that responds
+check_model_remote <- function(model_dir, pheno_list, total, model_ref,
+                               splits = c("A", "B"), n_probe = 3) {
+  if (!is.null(model_dir)) return(invisible(NULL))
+
+  probe <- unlist(lapply(utils::head(pheno_list, n_probe), function(p)
+    vapply(splits, function(s) model_path(p, s, total, NULL, model_ref), character(1))))
+
+  status <- vapply(probe, function(u) {
+    h <- tryCatch(curlGetHeaders(u), error = function(e) NULL)
+    if (is.null(h)) NA_integer_ else as.integer(attr(h, "status"))
+  }, integer(1))
+
+  if (any(status %in% 200L)) return(invisible(NULL))
+
+  if (all(is.na(status)))
+    stop("could not reach GitHub to check for models. Check your internet ",
+         "connection, or pass local models with --model_dir", call. = FALSE)
+  stop("no models found on GitHub for total=", as.character(total),
+       " at model_ref '", model_ref, "' (HTTP ", paste(unique(status), collapse = "/"),
+       ")\n  tried e.g. ", probe[1],
+       ";\n pass local models with --model_dir",
+       call. = FALSE)
 }
 
 #numeric training ranges, recovered from the model's pb() smoothers

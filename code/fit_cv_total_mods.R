@@ -12,7 +12,7 @@ source(paste0(base, "code/gamlss_fit_funs.R"))
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
+df <- droplevels(fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""'))) #path to csv; drop unused factor levels
 pheno <- as.character(args[2])
 fs <- as.character(args[3])
 total <- as.character(args[4])

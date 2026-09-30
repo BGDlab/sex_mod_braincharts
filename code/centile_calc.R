@@ -15,8 +15,8 @@ options(warn = 1)
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #df to fit centiles on
-df.og <- fread(args[2], stringsAsFactors = TRUE, na.strings = "") #df model fit on
+df <- fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""')) #df to fit centiles on
+df.og <- fread(args[2], stringsAsFactors = TRUE, na.strings = c("", '""')) #df model fit on
 mod_path <- as.character(args[3]) #test model fit on df
 save_path <- as.character(args[4])
 dx_val <- as.character(args[5])

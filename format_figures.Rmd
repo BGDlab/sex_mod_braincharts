@@ -65,7 +65,7 @@ reformat_x <- function(x_values, simplified=FALSE){
 Sample B exemplar curve(s)
 
 ```{r}
-df <- fread(paste0(base_path, "data/cv_sample_B_dfs/sGMV_totalFALSE_logAgeTRUE.csv"), stringsAsFactors = TRUE, na.strings = "")
+df <- fread(paste0(base_path, "data/cv_sample_B_dfs/sGMV_totalFALSE_logAgeTRUE.csv"), stringsAsFactors = TRUE, na.strings = c("", '""'))
 
 test_mod <- readRDS(Sys.glob(paste0(base_path, "cv_sample_B_test/global_vols_totalFALSE_logAgeTRUE_pbmods/model_objs/sGMV_*_test_full_mod.rds")))
 test_mod$call$data <- "df"
@@ -132,7 +132,7 @@ ggsave("figs/fig1.png", fig1, width=12.5, height=8, dpi=300, bg = "white")
 Sample B exemplar curve(s)
 
 ```{r}
-df <- fread(paste0(base_path, "data/cv_sample_B_dfs/sGMV_totalTRUE_logAgeTRUE.csv"), stringsAsFactors = TRUE, na.strings = "")
+df <- fread(paste0(base_path, "data/cv_sample_B_dfs/sGMV_totalTRUE_logAgeTRUE.csv"), stringsAsFactors = TRUE, na.strings = c("", '""'))
 
 test_mod <- readRDS(Sys.glob(paste0(base_path, "cv_sample_B_test/global_vols_totalTRUE_logAgeTRUE_pbmods/model_objs/sGMV_*_test_full_mod.rds")))
 
@@ -171,7 +171,7 @@ sGMV_fan_tbv <- make_centile_fan(gamlssModel=test_mod,
 
 ```{r}
 #read in file
-traject <- fread(paste0(base_path, "cv_sample_B_test/global_vols_totalTRUE_logAgeTRUE_pbmods/cent_csvs/sGMV_sexdiffs.csv"), stringsAsFactors = TRUE, na.strings = "")
+traject <- fread(paste0(base_path, "cv_sample_B_test/global_vols_totalTRUE_logAgeTRUE_pbmods/cent_csvs/sGMV_sexdiffs.csv"), stringsAsFactors = TRUE, na.strings = c("", '""'))
 
 #mean sex diff trajectory
 sgmv_sexdiff_plt <- traject %>%

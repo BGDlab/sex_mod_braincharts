@@ -21,7 +21,7 @@ library(ggrain)
 
 load data - LBCC 3.1
 ```{r}
-df <- fread("/mnt/isilon/bgdlab_processing/LBCC_releases/v3_Penn/v3_1_0_penn.csv", na.strings = c("", NA))
+df <- fread("/mnt/isilon/bgdlab_processing/LBCC_releases/v3_Penn/v3_1_0_penn.csv", na.strings = c("", '""', NA))
 ```
 
 ```{r}
@@ -153,7 +153,7 @@ saveRDS(sa_list, "./pheno_lists/cortical_surf.rds")
 Adding HBCD release
 
 ```{r}
-hbcd <- fread("/mnt/isilon/bgdlab_hbcd/v2/derivatives/HBCD_idps.csv")
+hbcd <- fread("/mnt/isilon/bgdlab_hbcd/v2/derivatives/HBCD_idps.csv", na.strings = c("NA", "", '""'))
 hbcd_rename <- hbcd %>%
   rename_with(~ gsub("-", ".", .)) %>%
   rename_with(~ gsub("SubcGM", "SUBC", .))
@@ -172,10 +172,10 @@ hbcd_rename$fs_version_CT <- "FSInfant"
 get demographics
 
 ```{r}
-hbcd_demo <- fread("/mnt/isilon/bgdlab_hbcd/v2/rawdata/phenotype/sed_basic_demographics.tsv")
+hbcd_demo <- fread("/mnt/isilon/bgdlab_hbcd/v2/rawdata/phenotype/sed_basic_demographics.tsv", na.strings = c("NA", "", '""'))
 
 #get age at scan
-hbcd_demo_scan <- fread("/mnt/isilon/bgdlab_hbcd/v2/derivatives/hbcd_scan_info.csv") %>%
+hbcd_demo_scan <- fread("/mnt/isilon/bgdlab_hbcd/v2/derivatives/hbcd_scan_info.csv", na.strings = c("NA", "", '""')) %>%
   select(subject, session, site, age, gestational_age, QC, filename) %>%
   filter(str_detect(filename, regex("anat/sub-.*_ses-V0.?_run-.?_T.?w\\.nii\\.gz"))) %>%   #keep just basic T1 or T2 anat scans
   mutate(age_days_birth = 365.25*age) 
@@ -242,7 +242,7 @@ stopifnot(nrow(df_with_hbcd) == nrow(df) + nrow(hbcd_final))
 csv created with `build_your_cohort_dev_mg.Rmd`
 
 ```{r}
-slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release_updated.csv") #updated b/c mismatched scans
+slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release_updated.csv", na.strings = c("NA", "", '""')) #updated b/c mismatched scans
 names(slip)
 skim(slip)
 

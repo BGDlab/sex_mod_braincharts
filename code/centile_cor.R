@@ -22,7 +22,7 @@ sub_list    <- readRDS(file.path(base_path, "pheno_lists/subcortical_vols.rds"))
 pheno_list  <- c(global_list, sub_list, vol_list, sa_list, ct_list)
 
 fread_filt <- function(f, string, split){
-  fread(f) %>%
+  fread(f, na.strings = c("NA", "", '""')) %>%
     select(INDEX.ID, sexMale, dx_recode, logAge_days, matches(string)) %>%
     mutate(sex = ifelse(sexMale==0, "F", "M"),
            split = split)

@@ -54,7 +54,7 @@ cn_paths <- Sys.glob(file.path(glob_path, "cent_csvs/*_*_*cent.csv")) %>%
   grep("CN", ., value = TRUE)
 # Read all matching CSVs
 cent_df_list <- lapply(c(paths, cn_paths), function(f){
-  fread(f) %>%
+  fread(f, na.strings = c("NA", "", '""')) %>%
     mutate(weighted  = stringr::str_detect(f, "weight"),
          age2plus = stringr::str_detect(f, "age2plus")) %>%
     select(any_of(c("dx_recode", "dx_tested", "sex", "age2plus", "weighted")), 
