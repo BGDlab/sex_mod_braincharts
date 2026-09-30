@@ -69,7 +69,7 @@ print(args)
 pheno_list <- readLines(args$pheno_list, warn = FALSE)
 
 #data to score - set as simulated data template
-df <- fread(args$df)
+df <- fread(args$df, na.strings = c("NA", "", '""'))
 
 ##################################
 ### VALIDATE INPUT DATA

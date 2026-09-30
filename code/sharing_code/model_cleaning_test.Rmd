@@ -57,7 +57,7 @@ mod_df <- mod_df %>%
 #load
 load_pair <- function(row) {
   mod <- readRDS(row$mod_path)
-  df  <- fread(row$csv_path, stringsAsFactors = TRUE, na.strings = "")
+  df  <- fread(row$csv_path, stringsAsFactors = TRUE, na.strings = c("", '""'))
   mod$call$data   <- "df"          # needed for predict/gamlssTools
   mod$call$family <- mod$family[[1]]
   list(model = mod, df = df, meta = row)

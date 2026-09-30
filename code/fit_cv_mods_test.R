@@ -13,7 +13,7 @@ options(warn = 1)
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
+df <- droplevels(fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""'))) #path to csv; drop unused factor levels
 base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 total <- as.logical(args[4])

@@ -44,7 +44,7 @@ pheno_list <- do.call(c, lapply(lists, readRDS))
 
 #READ IN AND AVERAGE PT CENTILES
 fread_filt <- function(f, string){
-  fread(f) %>%
+  fread(f, na.strings = c("NA", "", '""')) %>%
     select(INDEX.ID, sexMale, dx_recode, logAge_days, matches(string)) %>%
     mutate(sex = ifelse(sexMale==0, "F", "M"))
 }

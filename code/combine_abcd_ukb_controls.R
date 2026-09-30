@@ -24,7 +24,7 @@ cn_files <- cn_files[!grepl("weighted|age2plus", cn_files)]
 # keep INDEX.ID + this phenotype's _full centile columns, ABCD/UKB rows only
 read_cn <- function(f) {
   pheno <- sub("_CN_.*", "", basename(f))
-  dt <- fread(f)[get(study_col) %in% studies]
+  dt <- fread(f, na.strings = c("NA", "", '""'))[get(study_col) %in% studies]
   cent_cols <- grep(paste0("^", pheno, "_.*_full$"), names(dt), value = TRUE)
   dt[, c("INDEX.ID", cent_cols), with = FALSE]
 }
@@ -38,7 +38,7 @@ combined <- reduce(per_pheno, \(x, y) merge(x, y, by = "INDEX.ID", all = TRUE))
 
 # reattach shared covariates once
 covars <- unique(rbindlist(lapply(cn_files, \(f) {
-  dt <- fread(f)[get(study_col) %in% studies]
+  dt <- fread(f, na.strings = c("NA", "", '""'))[get(study_col) %in% studies]
   keep <- intersect(c("INDEX.ID", "age_days", "sex", study_col, "dx", "dx_recode"), names(dt))
   dt[, ..keep]
 })), by = "INDEX.ID")

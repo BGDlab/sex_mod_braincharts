@@ -22,7 +22,7 @@ pacman::p_load(data.table, ggplot2, dplyr)
 
 load data cleaned data
 ```{r}
-df_euler <- fread("./data/euler_tmp.csv", stringsAsFactors=T) %>%
+df_euler <- fread("./data/euler_tmp.csv", stringsAsFactors=T, na.strings = c("NA", "", '""')) %>%
 #remove SA from dHCP due to segmentation issues
   mutate(across(
     contains("SA."),
@@ -84,9 +84,9 @@ use the original splits and just add back in Euler weights for consistency with 
 #remove any cols that could be different/imact merge
 rm_cols <- c("SurfaceHoles", "study_euler_mad", "study_euler_median", "euler_threshold", "has_qc")
 
-og_sample_A <- fread("./data/cv_sample_A.csv", stringsAsFactors=T) %>% 
+og_sample_A <- fread("./data/cv_sample_A.csv", stringsAsFactors=T, na.strings = c("NA", "", '""')) %>% 
   select(!any_of(rm_cols))
-og_sample_B <- fread("./data/cv_sample_B.csv", stringsAsFactors=T) %>% 
+og_sample_B <- fread("./data/cv_sample_B.csv", stringsAsFactors=T, na.strings = c("NA", "", '""')) %>% 
   select(!any_of(rm_cols))
 
 og_sample_A_weight <- right_join(og_sample_A, df_euler2)

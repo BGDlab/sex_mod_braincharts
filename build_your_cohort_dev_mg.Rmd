@@ -243,16 +243,16 @@ myDf |>
 
 
 ```{r}
-deriv_aparc <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-aparc.csv", fill=TRUE)
+deriv_aparc <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-aparc.csv", fill=TRUE, na.strings = c("NA", "", '""'))
 #names(deriv_aparc)
 
-deriv_global <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-global.csv", fill=TRUE)
+deriv_global <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-global.csv", fill=TRUE, na.strings = c("NA", "", '""'))
 #names(deriv_global)
 
-deriv_qc <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-qc.csv", fill=TRUE)
+deriv_qc <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-qc.csv", fill=TRUE, na.strings = c("NA", "", '""'))
 #names(deriv_qc)
 
-deriv_ss <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-ss.csv", fill=TRUE)
+deriv_ss <- fread("/mnt/isilon/bgdlab_processing/releases_clinical/2025_03_release/derivatives/recon-all-clinical/fs7.4.1-clinical-reconall-ss.csv", fill=TRUE, na.strings = c("NA", "", '""'))
 #names(deriv_ss)
 ```
 

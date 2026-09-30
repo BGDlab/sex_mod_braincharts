@@ -98,7 +98,7 @@ parse_args <- function(argv) {
   
   #ref_data: a CSV of reference rows, or else a condition string for score_centiles()
   if (!is.null(opts$ref_data) && file.exists(opts$ref_data))
-    opts$ref_data <- as.data.frame(data.table::fread(opts$ref_data))
+    opts$ref_data <- as.data.frame(data.table::fread(opts$ref_data, na.strings = c("NA", "", '""')))
   
   opts
 }
