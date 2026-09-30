@@ -110,15 +110,18 @@ check_model_remote(args$model_dir, pheno_list, args$total, args$model_ref)
 ##################################
 print("calculating centiles...")
 
-df_cent <- Filter(Negate(is.null),
-                  lapply(pheno_list, score_pheno, 
-                         df = df, 
-                         total = args$total, 
-                         batch = args$batch, 
-                         ref_data = args$ref_data, 
-                         min_ref = args$min_ref,
-                         model_dir = args$model_dir,
-                         model_ref = args$model_ref))
+#score each pheno, holding its warnings and errors to print at the end of the run
+results <- lapply(pheno_list, score_pheno_logged,
+                  df = df,
+                  total = args$total,
+                  batch = args$batch,
+                  ref_data = args$ref_data,
+                  min_ref = args$min_ref,
+                  model_dir = args$model_dir,
+                  model_ref = args$model_ref)
+
+df_cent <- Filter(Negate(is.null), lapply(results, `[[`, "scores"))
+log_df  <- do.call(rbind, lapply(results, `[[`, "log"))
 
 #rejoin to the full input data by row key
 df_full_cent <- Reduce(
@@ -135,3 +138,26 @@ print(paste0("scored ", length(df_cent), "/", length(pheno_list), " phenotypes o
 ### SAVE OUTPUTS
 ##################################
 fwrite(df_full_cent, args$out_file)
+
+##################################
+### REPORT WARNINGS & ERRORS
+##################################
+#identical messages (e.g. package warnings repeated for every pheno) are shown once,
+#with the phenotypes they came from
+if (is.null(log_df)) {
+  cat("\nno warnings or errors\n")
+} else {
+  for (type in c("error", "warning")) {
+    l <- log_df[log_df$type == type, , drop = FALSE]
+    if (nrow(l) == 0) next
+    cat("\n==== ", toupper(type), "S (", nrow(l), " from ", length(unique(l$pheno)),
+        " phenotype(s)) ====\n", sep = "")
+    for (msg in unique(l$message)) {
+      phenos <- unique(l$pheno[l$message == msg])
+      cat("\n", msg, "\n", sep = "")
+      if (length(phenos) > 1 || !grepl(phenos, msg, fixed = TRUE))
+        cat("  [", length(phenos), " phenotype(s): ", paste(utils::head(phenos, 5), collapse = ", "),
+            if (length(phenos) > 5) ", ...", "]\n", sep = "")
+    }
+  }
+}

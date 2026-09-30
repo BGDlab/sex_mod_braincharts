@@ -242,12 +242,19 @@ scorable_rows <- function(m, df, pheno, batch) {
   which(ok)
 }
 
+#signal a scoring failure as a warning so the run continues, tagged "score_error"
+#so the run log can report it as an error
+score_error <- function(...) {
+  warning(structure(class = c("score_error", "warning", "condition"),
+                    list(message = paste0(...), call = NULL)))
+}
+
 #stream one split's model, z-score the rows it can handle, then discard
 score_split <- function(pheno, split, model_dir, model_ref, total, df, batch, ref_data, min_ref) {
   m <- tryCatch(
     read_model(model_path(pheno, split, total, model_dir, model_ref)), #local or github url
     error = function(e) {
-      warning(pheno, " split ", split, ": could not read model (", conditionMessage(e), ")")
+      score_error(pheno, " split ", split, ": could not read model (", conditionMessage(e), ")")
       NULL
     }
   )
@@ -260,17 +267,26 @@ score_split <- function(pheno, split, model_dir, model_ref, total, df, batch, re
     return(NULL)
   }
   
-  scores <- score_centiles(
-    m,
-    data        = as.data.frame(df)[idx, , drop = FALSE],
-    fit_data    = NULL,
-    standardize = TRUE,
-    batch_term  = batch,
-    ref_data = ref_data,
-    min_ref = min_ref
+  #if scoring fails, return NA for this split
+  scores <- tryCatch(
+    score_centiles(
+      m,
+      data        = as.data.frame(df)[idx, , drop = FALSE],
+      fit_data    = NULL,
+      standardize = TRUE,
+      batch_term  = batch,
+      ref_data = ref_data,
+      min_ref = min_ref
+    ),
+    error = function(e) {
+      score_error(pheno, " split ", split, ": scoring failed, returning NA (",
+                  conditionMessage(e), ")")
+      NULL
+    }
   )
-  
-  out <- data.frame(.row_id = df$.row_id[idx], z = scores$std_score)
+  z <- if (is.null(scores)) rep(NA_real_, length(idx)) else scores$std_score
+
+  out <- data.frame(.row_id = df$.row_id[idx], z = z)
   names(out)[2] <- paste0("z_", split)
   out
 }
@@ -311,9 +327,35 @@ score_pheno <- function(pheno, df, total, batch, splits = c("A", "B"), ref_data,
   }
   
   z_mean <- rowMeans(z_mat[keep, , drop = FALSE], na.rm = TRUE)
-  
+
   #reformat and convert mean back to centile space
   out <- data.frame(.row_id = z_tbl$.row_id[keep], z_mean, pnorm(z_mean))
   names(out) <- c(".row_id", paste0(pheno, c("_z", "_centile")))
   out
+}
+
+#score one pheno, collecting its warnings and errors instead of printing them.
+#an error returns NULL scores (pheno left out of the output) instead of stopping the run.
+#returns list(scores = score_pheno() output or NULL, log = data.frame(pheno, type, message) or NULL)
+score_pheno_logged <- function(pheno, ...) {
+  log <- list()
+  add_log <- function(type, msg) {
+    log[[length(log) + 1]] <<- data.frame(pheno = pheno, type = type, message = msg)
+  }
+
+  scores <- withCallingHandlers(
+    tryCatch(
+      score_pheno(pheno, ...),
+      error = function(e) {
+        add_log("error", paste0(pheno, ": scoring failed, skipping (", conditionMessage(e), ")"))
+        NULL
+      }
+    ),
+    warning = function(w) {
+      add_log(if (inherits(w, "score_error")) "error" else "warning", conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  list(scores = scores, log = do.call(rbind, log))
 }
