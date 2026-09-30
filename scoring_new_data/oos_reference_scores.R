@@ -8,10 +8,22 @@
 library(dplyr)
 library(data.table)
 library(gamlss)
-if (!requireNamespace("gamlssTools", quietly = TRUE))
-  remotes::install_github("BGDlab/gamlssTools@dev", upgrade = "never", build_vignettes = FALSE)
-if (!requireNamespace("gamlss2charts", quietly = TRUE))
-  remotes::install_github("andy1764/gamlss2charts@dev", upgrade = "never", build_vignettes = FALSE)
+#(re)install from github unless the installed copy came from `ref`.
+#`ref` can be a branch name or a commit SHA
+install_github_ref <- function(repo, ref) {
+  pkg <- basename(repo)
+  installed_ref <- if (requireNamespace(pkg, quietly = TRUE)) {
+    utils::packageDescription(pkg)$RemoteRef
+  }
+  if (is.null(installed_ref) || !identical(installed_ref, ref)) {
+    message("installing ", repo, "@", ref, " (found: ",
+            if (is.null(installed_ref)) "none" else installed_ref, ")")
+    remotes::install_github(paste0(repo, "@", ref), upgrade = "never",
+                            build_vignettes = FALSE, force = TRUE)
+  }
+}
+install_github_ref("BGDlab/gamlssTools", "dev")
+install_github_ref("andy1764/gamlss2charts", "dev")
 library(gamlssTools)
 library(gamlss2charts)
 
@@ -89,6 +101,9 @@ df <- df %>%
 
 #with a local model directory, fail now if it is missing or incomplete
 check_model_dir(args$model_dir, pheno_list, args$total)
+
+#when streaming, fail now if the models aren't on github at model_ref
+check_model_remote(args$model_dir, pheno_list, args$total, args$model_ref)
 
 ##################################
 ### CALCULATE REFERENCE SCORES
