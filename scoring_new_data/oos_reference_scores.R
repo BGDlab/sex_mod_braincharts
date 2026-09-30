@@ -85,7 +85,7 @@ stopifnot(
 
 df <- df %>%
   mutate(sexMale_x_logAge = sexMale * logAge_days, #calculate sex x age interaction
-         .row_id = seq_len(n())) #stable row key
+         .row_id = seq_len(dplyr::n())) #stable row key
 
 #with a local model directory, fail now if it is missing or incomplete
 check_model_dir(args$model_dir, pheno_list, args$total)
