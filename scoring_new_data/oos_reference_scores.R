@@ -73,12 +73,6 @@ tryCatch(
 ### DEFINE ARGUMENTS
 ##################################
 
-args <- parse_args(argv)
-print(args)
-
-#data to score
-df <- fread(args$df, na.strings = c("NA", "", '""'))
-
 #--pheno <name>: score this one phenotype instead of --pheno_list 
 # for use with slurm job arrays
 pheno <- NULL
@@ -97,6 +91,12 @@ if (length(i) == 1) {
     stop("use --pheno or --pheno_list, not both", call. = FALSE)
   argv <- argv[-drop]
 }
+
+args <- parse_args(argv)
+print(args)
+
+#data to score
+df <- fread(args$df, na.strings = c("NA", "", '""'))
 
 # phenotypes to score - defaults to all
 pheno_list <- if (!is.null(pheno)) pheno else readLines(args$pheno_list, warn = FALSE)
