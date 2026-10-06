@@ -41,6 +41,6 @@ for (i in seq_along(files)) {
 }
 
 fwrite(out, out_file)
-n_scored <- sum(paste0(phenos, "_z") %in% names(out))
+n_scored <- sum(paste0(phenos, "_centile") %in% names(out))
 cat("combined ", n_scored, "/", length(have), " phenotypes on ", nrow(out),
     " subjects -> ", out_file, "\n", sep = "")

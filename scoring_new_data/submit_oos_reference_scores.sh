@@ -2,23 +2,20 @@
 # Score new data with oos_reference_scores.R as a SLURM job array (one phenotype per task),
 # then stitch the per-phenotype outputs into one file with a dependent job.
 #
-# usage (run on the login node, NOT through sbatch):
+# usage:
 #   bash scoring_new_data/submit_oos_reference_scores.sh \
-#     --df my_datadict.csv --total TRUE --out_file my_ref_scores.csv \
+#     --df my_data.csv --total TRUE --out_file my_ref_scores.csv \
 #     [any other oos_reference_scores.R options except --pheno_list]
 #
 # every phenotype in all_phenos.txt that is a column of --df gets scored
 #
 # environment variables (optional):
-#   RSCRIPT       command used to run R, e.g.
-#                 RSCRIPT="singularity run --cleanenv -B /mnt/isilon img.sif Rscript"
 #   MAX_PARALLEL  max array tasks running at once (default 50)
 #   SBATCH_ARGS   extra sbatch flags for the array tasks, e.g. "--mem=16G --time=2:00:00"
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RSCRIPT="${RSCRIPT:-Rscript}"
 MAX_PARALLEL="${MAX_PARALLEL:-50}"
 SBATCH_ARGS="${SBATCH_ARGS:-}"
 
@@ -41,9 +38,10 @@ done
 [[ -z "$OUT_FILE" ]] && { echo "missing required option: --out_file" >&2; exit 1; }
 [[ -z "$DF" ]] && { echo "missing required option: --df" >&2; exit 1; }
 
+[[ -d "$(dirname "$OUT_FILE")" ]] || { echo "--out_file folder not found: $(dirname "$OUT_FILE")" >&2; exit 1; }
 OUT_FILE="$(cd "$(dirname "$OUT_FILE")" && pwd)/$(basename "$OUT_FILE")"
 WORK_DIR="${OUT_FILE%.*}_array"
-mkdir -p "$WORK_DIR"/{scores,pheno_lists,logs}
+mkdir -p "$WORK_DIR"/{scores,logs}
 
 # full list of phenotypes with models: local copy next to this script, else from GitHub
 ALL_PHENOS="$SCRIPT_DIR/all_phenos.txt"
@@ -55,8 +53,7 @@ fi
 
 # keep the phenotypes that are columns of --df, so every task (and the combine step)
 # sees the same list
-# shellcheck disable=SC2086
-$RSCRIPT -e '
+Rscript -e '
   a <- commandArgs(trailingOnly = TRUE)
   phenos <- trimws(readLines(a[1], warn = FALSE))
   phenos <- phenos[nzchar(phenos)]
@@ -68,11 +65,10 @@ $RSCRIPT -e '
 N=$(grep -c . "$WORK_DIR/phenos.txt" || true)
 [[ "$N" -eq 0 ]] && { echo "none of the phenotypes in all_phenos.txt are columns of $DF" >&2; exit 1; }
 
-# install/update packages once here, so the array tasks don't all try to at once
-# shellcheck disable=SC2086
-$RSCRIPT "$SCRIPT_DIR/oos_reference_scores.R" --install_only
+# install/update packages once
+Rscript "$SCRIPT_DIR/oos_reference_scores.R" --install_only
 
-export OOS_SCRIPT_DIR="$SCRIPT_DIR" OOS_WORK_DIR="$WORK_DIR" RSCRIPT
+export OOS_SCRIPT_DIR="$SCRIPT_DIR" OOS_WORK_DIR="$WORK_DIR"
 
 # shellcheck disable=SC2086
 ARRAY_ID=$(sbatch --parsable \
@@ -81,14 +77,16 @@ ARRAY_ID=$(sbatch --parsable \
   $SBATCH_ARGS \
   "$SCRIPT_DIR/subjob_oos_reference_scores.sh" "${PASS[@]}")
 
+echo "submitted array job $ARRAY_ID ($N phenotypes)"
+
 # afterany: still combine if some tasks fail, so the missing phenos get reported
 COMBINE_ID=$(sbatch --parsable \
   --job-name=oos_combine \
   --dependency=afterany:"$ARRAY_ID" \
   --time=1:00:00 --mem=16G \
   --output="$WORK_DIR/logs/combine_%j.out" \
-  --wrap="$RSCRIPT '$SCRIPT_DIR/combine_oos_reference_scores.R' '$WORK_DIR' '$OUT_FILE'")
+  --wrap="Rscript '$SCRIPT_DIR/combine_oos_reference_scores.R' '$WORK_DIR' '$OUT_FILE'")
 
-echo "submitted array job $ARRAY_ID ($N phenotypes) and combine job $COMBINE_ID"
+echo "submitted combine job $COMBINE_ID"
 echo "per-phenotype outputs & logs: $WORK_DIR"
 echo "final output: $OUT_FILE"

@@ -76,11 +76,30 @@ tryCatch(
 args <- parse_args(argv)
 print(args)
 
-# phenotypes to score - defaults to all
-pheno_list <- readLines(args$pheno_list, warn = FALSE)
-
-#data to score - set as simulated data template
+#data to score
 df <- fread(args$df, na.strings = c("NA", "", '""'))
+
+#--pheno <name>: score this one phenotype instead of --pheno_list 
+# for use with slurm job arrays
+pheno <- NULL
+i <- which(argv == "--pheno" | startsWith(argv, "--pheno="))
+if (length(i) > 1) stop("--pheno given more than once", call. = FALSE)
+if (length(i) == 1) {
+  if (startsWith(argv[i], "--pheno=")) {
+    pheno <- sub("^--pheno=", "", argv[i]); drop <- i
+  } else {
+    if (i == length(argv) || startsWith(argv[i + 1], "--"))
+      stop("missing value for --pheno", call. = FALSE)
+    pheno <- argv[i + 1]; drop <- c(i, i + 1)
+  }
+  if (!nzchar(pheno)) stop("empty value for --pheno", call. = FALSE)
+  if (any(grepl("^--pheno[_-]list", argv)))
+    stop("use --pheno or --pheno_list, not both", call. = FALSE)
+  argv <- argv[-drop]
+}
+
+# phenotypes to score - defaults to all
+pheno_list <- if (!is.null(pheno)) pheno else readLines(args$pheno_list, warn = FALSE)
 
 ##################################
 ### VALIDATE INPUT DATA

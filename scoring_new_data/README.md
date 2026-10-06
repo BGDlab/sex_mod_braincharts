@@ -231,7 +231,7 @@ as `oos_reference_scores.R`, except `--pheno_list`:
 
 ```bash
 bash scoring_new_data/submit_oos_reference_scores.sh \
-  --df my_datadict.csv \
+  --df my_data.csv \
   --total FALSE \
   --ref_data "dx == 'CN'" \
   --out_file /path/to/my_ref_scores.csv
@@ -243,7 +243,7 @@ The submit script:
    Phenotypes that aren't in `--df` are skipped.
 2. Checks and installs `gamlssTools` and `gamlss2charts` once, on the login
    node, so array tasks don't all install packages at the same time. The compute
-   nodes need to see the same R library. If the install fails, nothing is submitted.
+   nodes need to see the same R library.
 3. Submits the job array (`subjob_oos_reference_scores.sh`). Each task writes
    `<out_file stem>_array/scores/<pheno>.csv`.
 4. Submits a combine job (`combine_oos_reference_scores.R`) that starts after
@@ -259,23 +259,45 @@ Set these environment variables to configure the jobs:
 
 | Variable | Default | Description |
 |---|---|---|
-| `RSCRIPT` | `Rscript` | Command used to run R, on the login node and in every job. For a container, e.g. `RSCRIPT="singularity run --cleanenv -B /path/to/data r_gamlss.sif Rscript"`. |
 | `SBATCH_ARGS` | none | Extra `sbatch` flags for the array tasks, e.g. `"--mem=16G --time=2:00:00 --partition=short"`. Each task defaults to 1 CPU, 8G memory and 1 hour. |
 | `MAX_PARALLEL` | `50` | Maximum number of array tasks running at once. |
 
 For example:
 
 ```bash
-RSCRIPT="singularity run --cleanenv -B /path/to/data r_gamlss.sif Rscript" \
 SBATCH_ARGS="--mem=16G --time=2:00:00" \
   bash scoring_new_data/submit_oos_reference_scores.sh \
   --df my_datadict.csv --total TRUE --out_file /path/to/my_ref_scores.csv
 ```
 
-`oos_reference_scores.R` also accepts two flags that the SLURM scripts use. You
-can use them yourself, e.g. in your own batch setup:
+#### Cancelling and re-running
 
-- `--install_only`: check and install the GitHub packages, then exit.
-- `--skip_install`: skip the package check and go straight to scoring.
+The combine job starts once every array task has ended, whether the tasks
+succeeded, failed, timed out or were cancelled. That way a few failed
+phenotypes don't block the rest of the output. Because of this:
 
+- **Cancelling the array still runs the combine job**, which stitches together
+  whatever finished. To stop everything, cancel both jobs. The submit script
+  prints both IDs:
+
+  ```bash
+  scancel <array job id> <combine job id>
+  ```
+
+- **Re-running failed tasks doesn't update the combined output.** Re-submit 
+  just the failed ones with the same options as the original run:
+
+  ```bash
+  OOS_SCRIPT_DIR=scoring_new_data OOS_WORK_DIR=/path/to/my_ref_scores_array \
+    sbatch --array=17,42 --output=/path/to/my_ref_scores_array/logs/score_%A_%a.out \
+    scoring_new_data/subjob_oos_reference_scores.sh \
+    --df my_datadict.csv --total FALSE --ref_data "dx == 'CN'"
+  ```
+
+  Then run the combine step again once they finish:
+
+  ```bash
+  Rscript scoring_new_data/combine_oos_reference_scores.R \
+    /path/to/my_ref_scores_array /path/to/my_ref_scores.csv
+  ```
 ---
