@@ -220,4 +220,62 @@ plus two columns for each phenotype that was scored:
 - `<pheno>_z`: standardized score (average of the split A and B models)
 - `<pheno>_centile`: the corresponding centile, between 0 and 1
 
+### Running on a SLURM cluster
+
+Scoring all 241 phenotypes in one R session can be slow. On a SLURM cluster,
+`submit_oos_reference_scores.sh` splits the work into a job array with one
+phenotype per task, then stitches the results back into a single file.
+
+Run it from a login node with `bash`, not `sbatch`. It takes the same options
+as `oos_reference_scores.R`, except `--pheno_list`:
+
+```bash
+bash scoring_new_data/submit_oos_reference_scores.sh \
+  --df my_datadict.csv \
+  --total FALSE \
+  --ref_data "dx == 'CN'" \
+  --out_file /path/to/my_ref_scores.csv
+```
+
+The submit script:
+
+1. Scores every phenotype in `all_phenos.txt` that is a column of `--df`.
+   Phenotypes that aren't in `--df` are skipped.
+2. Checks and installs `gamlssTools` and `gamlss2charts` once, on the login
+   node, so array tasks don't all install packages at the same time. The compute
+   nodes need to see the same R library. If the install fails, nothing is submitted.
+3. Submits the job array (`subjob_oos_reference_scores.sh`). Each task writes
+   `<out_file stem>_array/scores/<pheno>.csv`.
+4. Submits a combine job (`combine_oos_reference_scores.R`) that starts after
+   the whole array finishes and writes `--out_file`. It warns about any phenotype
+   with no output or scores, so check its log if some phenotypes are missing.
+
+The output has the same format as a single `oos_reference_scores.R` run. Logs for
+every task and for the combine step go to `<out_file stem>_array/logs/`. Each
+per-phenotype file contains a full copy of `--df`, so you can delete
+`<out_file stem>_array/scores/` once you've checked the combined output.
+
+Set these environment variables to configure the jobs:
+
+| Variable | Default | Description |
+|---|---|---|
+| `RSCRIPT` | `Rscript` | Command used to run R, on the login node and in every job. For a container, e.g. `RSCRIPT="singularity run --cleanenv -B /path/to/data r_gamlss.sif Rscript"`. |
+| `SBATCH_ARGS` | none | Extra `sbatch` flags for the array tasks, e.g. `"--mem=16G --time=2:00:00 --partition=short"`. Each task defaults to 1 CPU, 8G memory and 1 hour. |
+| `MAX_PARALLEL` | `50` | Maximum number of array tasks running at once. |
+
+For example:
+
+```bash
+RSCRIPT="singularity run --cleanenv -B /path/to/data r_gamlss.sif Rscript" \
+SBATCH_ARGS="--mem=16G --time=2:00:00" \
+  bash scoring_new_data/submit_oos_reference_scores.sh \
+  --df my_datadict.csv --total TRUE --out_file /path/to/my_ref_scores.csv
+```
+
+`oos_reference_scores.R` also accepts two flags that the SLURM scripts use. You
+can use them yourself, e.g. in your own batch setup:
+
+- `--install_only`: check and install the GitHub packages, then exit.
+- `--skip_install`: skip the package check and go straight to scoring.
+
 ---

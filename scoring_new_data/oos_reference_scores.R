@@ -22,8 +22,19 @@ install_github_ref <- function(repo, ref) {
                             build_vignettes = FALSE, force = TRUE)
   }
 }
-install_github_ref("BGDlab/gamlssTools", "dev")
-install_github_ref("andy1764/gamlss2charts", "dev")
+
+#--skip_install: packages were already checked (e.g. once by submit_oos_reference_scores.sh)
+#--install_only: check/install packages, then exit
+argv <- commandArgs(trailingOnly = TRUE)
+skip_install <- "--skip_install" %in% argv
+install_only <- "--install_only" %in% argv
+argv <- argv[!argv %in% c("--skip_install", "--install_only")]
+
+if (!skip_install) {
+  install_github_ref("BGDlab/gamlssTools", "dev")
+  install_github_ref("andy1764/gamlss2charts", "dev")
+}
+if (install_only) quit(save = "no", status = 0)
 library(gamlssTools)
 library(gamlss2charts)
 
@@ -62,7 +73,7 @@ tryCatch(
 ### DEFINE ARGUMENTS
 ##################################
 
-args <- parse_args(commandArgs(trailingOnly = TRUE))
+args <- parse_args(argv)
 print(args)
 
 # phenotypes to score - defaults to all
