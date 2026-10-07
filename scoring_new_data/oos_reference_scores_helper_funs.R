@@ -129,9 +129,10 @@ read_model <- function(p) {
   readRDS(con)
 }
 
-#check df has the columns used in all phenotype models
+#check df has the columns used in all phenotype models, and any columns named in a
+#--ref_data condition. a --ref_data CSV of reference rows gets the same checks as df
 #(also run once by submit_oos_reference_scores.sh before jobs are submitted)
-check_df <- function(df) {
+check_df <- function(df, ref_data = NULL) {
   required <- c("study_site", "sexMale", "logAge_days")
   missing_required <- setdiff(required, names(df))
   
@@ -144,12 +145,32 @@ check_df <- function(df) {
       "None of fs_version_SA, fs_version_CT, or fs_version_GM found in df"
   )
   
+  if (is.character(ref_data) && !file.exists(ref_data)) {
+    expr <- tryCatch(str2lang(ref_data), error = function(e)
+      stop("could not parse --ref_data condition \"", ref_data, "\": ",
+           conditionMessage(e), call. = FALSE))
+    #names in the condition that aren't columns, ignoring base R constants like TRUE/T
+    missing_ref <- setdiff(all.vars(expr), names(df))
+    missing_ref <- missing_ref[!vapply(missing_ref, exists, logical(1), envir = baseenv())]
+    if (length(missing_ref) > 0)
+      msgs <- c(msgs, paste0("--ref_data condition \"", ref_data, "\" uses column(s) not in df: ",
+                             paste(missing_ref, collapse = ", ")))
+  }
+  
   if (length(msgs) > 0) stop(paste(msgs, collapse = "\n"), call. = FALSE)
   
   stopifnot(
     "sexMale must be numeric" = is.numeric(df$sexMale),
     "sexMale must contain only 0/1" = all(df$sexMale %in% c(0, 1))
   )
+
+  #a CSV of reference rows (a path, or already read in by parse_args) gets the same checks
+  ref_df <- if (is.data.frame(ref_data)) ref_data else if (is.character(ref_data) && file.exists(ref_data))
+    data.table::fread(ref_data, na.strings = c("NA", "", '""'))
+  if (!is.null(ref_df))
+    tryCatch(check_df(ref_df), error = function(e)
+      stop("in --ref_data CSV: ", conditionMessage(e), call. = FALSE))
+
   invisible(TRUE)
 }
 

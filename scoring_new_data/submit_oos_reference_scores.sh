@@ -19,9 +19,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAX_PARALLEL="${MAX_PARALLEL:-50}"
 SBATCH_ARGS="${SBATCH_ARGS:-}"
 
-# pull --out_file out of the args (and note --df); pass everything else through to R
+# pull --out_file out of the args (and note --df and --ref_data); pass everything else through to R
 OUT_FILE=""
 DF=""
+REF_DATA=""
 PASS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,6 +33,8 @@ while [[ $# -gt 0 ]]; do
       exit 1 ;;
     --df)   DF="$2"; PASS+=("$1" "$2"); shift 2 ;;
     --df=*) DF="${1#*=}"; PASS+=("$1"); shift ;;
+    --ref_data|--ref-data)     REF_DATA="$2"; PASS+=("$1" "$2"); shift 2 ;;
+    --ref_data=*|--ref-data=*) REF_DATA="${1#*=}"; PASS+=("$1"); shift ;;
     *) PASS+=("$1"); shift ;;
   esac
 done
@@ -51,19 +54,19 @@ if [[ ! -f "$ALL_PHENOS" ]]; then
     -o "$ALL_PHENOS"
 fi
 
-# check --df has the columns every model needs, then list out scorable phenos
+# check --df has the columns every model needs (and any named in --ref_data), then list out scorable phenos
 # (i.e. all phenos in --df)
 Rscript -e '
   a <- commandArgs(trailingOnly = TRUE)
   source(a[4])
   df <- data.table::fread(a[2], na.strings = c("NA", "", "\"\""))
-  check_df(df)
+  check_df(df, if (nzchar(a[5])) a[5])
   phenos <- trimws(readLines(a[1], warn = FALSE))
   phenos <- phenos[nzchar(phenos)]
   keep <- intersect(phenos, names(df))
   writeLines(keep, a[3])
   cat(length(keep), "/", length(phenos), " phenotypes found in ", a[2], "\n", sep = "")
-' "$ALL_PHENOS" "$DF" "$WORK_DIR/phenos.txt" "$SCRIPT_DIR/oos_reference_scores_helper_funs.R"
+' "$ALL_PHENOS" "$DF" "$WORK_DIR/phenos.txt" "$SCRIPT_DIR/oos_reference_scores_helper_funs.R" "$REF_DATA"
 N=$(grep -c . "$WORK_DIR/phenos.txt" || true)
 [[ "$N" -eq 0 ]] && { echo "none of the phenotypes in all_phenos.txt are columns of $DF" >&2; exit 1; }
 

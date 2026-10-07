@@ -105,8 +105,8 @@ pheno_list <- if (!is.null(pheno)) pheno else readLines(args$pheno_list, warn = 
 ### VALIDATE INPUT DATA
 ##################################
 
-#check variables used in all phenotype models
-check_df(df)
+#check variables used in all phenotype models and in --ref_data
+check_df(df, args$ref_data)
 
 df <- df %>%
   mutate(sexMale_x_logAge = sexMale * logAge_days, #calculate sex x age interaction
