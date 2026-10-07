@@ -5,6 +5,50 @@ the reference models from Gardner et al. For each subject and phenotype it
 returns a standardized score (z-score) and centile benchmarked on the brain chart models.
 Any batch (site) effects of your data are estimated and removed along the way.
 
+## Quick start
+
+1. **Get the code.** Download just this folder (under 1 MB) with a git sparse checkout:
+
+   ```bash
+   git clone --filter=blob:none --no-checkout --branch sharing https://github.com/BGDlab/sex_mod_braincharts.git
+   cd sex_mod_braincharts
+   git sparse-checkout set --no-cone '/scoring_new_data/'
+   git checkout sharing
+   ```
+
+2. **Install R packages.** You need `dplyr`, `data.table`, `gamlss`, `devtools` and `remotes`.
+   The scoring script installs `gamlssTools` and `gamlss2charts` from GitHub itself.
+   See [Requirements](#requirements).
+
+3. **Format your data** as one CSV with the columns in `data_dictionary.csv`. At
+   minimum: `study_site`, `sexMale` (0/1), `logAge_days`, an `fs_version_*` column,
+   and the phenotypes to score. If you have FreeSurfer output,
+   `freesurfer_to_datadict.R` builds this CSV for you (see [Step 1](#step-1-optional-convert-freesurfer-output)).
+
+4. **Score it.** Run the scoring script directly:
+
+   ```bash
+   Rscript scoring_new_data/oos_reference_scores.R \
+     --df my_datadict.csv --total FALSE --out_file my_ref_scores.csv
+   ```
+
+   Or, on a SLURM cluster, score each phenotype as a separate job (see
+   [Running on a SLURM cluster](#running-on-a-slurm-cluster)):
+
+   ```bash
+   bash scoring_new_data/submit_oos_reference_scores.sh \
+     --df my_datadict.csv --total FALSE --out_file /path/to/my_ref_scores.csv
+   ```
+
+   Add `--ref_data "dx == 'CN'"` to estimate site effects from controls only, and
+   use `--total TRUE` to score against brain-size-corrected models. See
+   [Options](#options).
+
+The output is your input CSV plus `<pheno>_z` and `<pheno>_centile` columns for
+every phenotype scored.
+
+---
+
 The pipeline has two steps:
 
 1. **(Optional) `freesurfer_to_datadict.R`** reshapes FreeSurfer output into the
