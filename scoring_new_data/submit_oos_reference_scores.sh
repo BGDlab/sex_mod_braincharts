@@ -51,17 +51,19 @@ if [[ ! -f "$ALL_PHENOS" ]]; then
     -o "$ALL_PHENOS"
 fi
 
-# keep the phenotypes that are columns of --df, so every task (and the combine step)
-# sees the same list
+# check --df has the columns every model needs, then list out scorable phenos
+# (i.e. all phenos in --df)
 Rscript -e '
   a <- commandArgs(trailingOnly = TRUE)
+  source(a[4])
+  df <- data.table::fread(a[2], na.strings = c("NA", "", "\"\""))
+  check_df(df)
   phenos <- trimws(readLines(a[1], warn = FALSE))
   phenos <- phenos[nzchar(phenos)]
-  cols <- names(data.table::fread(a[2], nrows = 0))
-  keep <- intersect(phenos, cols)
+  keep <- intersect(phenos, names(df))
   writeLines(keep, a[3])
   cat(length(keep), "/", length(phenos), " phenotypes found in ", a[2], "\n", sep = "")
-' "$ALL_PHENOS" "$DF" "$WORK_DIR/phenos.txt"
+' "$ALL_PHENOS" "$DF" "$WORK_DIR/phenos.txt" "$SCRIPT_DIR/oos_reference_scores_helper_funs.R"
 N=$(grep -c . "$WORK_DIR/phenos.txt" || true)
 [[ "$N" -eq 0 ]] && { echo "none of the phenotypes in all_phenos.txt are columns of $DF" >&2; exit 1; }
 
@@ -77,8 +79,6 @@ ARRAY_ID=$(sbatch --parsable \
   $SBATCH_ARGS \
   "$SCRIPT_DIR/subjob_oos_reference_scores.sh" "${PASS[@]}")
 
-echo "submitted array job $ARRAY_ID ($N phenotypes)"
-
 # afterany: still combine if some tasks fail, so the missing phenos get reported
 COMBINE_ID=$(sbatch --parsable \
   --job-name=oos_combine \
@@ -87,6 +87,6 @@ COMBINE_ID=$(sbatch --parsable \
   --output="$WORK_DIR/logs/combine_%j.out" \
   --wrap="Rscript '$SCRIPT_DIR/combine_oos_reference_scores.R' '$WORK_DIR' '$OUT_FILE'")
 
-echo "submitted combine job $COMBINE_ID"
+echo "submitted array job $ARRAY_ID ($N phenotypes) and pending combine job $COMBINE_ID"
 echo "per-phenotype outputs & logs: $WORK_DIR"
 echo "final output: $OUT_FILE"

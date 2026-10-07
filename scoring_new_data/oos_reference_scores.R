@@ -106,24 +106,7 @@ pheno_list <- if (!is.null(pheno)) pheno else readLines(args$pheno_list, warn = 
 ##################################
 
 #check variables used in all phenotype models
-required <- c("study_site", "sexMale", "logAge_days")
-missing_required <- setdiff(required, names(df))
-
-fs_version_present <- any(c("fs_version_SA", "fs_version_CT", "fs_version_GM") %in% names(df))
-
-msgs <- c(
-  if (length(missing_required) > 0)
-    paste("Missing required column(s):", paste(missing_required, collapse = ", ")),
-  if (!fs_version_present)
-    "None of fs_version_SA, fs_version_CT, or fs_version_GM found in df"
-)
-
-if (length(msgs) > 0) stop(paste(msgs, collapse = "\n"))
-
-stopifnot(
-  "sexMale must be numeric" = is.numeric(df$sexMale),
-  "sexMale must contain only 0/1" = all(df$sexMale %in% c(0, 1))
-)
+check_df(df)
 
 df <- df %>%
   mutate(sexMale_x_logAge = sexMale * logAge_days, #calculate sex x age interaction

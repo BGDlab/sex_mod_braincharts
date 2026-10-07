@@ -129,6 +129,30 @@ read_model <- function(p) {
   readRDS(con)
 }
 
+#check df has the columns used in all phenotype models
+#(also run once by submit_oos_reference_scores.sh before jobs are submitted)
+check_df <- function(df) {
+  required <- c("study_site", "sexMale", "logAge_days")
+  missing_required <- setdiff(required, names(df))
+  
+  fs_version_present <- any(c("fs_version_SA", "fs_version_CT", "fs_version_GM") %in% names(df))
+  
+  msgs <- c(
+    if (length(missing_required) > 0)
+      paste("Missing required column(s):", paste(missing_required, collapse = ", ")),
+    if (!fs_version_present)
+      "None of fs_version_SA, fs_version_CT, or fs_version_GM found in df"
+  )
+  
+  if (length(msgs) > 0) stop(paste(msgs, collapse = "\n"), call. = FALSE)
+  
+  stopifnot(
+    "sexMale must be numeric" = is.numeric(df$sexMale),
+    "sexMale must contain only 0/1" = all(df$sexMale %in% c(0, 1))
+  )
+  invisible(TRUE)
+}
+
 #with a local model directory, say up if models are missing
 check_model_dir <- function(model_dir, pheno_list, total, splits = c("A", "B")) {
   if (is.null(model_dir)) return(invisible(NULL))

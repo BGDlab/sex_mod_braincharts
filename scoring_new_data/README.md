@@ -226,8 +226,31 @@ Scoring all 241 phenotypes in one R session can be slow. On a SLURM cluster,
 `submit_oos_reference_scores.sh` splits the work into a job array with one
 phenotype per task, then stitches the results back into a single file.
 
-Run it from a login node with `bash`, not `sbatch`. It takes the same options
-as `oos_reference_scores.R`, except `--pheno_list`:
+#### Files you need
+
+The following scripts must all be in the same folder: `submit_oos_reference_scores.sh`,
+`subjob_oos_reference_scores.sh`, `combine_oos_reference_scores.R`, `oos_reference_scores.R`,
+and `oos_reference_scores_helper_funs.R`.`all_phenos.txt` is optional (streamed from GitHub
+if missing).
+
+The easiest way to get them is to download just this folder from the repository
+(`sharing` branch) with a git sparse checkout:
+
+```bash
+git clone --filter=blob:none --no-checkout --branch sharing https://github.com/BGDlab/sex_mod_braincharts.git
+cd sex_mod_braincharts
+git sparse-checkout set --no-cone '/scoring_new_data/'
+git checkout sharing
+```
+
+This gives you a `sex_mod_braincharts/` folder containing only `scoring_new_data/`
+(under 1 MB). Run `git pull` inside `sex_mod_braincharts/` to get updates.
+The models are streamed from GitHub as usual, unless you pass `--model_dir`.
+
+#### Submitting
+
+Run `submit_oos_reference_scores.sh` from a login node with `bash`. 
+It takes the same options as `oos_reference_scores.R`, except `--pheno_list`:
 
 ```bash
 bash scoring_new_data/submit_oos_reference_scores.sh \
@@ -250,10 +273,9 @@ The submit script:
    the whole array finishes and writes `--out_file`. It warns about any phenotype
    with no output or scores, so check its log if some phenotypes are missing.
 
-The output has the same format as a single `oos_reference_scores.R` run. Logs for
-every task and for the combine step go to `<out_file stem>_array/logs/`. Each
-per-phenotype file contains a full copy of `--df`, so you can delete
-`<out_file stem>_array/scores/` once you've checked the combined output.
+Logs for every task and for the combine step go to `<out_file stem>_array/logs/`.
+Per-phenotype files are in `<out_file stem>_array/scores/` and can be deleted
+once you've checked the combined output.
 
 Set these environment variables to configure the jobs:
 
