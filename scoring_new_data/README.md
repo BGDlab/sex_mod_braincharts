@@ -230,7 +230,7 @@ phenotype per task, then stitches the results back into a single file.
 
 The following scripts must all be in the same folder: `submit_oos_reference_scores.sh`,
 `subjob_oos_reference_scores.sh`, `combine_oos_reference_scores.R`, `oos_reference_scores.R`,
-and `oos_reference_scores_helper_funs.R`.`all_phenos.txt` is optional (streamed from GitHub
+and `oos_reference_scores_helper_funs.R`. `all_phenos.txt` is optional (streamed from GitHub
 if missing).
 
 The easiest way to get them is to download just this folder from the repository
