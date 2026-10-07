@@ -306,20 +306,25 @@ bash scoring_new_data/submit_oos_reference_scores.sh \
 
 The submit script:
 
-1. Scores every phenotype in `all_phenos.txt` that is a column of `--df`.
+1. Copies `--df` to `<out_file stem>_array/df.csv`, adding a `.row_id` column
+   that indexes the rows.
+2. Scores every phenotype in `all_phenos.txt` that is a column of `--df`.
    Phenotypes that aren't in `--df` are skipped.
-2. Checks and installs `gamlssTools` and `gamlss2charts` once, on the login
+3. Checks and installs `gamlssTools` and `gamlss2charts` once, on the login
    node, so array tasks don't all install packages at the same time. The compute
    nodes need to see the same R library.
-3. Submits the job array (`subjob_oos_reference_scores.sh`). Each task writes
-   `<out_file stem>_array/scores/<pheno>.csv`.
-4. Submits a combine job (`combine_oos_reference_scores.R`) that starts after
-   the whole array finishes and writes `--out_file`. It warns about any phenotype
-   with no output or scores, so check its log if some phenotypes are missing.
+4. Submits the job array (`subjob_oos_reference_scores.sh`). Each task writes
+   `<out_file stem>_array/scores/<pheno>.csv`, containing only the `.row_id`
+   column and that phenotype's score columns, for the rows it scored.
+5. Submits a combine job (`combine_oos_reference_scores.R`) that starts after
+   the whole array finishes. It matches each phenotype's scores to the rows of
+   `df.csv` by `.row_id`, leaving NA for rows that weren't scored, and writes
+   `--out_file` (without `.row_id`). It warns about any phenotype with no output
+   or scores, so check its log if some phenotypes are missing.
 
 Logs for every task and for the combine step go to `<out_file stem>_array/logs/`.
-Per-phenotype files are in `<out_file stem>_array/scores/` and can be deleted
-once you've checked the combined output.
+The `<out_file stem>_array/` folder can be deleted once you've checked the
+combined output.
 
 Set these environment variables to configure the jobs:
 
@@ -351,13 +356,14 @@ phenotypes don't block the rest of the output. Because of this:
   ```
 
 - **Re-running failed tasks doesn't update the combined output.** Re-submit 
-  just the failed ones with the same options as the original run:
+  just the failed ones with the same options as the original run, but with
+  `--df` pointing to the copy in the work folder, so row numbers match:
 
   ```bash
   OOS_SCRIPT_DIR=scoring_new_data OOS_WORK_DIR=/path/to/my_ref_scores_array \
     sbatch --array=17,42 --output=/path/to/my_ref_scores_array/logs/score_%A_%a.out \
     scoring_new_data/subjob_oos_reference_scores.sh \
-    --df my_datadict.csv --total FALSE --ref_data "dx == 'CN'"
+    --df /path/to/my_ref_scores_array/df.csv --total FALSE --ref_data "dx %in% 'CN'"
   ```
 
   Then run the combine step again once they finish:

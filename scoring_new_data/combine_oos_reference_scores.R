@@ -22,25 +22,37 @@ files <- files[have]
 
 score_cols <- function(p) paste0(p, c("_z", "_centile"))
 
-#every output is the full input df + that pheno's score columns, in the same row order,
-#so keep the input columns once and add each pheno's score columns
-first <- fread(files[1], na.strings = c("NA", "", '""'))
-out <- first[, setdiff(names(first), score_cols(phenos[1])), with = FALSE]
+#start from the copy of --df every task scored, whose rows were numbered (.row_id)
+#by submit_oos_reference_scores.sh
+df_copy <- file.path(work_dir, "df.csv")
+if (!file.exists(df_copy)) stop("copy of --df not found: ", df_copy, call. = FALSE)
+out <- fread(df_copy, na.strings = c("NA", "", '""'))
+if (!".row_id" %in% names(out)) stop("no .row_id column in ", df_copy, call. = FALSE)
+n <- nrow(out)
 
+#each per-pheno file has .row_id + that pheno's score columns for the rows it scored;
+#match the scores to rows by .row_id, leaving NA for rows that weren't scored
 for (i in seq_along(files)) {
-  hdr <- names(fread(files[i], nrows = 0))
-  cols <- intersect(score_cols(phenos[i]), hdr)
-  if (length(cols) == 0) {
+  s <- fread(files[i])
+  cols <- intersect(score_cols(phenos[i]), names(s))
+  if (length(cols) == 0 || nrow(s) == 0) {
     message(phenos[i], ": no score columns (scoring failed; see its log)")
     next
   }
-  s <- fread(files[i], select = cols)
-  if (nrow(s) != nrow(out))
-    stop(phenos[i], ": ", nrow(s), " rows but expected ", nrow(out), call. = FALSE)
-  out[, (cols) := s]
+  if (!".row_id" %in% names(s))
+    stop(phenos[i], ": no .row_id column in ", files[i], call. = FALSE)
+  rows <- match(s$.row_id, out$.row_id)
+  if (anyNA(rows))
+    stop(phenos[i], ": ", sum(is.na(rows)), " .row_id value(s) not in ", df_copy, call. = FALSE)
+  if (anyDuplicated(rows))
+    stop(phenos[i], ": duplicated .row_id values", call. = FALSE)
+
+  set(out, j = cols, value = NA_real_)
+  set(out, i = rows, j = cols, value = s[, cols, with = FALSE])
 }
 
+out[, .row_id := NULL]
 fwrite(out, out_file)
 n_scored <- sum(paste0(phenos, "_centile") %in% names(out))
-cat("combined ", n_scored, "/", length(have), " phenotypes on ", nrow(out),
+cat("combined ", n_scored, "/", length(have), " phenotypes on ", n,
     " subjects -> ", out_file, "\n", sep = "")

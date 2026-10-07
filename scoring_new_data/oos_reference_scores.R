@@ -108,9 +108,18 @@ pheno_list <- if (!is.null(pheno)) pheno else readLines(args$pheno_list, warn = 
 #check variables used in all phenotype models and in --ref_data
 check_df(df, args$ref_data)
 
+#stable row key: submit_oos_reference_scores.sh numbers the rows in advance (in its copy
+#of --df) so every array task and the combine step share it; otherwise number them here
+if (".row_id" %in% names(df)) {
+  stopifnot(".row_id must be unique, non-missing whole numbers" =
+              is.numeric(df$.row_id) && !anyNA(df$.row_id) &&
+              all(df$.row_id == round(df$.row_id)) && !anyDuplicated(df$.row_id))
+} else {
+  df$.row_id <- seq_len(nrow(df))
+}
+
 df <- df %>%
-  mutate(sexMale_x_logAge = sexMale * logAge_days, #calculate sex x age interaction
-         .row_id = seq_len(dplyr::n())) #stable row key
+  mutate(sexMale_x_logAge = sexMale * logAge_days) #calculate sex x age interaction
 
 #with a local model directory, fail now if it is missing or incomplete
 check_model_dir(args$model_dir, pheno_list, args$total)
@@ -136,21 +145,26 @@ results <- lapply(pheno_list, score_pheno_logged,
 df_cent <- Filter(Negate(is.null), lapply(results, `[[`, "scores"))
 log_df  <- do.call(rbind, lapply(results, `[[`, "log"))
 
-#rejoin to the full input data by row key
-df_full_cent <- Reduce(
-  function(a, b) dplyr::left_join(a, b, by = ".row_id"),
-  df_cent,
-  init = as.data.frame(df)
-) %>%
-  dplyr::select(-.row_id)
-
 print(paste0("scored ", length(df_cent), "/", length(pheno_list), " phenotypes on ",
-             nrow(df_full_cent), " subjects"))
+             nrow(df), " subjects"))
 
 ##################################
 ### SAVE OUTPUTS
 ##################################
-fwrite(df_full_cent, args$out_file)
+if (!is.null(pheno)) {
+  #array task (--pheno): write just the row key and this pheno's scores (scored rows only)
+  fwrite(if (length(df_cent) > 0) df_cent[[1]] else data.frame(.row_id = integer(0)),
+         args$out_file)
+} else {
+  #rejoin to the full input data by row key
+  df_full_cent <- Reduce(
+    function(a, b) dplyr::left_join(a, b, by = ".row_id"),
+    df_cent,
+    init = as.data.frame(df)
+  ) %>%
+    dplyr::select(-.row_id)
+  fwrite(df_full_cent, args$out_file)
+}
 
 ##################################
 ### REPORT WARNINGS & ERRORS
