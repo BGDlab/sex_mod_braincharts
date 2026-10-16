@@ -8,7 +8,7 @@ library(gamlssTools)
 library(effsize)
 library(broom)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 options(warn = 1)
 

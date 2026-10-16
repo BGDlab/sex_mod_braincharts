@@ -17,7 +17,7 @@ print(paste0("mode: ", mode))
 null_model <- if (total == "TRUE") "null2" else "null"
 
 #set paths
-base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 
 #mode-specific glob for the per-pheno _pbmods dirs holding cent_csvs/
 csv_path <- switch(mode,

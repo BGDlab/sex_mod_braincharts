@@ -4,7 +4,7 @@ Script for cleaning and preparing LBCC data.
 
 
 ```{r}
-setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision")
 ```
 
 ```{r, warning=FALSE}}
@@ -242,7 +242,7 @@ stopifnot(nrow(df_with_hbcd) == nrow(df) + nrow(hbcd_final))
 csv created with `build_your_cohort_dev_mg.Rmd`
 
 ```{r}
-slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release_updated.csv", na.strings = c("NA", "", '""')) #updated b/c mismatched scans
+slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/data/slip_202503_release_updated.csv", na.strings = c("NA", "", '""')) #updated b/c mismatched scans
 names(slip)
 skim(slip)
 

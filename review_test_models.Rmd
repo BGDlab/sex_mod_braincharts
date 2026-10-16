@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision")
 ```
 
 ```{r, warning=FALSE}}
@@ -27,7 +27,7 @@ vol_list <- readRDS("./pheno_lists/cortical_vols.rds")
 global_list <- readRDS("./pheno_lists/global_vols.rds")
 sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
 pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
-test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*/"
+test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test/*/"
 #visualizing ventricles separately
 vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle", "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
 

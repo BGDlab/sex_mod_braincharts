@@ -1,7 +1,7 @@
 #Compare Centiles from Different Pipelines on Same Subject
 
 ```{r}
-base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 library(stringr)
 library(tidyr)
 library(dplyr)
@@ -302,15 +302,15 @@ ggplot(scz_long) +
 error trying to fit lh.CT.inferiortemporal - "0 (non-NA) cases"
 
 ```{r}
-model_dir <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/models_to_share/"
+model_dir <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/models_to_share/"
 m <- readRDS(paste0(model_dir, "lh.CT.inferiortemporal_splitB_totalTRUE_sharing_model.rds"))
 
 coef(m) #seems to be lack of synthseg-robust data in training set -> NA coef trying to be applied
-d <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/cv_sample_B_age2plus/lh.CT.inferiortemporal_totalTRUE_test_df.csv")
+d <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/data/cv_sample_B_age2plus/lh.CT.inferiortemporal_totalTRUE_test_df.csv")
 table(d$fs_version_CT)
 
 #nope,look at original model
-og_m <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_B_test/age2plus_cortical_thickness_totalTRUE_logAgeTRUE_pbmods/model_objs/lh.CT.inferiortemporal_fsboth_pbAge_totalboth_test_age2plus_full_mod.rds")
+og_m <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_B_test/age2plus_cortical_thickness_totalTRUE_logAgeTRUE_pbmods/model_objs/lh.CT.inferiortemporal_fsboth_pbAge_totalboth_test_age2plus_full_mod.rds")
 coef(og_m)['fs_version_CTsynthseg-robust'] #still NA!
 c(N = og_m$N, rows = nrow(d))
 
@@ -343,6 +343,6 @@ tapply(og_m$mu.wt,    test_df$fs_version_CT, summary)
 tapply(og_m$sigma.wt, test_df$fs_version_CT, summary)
 
 # 3. is it specific to this refit? check the train model it was built from
-base_mod <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_A_train/age2plus_cortical_thickness_totalTRUE_logAgeTRUE_pbmods/model_objs/lh.CT.inferiortemporal_fsboth_pbAge_totalboth_train_age2plus.rds")
+base_mod <- readRDS("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_A_train/age2plus_cortical_thickness_totalTRUE_logAgeTRUE_pbmods/model_objs/lh.CT.inferiortemporal_fsboth_pbAge_totalboth_train_age2plus.rds")
 coef(base_mod, "mu")[grepl("fs_version", names(coef(base_mod, "mu")))]
 ```

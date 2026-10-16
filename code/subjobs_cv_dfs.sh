@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
 #SBATCH --array=1-241%50
-#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_dfs/R-%A_%a.out
-#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_dfs/R-%A_%a.err
+#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/cv_dfs/R-%A_%a.out
+#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/cv_dfs/R-%A_%a.err
 
 CONFIGFN=$1
 
@@ -31,8 +31,8 @@ echo "SAVE_PATH: $SAVE_PATH"
 
 #------------------
 
-BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/containers/r_gamlss_0.2.9.sif"
+BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/containers/r_gamlss_0.2.9.sif"
 
 singularity run --cleanenv \
     -B $BASE \

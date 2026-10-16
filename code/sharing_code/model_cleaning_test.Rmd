@@ -9,7 +9,7 @@ pacman::p_load(data.table, ggplot2, tidyverse, stats)
 remotes::install_github("BGDlab/gamlssTools@dev")
 library(gamlssTools)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision"
 
 sa_list <- readRDS(paste0(base, "/pheno_lists/cortical_surf.rds"))
 ct_list <- readRDS(paste0(base, "/pheno_lists/cortical_thickness.rds"))

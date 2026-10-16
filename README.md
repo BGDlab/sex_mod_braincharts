@@ -34,13 +34,13 @@ sbatch code/subjobs_cv_dfs.sh ./code/config_files/cv_sample_B_logPhenoFALSE_tota
 2. Train sex-moderated models: `code/config_cv_mods.sh`, `code/fit_cv_mods.R`, `code/subjobs_cv_mods.sh`
 ```
 ./code/config_cv_mods.sh --total FALSE --log_age TRUE --sm "pb"
-sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/subjobs_cv_mods.sh
+sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/subjobs_cv_mods.sh
 ```
 
 3. Train sex-moderated models with correction for total brain size: `code/config_cv_mods.sh`, `code/fit_cv_total_mods.R`, `code/subjobs_cv_total_mods.sh`
 ```
 ./code/config_cv_mods.sh --total TRUE --log_age TRUE --sm "pb"
-sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/subjobs_cv_total_mods.sh
+sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/subjobs_cv_total_mods.sh
 ```
 
 4. Fit test models in alternate split-half: `code/config_cv_mods_test.sh`, `code/fit_cv_mods_test.R`, `code/subjobs_cv_mods_test.sh`

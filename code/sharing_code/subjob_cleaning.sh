@@ -5,11 +5,11 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=7G
-#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/clean_mods/R-%A_%a.out
-#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/clean_mods/R-%A_%a.err
+#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/clean_mods/R-%A_%a.out
+#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/clean_mods/R-%A_%a.err
 
 
-BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
+BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision
 SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.16.sif"
 script=$BASE/code/sharing_code/clean_models_to_share.R
 CONFIGFN=$BASE/code/config_files/cv_sample_logAgeTRUE_clean_config.txt

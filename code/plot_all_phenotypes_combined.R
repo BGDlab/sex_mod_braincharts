@@ -11,7 +11,7 @@ library(gamlss)
 library(gamlssTools)
 library(cowplot)
 
-base_dir <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
+base_dir <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision"
 source(file.path(base_dir, "code/gamlss_fit_funs.R"))
 
 # get pheno list

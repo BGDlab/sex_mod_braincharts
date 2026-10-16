@@ -11,7 +11,7 @@
 
 library(data.table); library(purrr)
 
-base_dir  <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
+base_dir  <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision"
 studies   <- c("ABCD", "UKB")   # <-- match your exact study labels
 study_col <- "study"            # <-- CONFIRM: likely "study" or "study_site"
 

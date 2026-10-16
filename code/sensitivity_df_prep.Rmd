@@ -6,7 +6,7 @@ date: "2025-10-30"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+knitr::opts_knit$set(root.dir = "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision")
 ```
 
 Prep split-half dataframes for sensitivity analyses

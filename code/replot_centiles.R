@@ -11,7 +11,7 @@ library(gamlss)
 library(gamlssTools)
 library(ggnewscale)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 
 #GET ARGS

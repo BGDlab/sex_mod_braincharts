@@ -6,7 +6,7 @@ library(EnvStats)
 library(ggplot2)
 
 #set paths
-base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 save_path <- paste0(base_path, "cent_cor/")
 
 #define the grid of conditions to run

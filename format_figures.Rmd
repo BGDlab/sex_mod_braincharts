@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision")
 ```
 
 ```{r, warning=FALSE}}
@@ -31,7 +31,7 @@ pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
 #visualizing ventricles separately
 vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle", "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
 
-base_path<- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base_path<- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 # install.packages("remotes")
 #remotes::install_github("BGDlab/ggsegTissue", force=TRUE)
 library(ggsegTissue)

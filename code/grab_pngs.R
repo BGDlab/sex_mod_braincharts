@@ -4,8 +4,8 @@ library(png)
 library(tools)
 
 # Define root directory
-#root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/figs/")
-root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_train/weighted*/centile_plots/")
+#root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/figs/")
+root_dirs <- Sys.glob("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_train/weighted*/centile_plots/")
 
 args <- commandArgs(trailingOnly=TRUE)
 fname <- as.character(args[1])
@@ -31,7 +31,7 @@ if (length(png_files) == 0) {
 }
 
 # Output PDF path
-output_pdf <- paste0("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/", fname, ".pdf")
+output_pdf <- paste0("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/", fname, ".pdf")
 
 # Create PDF
 pdf(output_pdf, width = 8, height = 10)
