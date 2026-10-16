@@ -6,14 +6,14 @@ library(dplyr)
 library(gamlss)
 library(gamlssTools)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 options(warn = 1)
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
+df <- droplevels(fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""'))) #path to csv; drop unused factor levels
 base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 total <- as.logical(args[4])
@@ -133,7 +133,8 @@ print("creating centile fan plot")
       "AIC" = model$aic,
       "BIC" = model$sbc,
       "pheno" = pheno
-    )
+    ) %>%
+      cbind(df_demo_stats(df)) #age (days) & sex of fit data
 
 #SAVE CSVs
 print("saving csvs")

@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts")
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision")
 ```
 
 ```{r, warning=FALSE}}
@@ -28,7 +28,7 @@ global_list <- readRDS("./pheno_lists/global_vols.rds")
 sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
 pheno_list <- c(global_list, vol_list, sa_list, ct_list, sub_list)
 #just looking at non-TBV-corrected results for now
-test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/dx_tests"
+test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/dx_tests"
 
 dx_levels <- c("SCZ", "ALZ", "ASD", "MDD", "GAD", "ADHD")
 
@@ -48,13 +48,13 @@ just visualize global centiles for now
 paths <- Sys.glob(file.path(test_path, "*mean_scores.csv")) %>% unlist()
 
 #CONTROLS
-glob_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/cv_sample_?_test/*global*totalFALSE*/"
+glob_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test/*global*totalFALSE*/"
 # Use Sys.glob to expand wildcard paths
 cn_paths <- Sys.glob(file.path(glob_path, "cent_csvs/*_*_*cent.csv")) %>%
   grep("CN", ., value = TRUE)
 # Read all matching CSVs
 cent_df_list <- lapply(c(paths, cn_paths), function(f){
-  fread(f) %>%
+  fread(f, na.strings = c("NA", "", '""')) %>%
     mutate(weighted  = stringr::str_detect(f, "weight"),
          age2plus = stringr::str_detect(f, "age2plus")) %>%
     select(any_of(c("dx_recode", "dx_tested", "sex", "age2plus", "weighted")), 

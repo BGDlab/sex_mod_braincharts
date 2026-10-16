@@ -2,7 +2,7 @@
 #run from outside code dir!!!!
 
 #PATHS
-dir_path=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
+dir_path=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision
 config_path=./code/config_files
 pheno_lists=./pheno_lists
 

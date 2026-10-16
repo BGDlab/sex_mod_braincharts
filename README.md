@@ -1,6 +1,12 @@
 # Sex-Moderated Brain Charts
 [![DOI](https://zenodo.org/badge/854610120.svg)](https://doi.org/10.5281/zenodo.21045685)
 
+This repository correspond with the following preprint:
+Gardner M, Dorfschmidt L, Zimmerman D, et al. Brain charts for neuroanatomical sex differences across the human lifespan. bioRxiv. Published online January 1, 2026:2026.05.09.724029. doi:10.64898/2026.05.09.724029
+
+> For instructions and information on calculating reference scores for new data from these models, see [scoring_new_data/README.md](scoring_new_data/README.md).
+
+# Manuscript Analyses
 ## Data Prep and QC
 Nearly all data prep, filtering, etc, is in `lbcc_eda.Rmd`. This includes identifying and writing lists of
 imaging-derived phenotypes (IDPs) to test, which are saved in `pheno_lists/`
@@ -28,13 +34,13 @@ sbatch code/subjobs_cv_dfs.sh ./code/config_files/cv_sample_B_logPhenoFALSE_tota
 2. Train sex-moderated models: `code/config_cv_mods.sh`, `code/fit_cv_mods.R`, `code/subjobs_cv_mods.sh`
 ```
 ./code/config_cv_mods.sh --total FALSE --log_age TRUE --sm "pb"
-sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/subjobs_cv_mods.sh
+sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/subjobs_cv_mods.sh
 ```
 
 3. Train sex-moderated models with correction for total brain size: `code/config_cv_mods.sh`, `code/fit_cv_total_mods.R`, `code/subjobs_cv_total_mods.sh`
 ```
 ./code/config_cv_mods.sh --total TRUE --log_age TRUE --sm "pb"
-sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/subjobs_cv_total_mods.sh
+sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/subjobs_cv_total_mods.sh
 ```
 
 4. Fit test models in alternate split-half: `code/config_cv_mods_test.sh`, `code/fit_cv_mods_test.R`, `code/subjobs_cv_mods_test.sh`
@@ -133,3 +139,11 @@ Other scripts used for plotting, formatting, and viewing figures are `code/grab_
 - `code/checks/check_correct_train_mod.sh`: audit `weighted_*` or `age2plus_*` train model objects against the original `BestMod.rds` selections to flag any phenotype mismatches; writes mismatched paths to `pheno_mismatches.txt`
 - `code/checks/cleanup_mismatched_phenos.sh`: delete the mismatched train+test artifacts identified by `check_correct_train_mod.sh` so the affected phenotypes can be re-run with `--rerun TRUE` (dry-run by default; pass `--apply` to actually delete)
 - `code/checks/test_rs_integral.R`: unit test for function calculating Riemann-Stieltjes integral `rs_integral()`
+
+# Preparing Models for Sharing
+Models are stripped of participant-level data with `gamlssTools::sanitize_gamlss()` before sharing. Code used to prepare
+the models and test out-of-sample scoring pipelines are saved in `code/sharing_code/`.
+
+# Out-of-Sample Scoring
+The brain chart models fit in this paper can be used to calculate reference scores for new data.
+See [scoring_new_data/README.md](scoring_new_data/README.md) for instructions.

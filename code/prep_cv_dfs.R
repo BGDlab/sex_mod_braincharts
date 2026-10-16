@@ -12,7 +12,7 @@ source("./code/gamlss_fit_funs.R")
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
+df <- fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""')) #path to csv
 pheno <- as.character(args[2]) #phenotype
 fs <- as.character(args[3]) #freesurfer version
 total <- as.character(args[4]) # total pheno to control for (or NULL)
@@ -33,12 +33,14 @@ if (total == 'NULL'){
   df <- df %>%
     dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "study_site"))) %>%
     na.omit() %>%
-    trunc_coverage(age_var, max_loops=100) #drop points at ends if too sparse
+    trunc_coverage(age_var, max_loops=100) %>% #drop points at ends if too sparse
+    droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
 } else {
   df <- df %>%
     dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "study_site", total))) %>%
     na.omit() %>%
-    trunc_coverage(c(total, age_var), max_loops=100) #drop points at ends if too sparse
+    trunc_coverage(c(total, age_var), max_loops=100) %>% #drop points at ends if too sparse
+    droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
 }
 
 print(names(df))

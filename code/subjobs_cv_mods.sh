@@ -5,10 +5,10 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=16G #almost all jobs run with 8G, upping for resubmission
-#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_train/R-%A_%a.out
-#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/code/jobfiles/cv_train/R-%A_%a.err
+#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/cv_train/R-%A_%a.out
+#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/cv_train/R-%A_%a.err
 
-BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts
+BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision
 
 CONFIGFN=$BASE/code/config_files/cv_mods_totalFALSE_logAgeTRUE_smpb_rerun20260217_config.txt
 
