@@ -123,7 +123,8 @@ if ("logAge_days" %in% pred_list){
       "AIC" = model$aic,
       "BIC" = model$sbc,
       "pheno" = pheno
-    )
+    ) %>%
+      cbind(df_demo_stats(df)) #age (days) & sex of fit data
 
 #SAVE CSVs
 print("saving csvs")

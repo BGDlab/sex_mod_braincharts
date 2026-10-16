@@ -133,7 +133,8 @@ print("creating centile fan plot")
       "AIC" = model$aic,
       "BIC" = model$sbc,
       "pheno" = pheno
-    )
+    ) %>%
+      cbind(df_demo_stats(df)) #age (days) & sex of fit data
 
 #SAVE CSVs
 print("saving csvs")

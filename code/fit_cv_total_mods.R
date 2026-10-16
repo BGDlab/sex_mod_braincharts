@@ -148,7 +148,8 @@ for (fs_include in moment_list){
         "fs_moment" = fs_include,
         "total_moment" = total_include,
         "nu" = nu_name
-      )
+      ) %>%
+        cbind(df_demo_stats(df)) #age (days) & sex of fit data
       summary_df <- rbind(summary_df, tmp_df)
       
     #get back memory
