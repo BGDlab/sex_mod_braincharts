@@ -21,7 +21,7 @@ library(ggrain)
 
 load data - LBCC 3.1
 ```{r}
-df <- fread("/mnt/isilon/bgdlab_processing/LBCC_releases/v3_Penn/v3_1_0_penn.csv", na.strings = c("", NA))
+df <- fread("/mnt/isilon/bgdlab_processing/LBCC_releases/v3_Penn/v3_2_0_penn.csv", na.strings = c("", NA))
 ```
 
 ```{r}
@@ -58,60 +58,11 @@ df <- df %>%
   rename(CBV = Cerebellum.all)
 
 #global volumes
-glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF", "CBV", "mean.CT", "total.SA")
+glob_vol_list <- c("sGMV", "GMV", "WMV", "CSF", "CBV", "mean.CT", "total.SA", "TBV")
 write_lines(glob_vol_list, "./pheno_lists/global_vols.txt")
 saveRDS(glob_vol_list, "./pheno_lists/global_vols.rds")
 ```
 
-
-```{r, eval=FALSE}
-ss_subcort_list <- c("SUBC.Left.Thalamus.Proper", "SUBC.Right.Thalamus.Proper", 
-                     "SUBC.Left.Caudate", "SUBC.Right.Caudate",
-                     "SUBC.Left.Putamen", "SUBC.Right.Putamen",
-                     "SUBC.Left.Pallidum", "SUBC.Right.Pallidum",
-                     "SUBC.Left.Hippocampus", "SUBC.Right.Hippocampus",
-                     "SUBC.Left.Amygdala", "SUBC.Right.Amygdala",
-                     "SUBC.Left.Accumbens.area", "SUBC.Right.Accumbens.area")
-
-ss_ventricles_list <- c("SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle",
-                        "SUBC.Left.Inf.Lat.Vent", "SUBC.Right.Inf.Lat.Vent",
-                        "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
-
-#try to fill in missing global volumes with other cols
-df2 <- df %>%
-  mutate(GMV = case_when(!is.na(GMV) ~ GMV,
-                         !is.na(CortexVol) ~ CortexVol,
-                         !is.na(rhCortexVol) & !is.na(lhCortexVol) ~ rhCortexVol + lhCortexVol,
-                         TRUE ~ NA),
-         sGMV = case_when(!is.na(sGMV) ~ sGMV,
-            !is.na(SubCortGM) ~ SubCortGM,
-            TRUE ~  rowSums(across(all_of(ss_subcort_list)), na.rm=FALSE)),
-         WMV = case_when(!is.na(WMV) ~ WMV,
-            !is.na(CerebralWhiteMatterVol) ~ CerebralWhiteMatterVol,
-            #!is.na(lhCerebralWhiteMatterVol) & !is.na(rhCerebralWhiteMatterVol) ~  lhCerebralWhiteMatterVol + rhCerebralWhiteMatterVol,
-            #!is.na(right.cerebral.white.matter) & !is.na(left.cerebral.white.matter) ~ right.cerebral.white.matter + left.cerebral.white.matter
-            ),
-         CSF = case_when(!is.na(CSF) ~ CSF,
-           !is.na(BrainSegVol) & !is.na(BrainSegVolNotVent) ~ 
-                           BrainSegVol - BrainSegVolNotVent,
-                          TRUE ~  rowSums(across(all_of(ss_ventricles_list)), na.rm=FALSE)),
-         CSF.test = case_when(!is.na(BrainSegVol) & !is.na(BrainSegVolNotVent) ~ 
-                           BrainSegVol - BrainSegVolNotVent,
-                          TRUE ~  rowSums(across(all_of(ss_ventricles_list)), na.rm=FALSE)),
-         eTIV = case_when(!is.na(eTIV) ~ eTIV,
-                          TRUE ~ EstimatedTotalIntraCranialVol)
-         )
-all.equal(df2, df)
-
-ggplot(df2) +
-  geom_point(aes(x=age_days, y=WMV), alpha=0.4)
-
-ggplot(df) +
-  geom_point(aes(x=age_days, y=WMV), alpha=0.4) #added a lot of bad data, not going to do this!
-
-ggplot(df2) +
-  geom_point(aes(x=CSF, y=CSF.test, color=fs_version), alpha=0.4)
-```
 
 ```{r}
 #cortical gmv
