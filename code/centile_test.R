@@ -17,7 +17,7 @@ print(paste0("mode: ", mode))
 null_model <- if (total == "TRUE") "null2" else "null"
 
 #set paths
-base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 
 #mode-specific glob for the per-pheno _pbmods dirs holding cent_csvs/
 csv_path <- switch(mode,
@@ -44,7 +44,7 @@ pheno_list <- do.call(c, lapply(lists, readRDS))
 
 #READ IN AND AVERAGE PT CENTILES
 fread_filt <- function(f, string){
-  fread(f) %>%
+  fread(f, na.strings = c("NA", "", '""')) %>%
     select(INDEX.ID, sexMale, dx_recode, logAge_days, matches(string)) %>%
     mutate(sex = ifelse(sexMale==0, "F", "M"))
 }

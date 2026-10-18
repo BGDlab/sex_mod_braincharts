@@ -542,3 +542,20 @@ make_pb <- function(var, lambda) {
     paste0("pb(", var, ", lambda=", lambda, ", method='GAIC', k=log(nrow(df)))")
   }
 }
+#summarise age (in days) & sex of the df a model was fit on, for model_sums/*_summary.csv
+#age back-transformed from logAge_days (log10(age_days)); falls back to age_days for models fit on linear age
+df_demo_stats <- function(df) {
+  if ("logAge_days" %in% names(df)) {
+    age <- 10^df$logAge_days
+  } else {
+    age <- df$age_days
+  }
+  sex_male <- as.numeric(as.character(df$sexMale))
+  data.frame(
+    "age_days_min" = min(age),
+    "age_days_mean" = mean(age),
+    "age_days_max" = max(age),
+    "age_days_sd" = sd(age),
+    "pct_female" = 100 * mean(sex_male == 0)
+  )
+}

@@ -1,0 +1,406 @@
+#helper functions for getting out-of-sample reference scores
+
+#argument defaults
+DEFAULTS <- list(
+  pheno_list = "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/scoring_new_data/all_phenos.txt", 
+  total = NULL,
+  df = NULL,
+  batch = "study_site",
+  ref_data = NULL,
+  min_ref = 100,
+  out_file = NULL,
+  model_dir = NULL, #NULL=stream from github, otherwise local path to models
+  model_ref = "sharing" # BGDlab/sex_mod_braincharts branch, tag, or commit SHA corresponding to models for reproducibiltiy
+                     # only used when model_dir is NULL
+)
+
+# printed by --help
+USAGE <- c(
+  "Score new data against the Gardner et al. brain charts (standardized/z-scores and centiles).",
+  "",
+  "  Rscript scoring_new_data/oos_reference_scores.R \\",
+  "    --df my_datadict.csv \\",
+  "    --total TRUE \\",
+  "    --out_file my_ref_scores.csv \\",
+  "    [--ref_data \"dx == 'CN'\"] [--min_ref 100] [--batch study_site] \\",
+  "    [--pheno_list phenos.txt] [--model_dir models_to_share] [--model_ref main]",
+  "",
+  "required: --df, --total (TRUE/FALSE), --out_file",
+  "--ref_data is either a condition on columns of --df (e.g. \"dx == 'CN'\")",
+  "  or a path to a CSV of reference rows",
+  "--model_dir reads models from a local copy of models_to_share/;",
+  "  leave unset to stream them from GitHub at --model_ref"
+)
+
+#parse args
+parse_args <- function(argv) {
+  #get help
+  if (length(argv) == 0 || any(argv %in% c("-h", "--help"))) {
+    cat(USAGE, sep = "\n")
+    cat("\noptions:\n  --",
+        paste(names(DEFAULTS), collapse = "\n  --"), "\n", sep = "")
+    # don't take an interactive session down with us
+    if (interactive()) stop("no arguments given; see the usage above", call. = FALSE)
+    quit(status = if (length(argv) == 0) 1 else 0)
+  }
+  
+  #parse named args
+  opts <- DEFAULTS
+  seen <- character(0)
+  i <- 1
+  while (i <= length(argv)) {
+    a <- argv[i]
+    if (!startsWith(a, "--")) stop("unexpected argument: ", a, call. = FALSE)
+    has_eq <- grepl("=", a, fixed = TRUE)
+    flag <- sub("^--", "", if (has_eq) sub("=.*$", "", a) else a)
+    key <- gsub("-", "_", flag)   # --min-ref and --min_ref both work
+    if (!key %in% names(DEFAULTS)) stop("unknown option: --", flag, call. = FALSE)
+    if (key %in% seen) stop("--", flag, " given more than once", call. = FALSE)
+    seen <- c(seen, key)
+    if (has_eq) {
+      val <- sub("^[^=]*=", "", a)
+    } else {
+      #the next token is the value, unless it is the next flag
+      if (i == length(argv) || startsWith(argv[i + 1], "--"))
+        stop("missing value for --", flag, call. = FALSE)
+      val <- argv[i + 1]; i <- i + 1
+    }
+    if (!nzchar(val)) stop("empty value for --", flag, call. = FALSE)
+    opts[[key]] <- val
+    i <- i + 1
+  }
+  
+  #validate parsed args & convert to correct types
+  missing <- c("df", "total", "out_file")[vapply(opts[c("df", "total", "out_file")], is.null, logical(1))]
+  if (length(missing) > 0)
+    stop("missing required option(s): ", paste0("--", missing, collapse = ", "), call. = FALSE)
+  
+  #total only goes into model filenames, so keep it as the "TRUE"/"FALSE" string
+  total <- toupper(opts$total)
+  if (!total %in% c("TRUE", "FALSE", "T", "F"))
+    stop("--total must be TRUE or FALSE, not '", opts$total, "'", call. = FALSE)
+  opts$total <- if (total %in% c("TRUE", "T")) "TRUE" else "FALSE"
+  
+  #min_ref must be numeric
+  min_ref <- suppressWarnings(as.numeric(opts$min_ref))
+  if (length(min_ref) != 1 || is.na(min_ref) || min_ref < 0)
+    stop("--min_ref must be a non-negative number, not '", opts$min_ref, "'", call. = FALSE)
+  opts$min_ref <- min_ref
+  
+  #files must exist locally or on github
+  if (!is_url(opts$df) && !file.exists(opts$df))
+    stop("--df file not found: ", opts$df, call. = FALSE)
+  if (!is_url(opts$pheno_list) && !file.exists(opts$pheno_list))
+    stop("--pheno_list file not found: ", opts$pheno_list, call. = FALSE)
+  out_parent <- dirname(opts$out_file)
+  if (!dir.exists(out_parent))
+    stop("directory for --out_file does not exist: ", out_parent, call. = FALSE)
+  
+  #ref_data: a CSV of reference rows, or else a condition string for score_centiles()
+  if (!is.null(opts$ref_data) && file.exists(opts$ref_data))
+    opts$ref_data <- as.data.frame(data.table::fread(opts$ref_data, na.strings = c("NA", "", '""')))
+  
+  opts
+}
+
+#construct filename
+model_filename <- function(pheno, split, total) {
+  sprintf("%s_split%s_total%s_sharing_model.rds", pheno, split, as.character(total))
+}
+
+#locate one model: a file under model_dir if that is set, otherwise a URL into
+#the repo at model_ref
+model_path <- function(pheno, split, total, model_dir, model_ref) {
+  f <- model_filename(pheno, split, total)
+  if (!is.null(model_dir)) {
+    file.path(model_dir, f)
+  } else {
+    sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s",
+            "BGDlab/sex_mod_braincharts", model_ref, "models_to_share", f)
+  }
+}
+
+is_url <- function(p) grepl("^(https?|ftp)://", p)
+
+read_model <- function(p) {
+  if (!is_url(p)) return(readRDS(p))
+  con <- gzcon(url(p, open = "rb"))
+  on.exit(close(con), add = TRUE)
+  readRDS(con)
+}
+
+#check df has the columns used in all phenotype models, and any columns named in a
+#--ref_data condition. a --ref_data CSV of reference rows gets the same checks as df
+#(also run once by submit_oos_reference_scores.sh before jobs are submitted)
+check_df <- function(df, ref_data = NULL) {
+  required <- c("study_site", "sexMale", "logAge_days")
+  missing_required <- setdiff(required, names(df))
+  
+  fs_version_present <- any(c("fs_version_SA", "fs_version_CT", "fs_version_GM") %in% names(df))
+  
+  msgs <- c(
+    if (length(missing_required) > 0)
+      paste("Missing required column(s):", paste(missing_required, collapse = ", ")),
+    if (!fs_version_present)
+      "None of fs_version_SA, fs_version_CT, or fs_version_GM found in df"
+  )
+  
+  if (is.character(ref_data) && !file.exists(ref_data)) {
+    expr <- tryCatch(str2lang(ref_data), error = function(e)
+      stop("could not parse --ref_data condition \"", ref_data, "\": ",
+           conditionMessage(e), call. = FALSE))
+    #names in the condition that aren't columns, ignoring base R constants like TRUE/T
+    missing_ref <- setdiff(all.vars(expr), names(df))
+    missing_ref <- missing_ref[!vapply(missing_ref, exists, logical(1), envir = baseenv())]
+    if (length(missing_ref) > 0)
+      msgs <- c(msgs, paste0("--ref_data condition \"", ref_data, "\" uses column(s) not in df: ",
+                             paste(missing_ref, collapse = ", ")))
+  }
+  
+  if (length(msgs) > 0) stop(paste(msgs, collapse = "\n"), call. = FALSE)
+  
+  stopifnot(
+    "sexMale must be numeric" = is.numeric(df$sexMale),
+    "sexMale must contain only 0/1" = all(df$sexMale %in% c(0, 1))
+  )
+
+  #a CSV of reference rows (a path, or already read in by parse_args) gets the same checks
+  ref_df <- if (is.data.frame(ref_data)) ref_data else if (is.character(ref_data) && file.exists(ref_data))
+    data.table::fread(ref_data, na.strings = c("NA", "", '""'))
+  if (!is.null(ref_df))
+    tryCatch(check_df(ref_df), error = function(e)
+      stop("in --ref_data CSV: ", conditionMessage(e), call. = FALSE))
+
+  invisible(TRUE)
+}
+
+#with a local model directory, say up if models are missing
+check_model_dir <- function(model_dir, pheno_list, total, splits = c("A", "B")) {
+  if (is.null(model_dir)) return(invisible(NULL))
+  if (!dir.exists(model_dir))
+    stop("model_dir does not exist: ", model_dir)
+
+  want <- unlist(lapply(pheno_list, function(p)
+    vapply(splits, function(s) model_path(p, s, total, model_dir, NULL), character(1))))
+  gone <- want[!file.exists(want)]
+
+  if (length(gone) == length(want))
+    stop("no models for total=", as.character(total), " found in ", model_dir,
+         "\n  expected files like ", basename(want[1]))
+  if (length(gone) > 0)
+    warning(length(gone), "/", length(want), " model file(s) not in ", model_dir,
+            ":\n  ",
+            paste(basename(utils::head(gone, 10)), collapse = "\n  "),
+            if (length(gone) > 10) paste0("\n  ... and ", length(gone) - 10, " more"))
+
+  invisible(gone)
+}
+
+#when streaming from github, fail now if models aren't reachable at model_ref
+#rather than failing one phenotype at a time. probes a few model urls and
+#stops at the first one that responds
+check_model_remote <- function(model_dir, pheno_list, total, model_ref,
+                               splits = c("A", "B"), n_probe = 3) {
+  if (!is.null(model_dir)) return(invisible(NULL))
+
+  probe <- unlist(lapply(utils::head(pheno_list, n_probe), function(p)
+    vapply(splits, function(s) model_path(p, s, total, NULL, model_ref), character(1))))
+
+  status <- vapply(probe, function(u) {
+    h <- tryCatch(curlGetHeaders(u), error = function(e) NULL)
+    if (is.null(h)) NA_integer_ else as.integer(attr(h, "status"))
+  }, integer(1))
+
+  if (any(status %in% 200L)) return(invisible(NULL))
+
+  if (all(is.na(status)))
+    stop("could not reach GitHub to check for models. Check your internet ",
+         "connection, or pass local models with --model_dir", call. = FALSE)
+  stop("no models found on GitHub for total=", as.character(total),
+       " at model_ref '", model_ref, "' (HTTP ", paste(unique(status), collapse = "/"),
+       ")\n  tried e.g. ", probe[1],
+       ";\n pass local models with --model_dir",
+       call. = FALSE)
+}
+
+#numeric training ranges, recovered from the model's pb() smoothers
+training_ranges <- function(m) {
+  rngs <- list()
+  for (par in m$parameters) {
+    sm <- colnames(m[[paste0(par, ".s")]])
+    for (i in seq_along(sm)) {
+      if (!grepl("^pb\\(", sm[i])) next
+      v <- all.vars(str2lang(sm[i]))[1]
+      #reaching into splinefun's environment is an internal, so fail soft
+      r <- tryCatch(range(environment(gamlss::getSmo(m, par, which = i)$fun)$z$x),
+                    error = function(e) NULL)
+      if (length(r) != 2 || !is.numeric(r) || anyNA(r)) next
+      rngs[[v]] <- if (is.null(rngs[[v]])) r else
+        c(min(rngs[[v]][1], r[1]), max(rngs[[v]][2], r[2]))
+    }
+  }
+  rngs
+}
+
+#find scorable rows for a given pheno
+scorable_rows <- function(m, df, pheno, batch) {
+  preds  <- unlist(list_predictors(m))
+  needed <- c(pheno, preds)
+  
+  #check all cols available
+  missing_cols <- setdiff(needed, names(df))
+  if (length(missing_cols) > 0) {
+    warning(pheno, ": df is missing column(s) ", paste(missing_cols, collapse = ", "))
+    return(integer(0))
+  }
+  
+  #no NAs
+  ok <- stats::complete.cases(as.data.frame(df)[, needed, drop = FALSE])
+  
+  #ignore batch variable
+  check_preds <- setdiff(preds, batch)
+  
+  #check factor range - drop rows with unseen levels
+  for (p in check_preds) {
+    xlev <- unique(unlist(lapply(m$parameters, function(par) m[[paste0(par, ".xlevels")]][[p]])))
+    if (length(xlev) == 0) next   #not a factor in the model
+    unseen <- ok & !(as.character(df[[p]]) %in% xlev)
+    if (any(unseen)) {
+      warning(pheno, ": dropping ", sum(unseen), " row(s) with ", p,
+              " level(s) not seen when the model was fit")
+    }
+    ok <- ok & !unseen
+  }
+  
+  #check numeric range & warn if extrapolating
+  rngs <- training_ranges(m)
+  for (p in intersect(check_preds, names(rngs))) {
+    v   <- suppressWarnings(as.numeric(df[[p]]))
+    oob <- ok & !is.na(v) & (v < rngs[[p]][1] | v > rngs[[p]][2])
+    if (any(oob)) {
+      warning(pheno, ": ", sum(oob), " row(s) with ", p, " outside the fitted range [",
+              signif(rngs[[p]][1], 6), ", ", signif(rngs[[p]][2], 6),
+              "] - centiles are extrapolated")
+    }
+  }
+  
+  which(ok)
+}
+
+#signal a scoring failure as a warning so the run continues, tagged "score_error"
+#so the run log can report it as an error
+score_error <- function(...) {
+  warning(structure(class = c("score_error", "warning", "condition"),
+                    list(message = paste0(...), call = NULL)))
+}
+
+#stream one split's model, z-score the rows it can handle, then discard
+score_split <- function(pheno, split, model_dir, model_ref, total, df, batch, ref_data, min_ref) {
+  m <- tryCatch(
+    read_model(model_path(pheno, split, total, model_dir, model_ref)), #local or github url
+    error = function(e) {
+      score_error(pheno, " split ", split, ": could not read model (", conditionMessage(e), ")")
+      NULL
+    }
+  )
+  if (is.null(m)) return(NULL)
+  on.exit({ rm(m); gc(verbose = FALSE) }, add = TRUE)
+  
+  idx <- scorable_rows(m, df, pheno, batch)
+  if (length(idx) == 0) {
+    warning(pheno, " split ", split, ": no scorable rows")
+    return(NULL)
+  }
+  
+  #if scoring fails, return NA for this split
+  scores <- tryCatch(
+    score_centiles(
+      m,
+      data        = as.data.frame(df)[idx, , drop = FALSE],
+      fit_data    = NULL,
+      standardize = TRUE,
+      batch_term  = batch,
+      ref_data = ref_data,
+      min_ref = min_ref
+    ),
+    error = function(e) {
+      score_error(pheno, " split ", split, ": scoring failed, returning NA (",
+                  conditionMessage(e), ")")
+      NULL
+    }
+  )
+  z <- if (is.null(scores)) rep(NA_real_, length(idx)) else scores$std_score
+
+  out <- data.frame(.row_id = df$.row_id[idx], z = z)
+  names(out)[2] <- paste0("z_", split)
+  out
+}
+
+#score a pheno against every split model and average the z-scores
+score_pheno <- function(pheno, df, total, batch, splits = c("A", "B"), ref_data, min_ref,
+                        model_dir, model_ref) {
+  per_split <- Filter(Negate(is.null), lapply(splits, score_split,
+                                              pheno = pheno,
+                                              model_dir = model_dir,
+                                              model_ref = model_ref,
+                                              total = total, 
+                                              df = df,
+                                              batch = batch, 
+                                              ref_data = ref_data, 
+                                              min_ref = min_ref))
+  if (length(per_split) == 0) {
+    warning(pheno, ": no scores")
+    return(NULL)
+  }
+  
+  z_tbl  <- Reduce(function(a, b) dplyr::full_join(a, b, by = ".row_id"), per_split)
+  z_cols <- setdiff(names(z_tbl), ".row_id")
+  z_mat  <- as.matrix(z_tbl[, z_cols, drop = FALSE]) #pull zscores into matrix
+  
+  #average over whichever split models could score each subject
+  n_splits <- rowSums(!is.na(z_mat))
+  keep     <- n_splits > 0
+  if (!any(keep)) {
+    warning(pheno, ": no scorable subjects")
+    return(NULL)
+  }
+  
+  n_partial <- sum(n_splits[keep] < length(splits))
+  if (n_partial > 0) {
+    warning(pheno, ": ", n_partial, " subject(s) scored on fewer than ",
+            length(splits), " split models")
+  }
+  
+  z_mean <- rowMeans(z_mat[keep, , drop = FALSE], na.rm = TRUE)
+
+  #reformat and convert mean back to centile space
+  out <- data.frame(.row_id = z_tbl$.row_id[keep], z_mean, pnorm(z_mean))
+  names(out) <- c(".row_id", paste0(pheno, c("_z", "_centile")))
+  out
+}
+
+#score one pheno, collecting its warnings and errors instead of printing them.
+#an error returns NULL scores (pheno left out of the output) instead of stopping the run.
+#returns list(scores = score_pheno() output or NULL, log = data.frame(pheno, type, message) or NULL)
+score_pheno_logged <- function(pheno, ...) {
+  log <- list()
+  add_log <- function(type, msg) {
+    log[[length(log) + 1]] <<- data.frame(pheno = pheno, type = type, message = msg)
+  }
+
+  scores <- withCallingHandlers(
+    tryCatch(
+      score_pheno(pheno, ...),
+      error = function(e) {
+        add_log("error", paste0(pheno, ": scoring failed, skipping (", conditionMessage(e), ")"))
+        NULL
+      }
+    ),
+    warning = function(w) {
+      add_log(if (inherits(w, "score_error")) "error" else "warning", conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  list(scores = scores, log = do.call(rbind, log))
+}

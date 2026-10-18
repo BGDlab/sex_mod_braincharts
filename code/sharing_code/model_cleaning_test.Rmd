@@ -9,7 +9,7 @@ pacman::p_load(data.table, ggplot2, tidyverse, stats)
 remotes::install_github("BGDlab/gamlssTools@dev")
 library(gamlssTools)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision"
 
 sa_list <- readRDS(paste0(base, "/pheno_lists/cortical_surf.rds"))
 ct_list <- readRDS(paste0(base, "/pheno_lists/cortical_thickness.rds"))
@@ -57,7 +57,7 @@ mod_df <- mod_df %>%
 #load
 load_pair <- function(row) {
   mod <- readRDS(row$mod_path)
-  df  <- fread(row$csv_path, stringsAsFactors = TRUE, na.strings = "")
+  df  <- fread(row$csv_path, stringsAsFactors = TRUE, na.strings = c("", '""'))
   mod$call$data   <- "df"          # needed for predict/gamlssTools
   mod$call$family <- mod$family[[1]]
   list(model = mod, df = df, meta = row)

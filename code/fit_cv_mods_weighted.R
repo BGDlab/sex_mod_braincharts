@@ -6,14 +6,14 @@ library(dplyr)
 library(gamlss)
 library(gamlssTools)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 options(warn = 1)
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-full_df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
+full_df <- fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""')) #path to csv
 fs <- as.character(args[2]) #freesurfer version
 base_mod <- readRDS(args[3])
 save_path <- as.character(args[4])
@@ -51,12 +51,14 @@ if (total == "FALSE"){
   df <- full_df %>%
     dplyr::select(all_of(c(pred_list, pheno, "weight"))) %>%
     na.omit() %>%
-    trunc_coverage(age_var, max_loops=100) #drop points at ends if too sparse
+    trunc_coverage(age_var, max_loops=100) %>% #drop points at ends if too sparse
+    droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
 } else {
   df <- full_df %>%
     dplyr::select(all_of(c(pred_list, pheno, "weight"))) %>%
     na.omit() %>%
-    trunc_coverage(c(total, age_var), max_loops=100) #drop points at ends if too sparse
+    trunc_coverage(c(total, age_var), max_loops=100) %>% #drop points at ends if too sparse
+    droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
 }
 
 ##### FIT TRAINING MODEL #####
@@ -121,7 +123,8 @@ if ("logAge_days" %in% pred_list){
       "AIC" = model$aic,
       "BIC" = model$sbc,
       "pheno" = pheno
-    )
+    ) %>%
+      cbind(df_demo_stats(df)) #age (days) & sex of fit data
 
 #SAVE CSVs
 print("saving csvs")

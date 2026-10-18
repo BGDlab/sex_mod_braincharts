@@ -6,13 +6,13 @@ library(dplyr)
 library(gamlss)
 library(gamlssTools)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
+df <- droplevels(fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""'))) #path to csv; drop unused factor levels
 pheno <- as.character(args[2])
 fs <- as.character(args[3])
 total <- as.character(args[4])
@@ -177,7 +177,8 @@ for (fs_include in fs_moment_list){
       "pheno" = pheno,
       "fs_moment" = fs_include,
       "nu" = nu_name
-    )
+    ) %>%
+      cbind(df_demo_stats(df)) #age (days) & sex of fit data
     summary_df <- rbind(summary_df, tmp_df)
     
     #get back memory

@@ -11,13 +11,13 @@ library(gamlss)
 library(gamlssTools)
 library(ggnewscale)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
 print(args)
-df <- fread(args[1], stringsAsFactors = TRUE, na.strings = "") #path to csv
+df <- fread(args[1], stringsAsFactors = TRUE, na.strings = c("", '""')) #path to csv
 model <- readRDS(args[2]) #model to fit
 traintest <- as.character(args[3])
 total <- as.logical(args[4])
