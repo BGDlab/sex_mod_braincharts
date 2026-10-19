@@ -88,6 +88,12 @@ do
       #LOOP THROUGH PHENOS
       while read -r pheno_line
       do
+        #don't correct a phenotype for itself (e.g. TBV ~ ... + TBV)
+        if [[ "$pheno_line" == "$tot" ]]; then
+          echo "Skipping $pheno_line (same as total covariate)"
+          continue
+        fi
+        
       # Write the CSV file path and the formula to the output file (tab-delimited) test
         echo -e "$file\t$pheno_line\t$fs\t$tot\t$log_age\t$save_path" >> "$config_file"
       done < "$pheno_list"
