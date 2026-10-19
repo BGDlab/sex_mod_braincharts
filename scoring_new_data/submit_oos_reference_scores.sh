@@ -4,10 +4,12 @@
 #
 # usage:
 #   bash scoring_new_data/submit_oos_reference_scores.sh \
-#     --df my_data.csv --total TRUE --out_file my_ref_scores.csv \
+#     --df my_data.csv --out_file my_ref_scores.csv [--total TRUE] \
 #     [any other oos_reference_scores.R options except --pheno_list]
 #
 # every phenotype in all_phenos.txt that is a column of --df gets scored
+# (except TBV with --total TRUE).
+# --total defaults to FALSE (uncorrected models)
 #
 # environment variables (optional):
 #   MAX_PARALLEL  max array tasks running at once (default 50)
@@ -19,11 +21,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAX_PARALLEL="${MAX_PARALLEL:-50}"
 SBATCH_ARGS="${SBATCH_ARGS:-}"
 
-# pull --out_file out of the args (and note --df and --ref_data); pass everything else through to R
+# pull --out_file out of the args (and note --df, --ref_data and --total); pass everything else through to R
 OUT_FILE=""
 DF=""
 REF_DATA=""
-TOTAL=""
+TOTAL="FALSE" #same default as oos_reference_scores.R
 PASS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -64,7 +66,7 @@ if [[ ! -f "$ALL_PHENOS" ]]; then
 fi
 
 # check --df has the columns every model needs (and any named in --ref_data), write the
-# numbered copy, then list out scorable phenos (i.e. all phenos in --df)
+# numbered copy, then list out scorable phenos (i.e. all phenos in --df that have a model for --total)
 Rscript -e '
   a <- commandArgs(trailingOnly = TRUE)
   source(a[4])

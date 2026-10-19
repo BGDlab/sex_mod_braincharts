@@ -3,7 +3,7 @@
 #argument defaults
 DEFAULTS <- list(
   pheno_list = "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/scoring_new_data/all_phenos.txt", 
-  total = NULL,
+  total = "FALSE", #TRUE = total-corrected models, FALSE = uncorrected
   df = NULL,
   batch = "study_site",
   ref_data = NULL,
@@ -20,12 +20,12 @@ USAGE <- c(
   "",
   "  Rscript scoring_new_data/oos_reference_scores.R \\",
   "    --df my_datadict.csv \\",
-  "    --total TRUE \\",
   "    --out_file my_ref_scores.csv \\",
-  "    [--ref_data \"dx == 'CN'\"] [--min_ref 100] [--batch study_site] \\",
+  "    [--total FALSE] [--ref_data \"dx == 'CN'\"] [--min_ref 100] [--batch study_site] \\",
   "    [--pheno_list phenos.txt] [--model_dir models_to_share] [--model_ref main]",
   "",
-  "required: --df, --total (TRUE/FALSE), --out_file",
+  "required: --df, --out_file",
+  "--total TRUE scores against total-corrected models (default FALSE: uncorrected)",
   "--ref_data is either a condition on columns of --df (e.g. \"dx == 'CN'\")",
   "  or a path to a CSV of reference rows",
   "--model_dir reads models from a local copy of models_to_share/;",
@@ -71,7 +71,7 @@ parse_args <- function(argv) {
   }
   
   #validate parsed args & convert to correct types
-  missing <- c("df", "total", "out_file")[vapply(opts[c("df", "total", "out_file")], is.null, logical(1))]
+  missing <- c("df", "out_file")[vapply(opts[c("df", "out_file")], is.null, logical(1))]
   if (length(missing) > 0)
     stop("missing required option(s): ", paste0("--", missing, collapse = ", "), call. = FALSE)
   

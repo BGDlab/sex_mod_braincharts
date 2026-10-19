@@ -227,7 +227,7 @@ underscores are interchangeable (`--min-ref` = `--min_ref`).
 | Option | Required | Default | Description |
 |---|---|---|---|
 | `--df` | yes | | CSV of data to score (a local path or URL). |
-| `--total` | yes | | `TRUE` scores against models that correct for total brain size; `FALSE` against uncorrected models. See below. |
+| `--total` | | `FALSE` | `TRUE` scores against models that correct for total brain size; `FALSE` against uncorrected models. See below. |
 | `--out_file` | yes | | Where to write the output CSV. Its folder must already exist. |
 | `--ref_data` | | none | Which rows define the reference group for estimating batch effects. Defaults to all rows; give either a condition on columns of `--df`, e.g. `"dx == 'CN'"`, or a path to a CSV of reference rows. |
 | `--min_ref` | | `100` | Minimum number of reference rows a site needs for its batch effect to be reliably estimated. Sites with fewer get NA scores. Default based on authors' testing. |
@@ -238,6 +238,7 @@ underscores are interchangeable (`--min-ref` = `--min_ref`).
 
 #### `--total`: correcting for brain size
 
+By default (`--total FALSE`), phenotypes are scored against uncorrected models.
 With `--total TRUE`, each phenotype is modeled with a brain-size covariate:
 
 - volumes (regional, subcortical and global) are corrected for `TBV`
@@ -246,8 +247,8 @@ With `--total TRUE`, each phenotype is modeled with a brain-size covariate:
 
 Those columns must then be present and non-missing. `TBV` has no
 total-corrected model (it would be corrected for itself), so it is skipped
-with `--total TRUE` and only scored with `--total FALSE`. Run the script twice,
-once with `TRUE` and once with `FALSE`, to get both sets of scores.
+with `--total TRUE`. Run the script twice, once with `TRUE` and once with 
+`FALSE`, to get both sets of scores.
 
 #### `--ref_data`: estimating batch effects
 
