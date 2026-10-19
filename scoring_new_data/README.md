@@ -205,7 +205,7 @@ gamlss models to the script via `--model_dir`.
 | `logAge_days` | log10 of post-conception age in days. |
 | at least one of `fs_version_SA`, `fs_version_CT`, `fs_version_GM` | Must use the training labels listed in Step 1. |
 | the phenotype columns | Any phenotypes you want scored. |
-| `TBV`, `mean.CT`, `total.SA` | Only needed with `--total TRUE` (see below). |
+| `mean.CT`, `total.SA` | Only needed with `--total TRUE` (see below). `TBV` is scored as a phenotype with `--total FALSE`, and is needed as the volume covariate with `--total TRUE`. |
 
 ### Run it
 
@@ -232,7 +232,7 @@ underscores are interchangeable (`--min-ref` = `--min_ref`).
 | `--ref_data` | | none | Which rows define the reference group for estimating batch effects. Defaults to all rows; give either a condition on columns of `--df`, e.g. `"dx == 'CN'"`, or a path to a CSV of reference rows. |
 | `--min_ref` | | `100` | Minimum number of reference rows a site needs for its batch effect to be reliably estimated. Sites with fewer get NA scores. Default based on authors' testing. |
 | `--batch` | | `study_site` | Column holding the batch (site) variable whose effects will be estimated and removed. |
-| `--pheno_list` | | all 241 phenotypes (`all_phenos.txt` on GitHub) | To score just a subset, pass a text file of phenotypes to score, one phenotype column name per line. |
+| `--pheno_list` | | all 242 phenotypes (`all_phenos.txt` on GitHub) | To score just a subset, pass a text file of phenotypes to score, one phenotype column name per line. |
 | `--model_dir` | | none (stream from GitHub) | Alternatively, can point to a folder containing brain chart models. |
 | `--model_ref` | | `sharing` | Branch, tag or commit SHA of `BGDlab/sex_mod_braincharts` to stream models from. Ignored when `--model_dir` is set. Pin a tag or SHA for reproducible results. |
 
@@ -244,8 +244,10 @@ With `--total TRUE`, each phenotype is modeled with a brain-size covariate:
 - cortical thickness for `mean.CT`
 - surface area for `total.SA`
 
-Those columns must then be present and non-missing. Run the script twice, once
-with `TRUE` and once with `FALSE`, to get both sets of scores.
+Those columns must then be present and non-missing. `TBV` has no
+total-corrected model (it would be corrected for itself), so it is skipped
+with `--total TRUE` and only scored with `--total FALSE`. Run the script twice,
+once with `TRUE` and once with `FALSE`, to get both sets of scores.
 
 #### `--ref_data`: estimating batch effects
 
@@ -266,7 +268,7 @@ plus two columns for each phenotype that was scored:
 
 ### Running on a SLURM cluster
 
-Scoring all 241 phenotypes in one R session can be slow. On a SLURM cluster,
+Scoring all 242 phenotypes in one R session can be slow. On a SLURM cluster,
 `submit_oos_reference_scores.sh` splits the work into a job array with one
 phenotype per task, then stitches the results back into a single file.
 

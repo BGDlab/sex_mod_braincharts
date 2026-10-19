@@ -100,6 +100,9 @@ df <- fread(args$df, na.strings = c("NA", "", '""'))
 
 # phenotypes to score - defaults to all
 pheno_list <- if (!is.null(pheno)) pheno else readLines(args$pheno_list, warn = FALSE)
+pheno_list <- drop_unmodeled(pheno_list, args$total)
+if (length(pheno_list) == 0)
+  stop("no phenotypes to score with --total ", args$total, call. = FALSE)
 
 ##################################
 ### VALIDATE INPUT DATA

@@ -301,7 +301,8 @@ dx_bxplt <- ggplot(cent_df_main, aes(x=pheno, y=std_score_full, color=control)) 
                               "CSF" = "CSF",
                               "GMV" = "Cortical GM",
                               "sGMV" = "Subcortical GM",
-                              "WMV" = "WM")) +
+                              "WMV" = "WM",
+                              "TBV" = "TBV")) +
   scale_color_manual(
   values = c('PT' = "#D9B523FF", 'CN' = "#6C568CFF"),
   labels = c("CN" = "Control", "PT" = "Patient"),

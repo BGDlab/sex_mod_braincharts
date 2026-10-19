@@ -895,7 +895,8 @@ cent_plt_pct_mean <- glob_mean %>%
       "CSF"      = "Ventricles",
       "GMV"      = "Cortical GM",
       "sGMV"     = "Subcortical GM",
-      "WMV"      = "WM"
+      "WMV"      = "WM",
+      "TBV"      = "TBV"
     ),
     name = "Phenotype"
   ) +

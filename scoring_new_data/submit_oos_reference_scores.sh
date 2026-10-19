@@ -23,6 +23,7 @@ SBATCH_ARGS="${SBATCH_ARGS:-}"
 OUT_FILE=""
 DF=""
 REF_DATA=""
+TOTAL=""
 PASS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,6 +36,8 @@ while [[ $# -gt 0 ]]; do
     --df=*) DF="${1#*=}"; shift ;;
     --ref_data|--ref-data)     REF_DATA="$2"; PASS+=("$1" "$2"); shift 2 ;;
     --ref_data=*|--ref-data=*) REF_DATA="${1#*=}"; PASS+=("$1"); shift ;;
+    --total)   TOTAL="$2"; PASS+=("$1" "$2"); shift 2 ;;
+    --total=*) TOTAL="${1#*=}"; PASS+=("$1"); shift ;;
     *) PASS+=("$1"); shift ;;
   esac
 done
@@ -74,10 +77,10 @@ Rscript -e '
   data.table::fwrite(df, a[6])
   phenos <- trimws(readLines(a[1], warn = FALSE))
   phenos <- phenos[nzchar(phenos)]
-  keep <- intersect(phenos, names(df))
+  keep <- drop_unmodeled(intersect(phenos, names(df)), a[7])
   writeLines(keep, a[3])
   cat(length(keep), "/", length(phenos), " phenotypes found in ", a[2], "\n", sep = "")
-' "$ALL_PHENOS" "$DF" "$WORK_DIR/phenos.txt" "$SCRIPT_DIR/oos_reference_scores_helper_funs.R" "$REF_DATA" "$DF_COPY"
+' "$ALL_PHENOS" "$DF" "$WORK_DIR/phenos.txt" "$SCRIPT_DIR/oos_reference_scores_helper_funs.R" "$REF_DATA" "$DF_COPY" "$TOTAL"
 N=$(grep -c . "$WORK_DIR/phenos.txt" || true)
 [[ "$N" -eq 0 ]] && { echo "none of the phenotypes in all_phenos.txt are columns of $DF" >&2; exit 1; }
 

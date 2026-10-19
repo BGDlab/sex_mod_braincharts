@@ -103,6 +103,18 @@ parse_args <- function(argv) {
   opts
 }
 
+#phenotypes with no total-corrected model (TBV isn't corrected for itself)
+no_total_model <- c("TBV")
+
+#drop phenotypes that have no model for this --total setting
+drop_unmodeled <- function(phenos, total) {
+  if (!toupper(as.character(total)) %in% c("TRUE", "T")) return(phenos)
+  skip <- intersect(phenos, no_total_model)
+  if (length(skip) > 0)
+    message("skipping ", paste(skip, collapse = ", "), ": no total-corrected model")
+  setdiff(phenos, skip)
+}
+
 #construct filename
 model_filename <- function(pheno, split, total) {
   sprintf("%s_split%s_total%s_sharing_model.rds", pheno, split, as.character(total))
