@@ -100,106 +100,18 @@ write_lines(sa_list, "./pheno_lists/cortical_surf.txt")
 saveRDS(sa_list, "./pheno_lists/cortical_surf.rds")
 ```
 
-## HBCD
-Adding HBCD release
-
-```{r}
-hbcd <- fread("/mnt/isilon/bgdlab_hbcd/v2/derivatives/HBCD_idps.csv", na.strings = c("NA", "", '""'))
-hbcd_rename <- hbcd %>%
-  rename_with(~ gsub("-", ".", .)) %>%
-  rename_with(~ gsub("SubcGM", "SUBC", .))
-
-setdiff(names(hbcd_rename), names(df))
-
-#Add Missing cols
-hbcd_rename$study <- "HBCD"
-hbcd_rename$dx <- "CN"
-hbcd_rename$fs_version <- "FSInfant"
-hbcd_rename$fs_version_GM <- "FSInfant"
-hbcd_rename$fs_version_SA  <- "FSInfant"
-hbcd_rename$fs_version_CT <- "FSInfant"
-```
-
-get demographics
-
-```{r}
-hbcd_demo <- fread("/mnt/isilon/bgdlab_hbcd/v2/rawdata/phenotype/sed_basic_demographics.tsv", na.strings = c("NA", "", '""'))
-
-#get age at scan
-hbcd_demo_scan <- fread("/mnt/isilon/bgdlab_hbcd/v2/derivatives/hbcd_scan_info.csv", na.strings = c("NA", "", '""')) %>%
-  select(subject, session, site, age, gestational_age, QC, filename) %>%
-  filter(str_detect(filename, regex("anat/sub-.*_ses-V0.?_run-.?_T.?w\\.nii\\.gz"))) %>%   #keep just basic T1 or T2 anat scans
-  mutate(age_days_birth = 365.25*age) 
-
-table(hbcd_demo_scan$QC) #all scans usable
-n_unique(hbcd_demo_scan$subject)
-
-#make names compatible for merge
-hbcd_demo2 <- hbcd_demo %>%
-  rename("participant" = "participant_id",
-         "session" = "session_id")
-
-hbcd_demo_scan2 <- hbcd_demo_scan %>%
-  rename("participant" = "subject") %>%
-  select(!filename) %>%
-  distinct()
-
-table(hbcd_demo_scan2$session)
-n_unique(hbcd_demo_scan2$participant)
-
-#merge into main demographics
-hbcd_demo_merge <- inner_join(hbcd_demo2, hbcd_demo_scan2)
-
-unique(df$sex)
-
-#sex levels from sed_basic_demographics.json
-
-hbcd_demo_reduced <- hbcd_demo_merge %>%
-  rename_with(~ gsub("sed_basic_demographics_", "", .)) %>%
-  mutate(session = as.integer(gsub("ses-V0", "", session)),
-         sex = case_when(sex==0 ~ "female",
-                         sex==1 ~ "male",
-                         sex==2 ~ NA),
-         gestational_age_delivery = gestational_age_delivery*7) %>%
-  mutate(age_days = gestational_age_delivery + age_days_birth,
-         site = as.character(site)) %>%
-  select(participant, session, sex, site, age_days) %>%
-  #drop session 1, which has no scans
-  filter(session !=1)
-
-names(hbcd_demo_reduced)
-```
-
-merge demographics
-```{r}
-nrow(hbcd_rename)
-nrow(hbcd_demo_reduced)
-
-hbcd_final <- left_join(hbcd_rename, hbcd_demo_reduced)
-nrow(hbcd_final) == n_unique(hbcd_final$participant)
-sum(is.na(hbcd_final))
-
-length(setdiff(hbcd_rename$participant, hbcd_demo_reduced$participant))
-```
-
-merge in
-```{r}
-df_with_hbcd <- full_join(df, hbcd_final)
-stopifnot(nrow(df_with_hbcd) == nrow(df) + nrow(hbcd_final))
-```
-
 ## SLIP 2025-03
 
 csv created with `build_your_cohort_dev_mg.Rmd`
 
 ```{r}
-slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/data/slip_202503_release_updated.csv", na.strings = c("NA", "", '""')) #updated b/c mismatched scans
+slip <- fread("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_braincharts/data/slip_202503_release_updated.csv", na.strings = c("NA", "", '""')) #updated b/c mismatched scans
 names(slip)
 skim(slip)
 
-# unlist(unique(names(slip)[names(slip) %in% names(df_with_hbcd)]))
-# setdiff(names(slip), names(df_with_hbcd))
-# setdiff(names(df_with_hbcd), names(slip))
+# unlist(unique(names(slip)[names(slip) %in% names(df)]))
+# setdiff(names(slip), names(df))
+# setdiff(names(df), names(slip))
 ```
 
 ```{r}
@@ -229,8 +141,8 @@ slip_rename %>%
             pct_pass = (sum(QC.RCA > 0.65)/n())*100,
             n_total=n())
 
-# setdiff(names(df_with_hbcd), names(slip_rename))
-# setdiff(names(slip_rename), names(df_with_hbcd))
+# setdiff(names(df), names(slip_rename))
+# setdiff(names(slip_rename), names(df))
 ```
 
 very few subjects pass
@@ -316,18 +228,12 @@ slip_glob <- slip_rename2 %>%
 
 
 #LABEL FS VERSION
-slip_glob$fs_version <- "synthseg-robust"
-slip_glob$fs_version_GM <- "synthseg-robust"
-slip_glob$fs_version_SA  <- "synthseg-robust"  
-slip_glob$fs_version_CT <- "synthseg-robust"
+slip_glob$fs_version <- "reconall-clinical"
+slip_glob$fs_version_GM <- "reconall-clinical"
+slip_glob$fs_version_SA  <- "reconall-clinical"  
+slip_glob$fs_version_CT <- "reconall-clinical"
 slip_glob$study <- "SLIP"
 slip_glob$dx <- "CN"
-```
-
-```{r}
-slip_glob %>%
-  ggplot() +
-  geom_point(aes(x=age_days, y=CSF))
 ```
 
 check that all cols included
@@ -337,14 +243,14 @@ pheno_list <- c(glob_vol_list, gmv_list, subcort_list, ct_list, sa_list)
 
 setdiff(pheno_list, names(slip_glob))
 
-# setdiff(names(df_with_hbcd), names(slip_glob))
-# setdiff(names(slip_glob), names(df_with_hbcd))
+# setdiff(names(df), names(slip_glob))
+# setdiff(names(slip_glob), names(df))
 ```
 
 Looks pretty good, going to remove old SLIP data and add new
 
 ```{r}
-drp_slip <- df_with_hbcd %>%
+drp_slip <- df %>%
   dplyr::filter(study != "SLIP")
 
 df_with_slip <- full_join(drp_slip, slip_glob)
@@ -534,7 +440,7 @@ df_clean2 <- df_clean1 %>%
 nrow(df_clean1) - nrow(df_clean2)
 n_unique(df_clean2$INDEX.ID)
 
-#fwrite(df_clean2, "./data/euler_tmp.csv")
+fwrite(df_clean2, "./data/euler_tmp.csv")
 
 df_clean3 <- df_clean2 %>%
   group_by(INDEX.ID) %>% #remove duplicate participants
@@ -546,12 +452,6 @@ df_clean3 <- df_clean2 %>%
     ~ if_else(study == "dHCP-fetal", NA_real_, .x)
   ))
 nrow(df_clean2) - nrow(df_clean3)
-
-#save out full df before splitting, just in case
-df_clean <- df_clean3 %>%
-  group_by(study_site) %>%
-  filter(n_distinct(INDEX.ID) >=5) %>% #remove sites with < 5 ppl
-  ungroup() 
 ```
 
 
@@ -559,7 +459,7 @@ visualize IDPs for consistency
 
 ```{r, eval=FALSE, message=FALSE}
 for (pheno in pheno_list){
-  plt <- ggplot(df_clean) +
+  plt <- ggplot(df_clean3) +
     geom_point(aes(x=logAge_days, y=.data[[pheno]], color=study)) +
     theme(legend.position="none") +
     ggtitle(pheno)
@@ -572,7 +472,7 @@ for (pheno in pheno_list){
 
 write out full dataframe
 ```{r}
-#fwrite(df_clean, "./data/v3_CN_cleaned.csv")
+fwrite(df_clean3, "./data/v3_CN_cleaned.csv")
 ```
 
 ###Split for CV Modeling
@@ -670,8 +570,8 @@ pretty good distributions of ages and Euler within sex, no significant differenc
 
 save
 ```{r}
-#fwrite(split_samples$SAMP1, "./data/cv_sample_A.csv")
-#fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
+fwrite(split_samples$SAMP1, "./data/cv_sample_A.csv")
+fwrite(split_samples$SAMP2, "./data/cv_sample_B.csv")
 ```
 
 
@@ -987,11 +887,11 @@ samp_plt <- case_control_demo_df %>%
   mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
          age_yrs = (age_days-280)/365.25) %>%
   ggplot(aes(x=dx, y=age_yrs, color=Sex))+
-  geom_rain(alpha=.4) +
+  geom_rain(point.args = list(size = 0.5, alpha = 0.4)) +
   scale_color_manual(values=c('Female' = "#c05f0d", 'Male' = "#38688D"))+
   theme_linedraw() +
   facet_wrap(~dx_tested) +
   labs(color = "Sex", y="Age (years)", x="Diagnosis") +
   coord_flip()
-ggsave("figs/supplement/cv_samples_pts.png", samp_plt, width=7, height=4)
+ggsave("figs/supplement/cv_samples_pts.png", samp_plt, width=7, height=6)
 ```
