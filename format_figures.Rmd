@@ -171,7 +171,7 @@ sGMV_fan_tbv <- make_centile_fan(gamlssModel=test_mod,
 
 ```{r}
 #read in file
-traject <- fread(paste0(base_path, "cv_sample_B_test/global_vols_totalTRUE_logAgeTRUE_pbmods/cent_csvs/sGMV_sexdiffs.csv"), stringsAsFactors = TRUE, na.strings = c("", '""'))
+traject <- fread(paste0(base_path, "cv_sample_B_test/global_vols_totalTRUE_logAgeTRUE_pbmods/cent_csvs/sGMV_uniform_sexdiffs.csv"), stringsAsFactors = TRUE, na.strings = c("", '""'))
 
 #mean sex diff trajectory
 sgmv_sexdiff_plt <- traject %>%

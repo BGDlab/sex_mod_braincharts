@@ -139,7 +139,7 @@ csv_path <- file.path(base_dir, "cv_sample_?_test/*totalTRUE*")
 min_ylim <- function(x) c(min(x, -0.1, na.rm = TRUE), max(x, 0.1, na.rm = TRUE))
 
 for (pheno in pheno_list) {
-  f_list <- Sys.glob(file.path(csv_path, "cent_csvs", sprintf("%s_sexdiffs.csv", pheno)))
+  f_list <- Sys.glob(file.path(csv_path, "cent_csvs", sprintf("%s_uniform_sexdiffs.csv", pheno)))
   f_list <- f_list[!grepl("weighted|age2plus", f_list)] # just main analyses
   if (length(f_list) == 0) {
     warning(paste(length(f_list), "no files found for", pheno, "- skipping"))
