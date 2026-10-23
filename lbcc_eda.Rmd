@@ -511,6 +511,19 @@ ggplot(df_clean_sites) +
 #table(df_filt$study_site, df_filt$sexMale)
 ```
 
+also saving sim_df() versions for plotting consistently on across phenos/splits
+
+```{r}
+#manually calculating x-range for denser sampling (10k ages)
+range(df_clean3$age_days)
+x_min <- min(df_clean3$logAge_days)
+x_max <- max(df_clean3$logAge_days)
+x_range <- seq(x_min, x_max, length.out = 10000)
+
+df_sim <- sim_data(df_clean3, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days", x_range=x_range)
+saveRDS(df_sim, "./data/v3_full_sim.rds")
+```
+
 basic demographics
 
 ```{r}
@@ -695,6 +708,8 @@ full_df %>%
   filter(!is.na(SurfaceHoles)) %>%
   summarise(min_age_yrs = (min(age_days)-280)/365.25)
 ```
+
+youngest and oldest ages with at least 200, 500, and 1k individuals per sex
 
 
 ## Patient Sample
