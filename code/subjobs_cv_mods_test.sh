@@ -31,6 +31,7 @@ echo "SIM DF: $SIMDF"
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/
 SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/containers/r_gamlss_0.2.9.sif"
+export SINGULARITYENV_R_LIBS=$BASE/Rlib_extra #extra R pkgs not in image (ggnewscale)
 
 singularity run --cleanenv \
     -B $BASE \
