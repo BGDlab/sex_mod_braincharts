@@ -1,0 +1,871 @@
+---
+title: "Sex Difference Standardization Simulation"
+output: html_document
+date: "2026-10-23"
+params:
+  out_dir: "zscore_sim_out"
+---
+
+Does z-scoring sex differences trajectories by a single lifespan male SD (as in
+`fit_cv_mods_test.R`) compresses sex differences early in life, when structures are small?
+This simulation tests that, and more generally asks which standardization supports:
+
+1. integrals of sex difference trajectories that are comparable across phenotypes (Fig 2E&F,
+i.e. "how biased towards a sex is this phenotype?"
+2. classifying each phenotype's trajectory as converging vs diverging (Fig 3),
+i.e. "are sex differences getting bigger or smaller over time?"
+3. plotting sex difference trajectories on a common y axis (Extended Figs)
+
+**Approach:** simulate phenotypes where the true sex difference is known, fit models, then compare each standardization against the truth.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+#LOAD PACKAGES
+library(dplyr)
+library(tidyr)
+library(gamlss)
+library(ggplot2)
+library(data.table)
+library(pracma)
+library(gamlssTools)
+
+#shared sex-difference functions: get_deriv(), dist_moments(), dist_sd()
+source("../sex_diff_funs.R")
+
+out_dir <- params$out_dir
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(out_dir, "centile_plots"), showWarnings = FALSE)
+```
+
+# Simulation settings
+
+Every simulated phenotype follows a BCTo distribution with constant nu and tau. Sigma (~CV)
+changes with age (see "Male sigma" below). Because sigma is ~CV, the SD scales with the median:
+a structure that is 20x larger in adulthood is also ~20x more variable in raw units, on top of
+any change in sigma itself.
+
+```{r}
+seed <- 20261022
+n <- 4000         #sample size per simulated phenotype
+sig <- 0.10       #default adult BCTo sigma (~CV); scenarios can set a different level
+nu_true <- 0.5    #BCTo skewness, constant
+tau_true <- 10    #BCTo kurtosis (t degrees of freedom), constant
+```
+
+
+```{r}
+birth <- log10(280)
+min_age <- log10(100)               #~mid-gestation
+max_age <- log10(80 * 365.25 + 280) #80 years
+ref_age <- log10(280 + 25 * 365.25) #25 years (ref point for testing male SD at specific age)
+
+#axis labels in years for plots
+age_breaks <- log10(c(150, 280, 280 + 365.25, 280 + 5 * 365.25, 280 + 20 * 365.25, 280 + 80 * 365.25))
+age_labels <- c("-0.4", "0", "1", "5", "20", "80")
+```
+
+# True trajectories
+
+## Male median
+
+A sigmoid growth curve on log age, with a mild decline after age 30. `base` is fetal size
+and `amp` is how much the structure grows to adulthood, so `base = 50, amp = 1000` grows ~20x
+and `base = 500, amp = 500` grows ~2x.
+
+```{r}
+mu_male <- function(logAge, base = 50, amp = 1000) {
+  base + amp * plogis((logAge - log10(280 + 2 * 365.25)) / 0.25) -
+    0.08 * amp * pmax(logAge - log10(280 + 30 * 365.25), 0) / (max_age - log10(280 + 30 * 365.25))
+}
+
+grid_plot <- seq(min_age, max_age, length.out = 300)
+data.frame(logAge_days = grid_plot,
+           `High growth (~20x)` = mu_male(grid_plot, 50, 1000),
+           `Low growth (~2x)` = mu_male(grid_plot, 500, 500),
+           check.names = FALSE) %>%
+  pivot_longer(-logAge_days, names_to = "phenotype") %>%
+  ggplot(aes(logAge_days, value, color = phenotype)) +
+  geom_vline(xintercept = birth, color = "gray50", linetype = "dashed") +
+  geom_line(linewidth = 0.9) +
+  scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+  expand_limits(y = 0) +
+  labs(x = "Age (years)", y = "True male median", color = NULL) +
+  theme_linedraw()
+```
+
+## Male sigma
+
+Sigma increases with age: ~60% of its adult level prenatally, rising through childhood to its
+adult level (i.e. value at age ~ 25), then rising again to ~140% by age 80. `level` is the phenotype's adult sigma.
+Age 25 setpoint (`level`) defines low-variability phenotype vs a high-variability one.
+
+```{r}
+sigma_age <- function(logAge, level = sig) {
+  level * (0.6 + 0.4 * plogis((logAge - log10(280 + 2 * 365.25)) / 0.25) +
+             0.4 * plogis((logAge - log10(280 + 60 * 365.25)) / 0.05))
+}
+
+data.frame(logAge_days = grid_plot,
+           `Low sigma (0.05)` = sigma_age(grid_plot, 0.05),
+           `Default sigma (0.10)` = sigma_age(grid_plot, 0.10),
+           `High sigma (0.20)` = sigma_age(grid_plot, 0.20),
+           check.names = FALSE) %>%
+  pivot_longer(-logAge_days, names_to = "level") %>%
+  mutate(level = factor(level, levels = c("Low sigma (0.05)", "Default sigma (0.10)",
+                                          "High sigma (0.20)"))) %>%
+  ggplot(aes(logAge_days, value, color = level)) +
+  geom_vline(xintercept = birth, color = "gray50", linetype = "dashed") +
+  geom_line(linewidth = 0.9) +
+  scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+  expand_limits(y = 0) +
+  labs(x = "Age (years)", y = "True male sigma (~CV)", color = NULL) +
+  theme_linedraw()
+```
+
+## Sex difference
+
+Each function returns the female deficit as a proportion of the male median at each age,
+so female median = male median × (1 − effect).
+
+- **A (`prop_effect`):** a constant 9% difference every age. The true log ratio is constant, so under the
+  relative definition this is *neither* converging nor diverging. However, defining effects in terms of
+  size is *not* constant: it is largest early in life, when sigma is lowest, and shrinks as
+  sigma increases with age (i.e. male and female distributions overlap more, despite means being "farther" away).
+- **B (`pubertal_effect`):** no difference until ~12 years, then 9%. Diverging under any metric.
+- **C (`early_effect`):** 15% early in life, shrinking to 3% in adulthood. The *relative*
+  difference converges, but the *absolute* difference still grows because the structure grows.
+- **D (`late_drop_effect`):** 3% early, rising to 12% through childhood, then dropping back to
+  3% after ~65. Diverges over most of the lifespan and converges only at the very end.
+
+```{r}
+prop_effect <- function(logAge) rep(0.09, length(logAge))
+pubertal_effect <- function(logAge) 0.09 * plogis((logAge - log10(280 + 12 * 365.25)) / 0.04)
+early_effect <- function(logAge) 0.03 + 0.12 * (1 - plogis((logAge - log10(280 + 2 * 365.25)) / 0.15))
+late_drop_effect <- function(logAge) 0.03 + 0.09 * plogis((logAge - log10(280 + 10 * 365.25)) / 0.05) -
+  0.09 * plogis((logAge - log10(280 + 70 * 365.25)) / 0.02)
+
+data.frame(logAge_days = grid_plot,
+           A = prop_effect(grid_plot),
+           B = pubertal_effect(grid_plot),
+           C = early_effect(grid_plot),
+           D = late_drop_effect(grid_plot)) %>%
+  pivot_longer(-logAge_days, names_to = "scenario") %>%
+  ggplot(aes(logAge_days, value * 100, color = scenario)) +
+  geom_vline(xintercept = birth, color = "gray50", linetype = "dashed") +
+  geom_line(linewidth = 0.9) +
+  scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+  labs(x = "Age (years)", y = "True male advantage (% of male median)", color = "Scenario") +
+  theme_linedraw()
+```
+
+## Sex difference in sigma
+
+Like the median sex difference, each function returns the female deficit as a proportion of
+the male sigma at each age, so female sigma = male sigma × (1 − effect). Positive means males
+are more variable. The true `logcv_M_div_F` is then log(sigma_M / sigma_F) = −log(1 − effect).
+
+- **`sig_pubertal`:** none until ~12 years, then female sigma 10% lower. Diverging.
+- **`sig_none`:** no sex difference in variability at any age. A null case.
+- **`sig_early`:** female sigma 15% lower early in life, shrinking to 3% lower in adulthood. Converging.
+- **`sig_constant`:** female sigma 5% lower at every age. Constant.
+
+Because BCTo's median is ~mu regardless of sigma, these don't change the true median sex
+difference. They also don't change any metric standardized by the *male* SD.
+
+```{r}
+sig_pubertal <- function(logAge) 0.10 * plogis((logAge - log10(280 + 12 * 365.25)) / 0.04)
+sig_none <- function(logAge) rep(0, length(logAge))
+sig_early <- function(logAge) 0.03 + 0.12 * (1 - plogis((logAge - log10(280 + 2 * 365.25)) / 0.15))
+sig_constant <- function(logAge) rep(0.05, length(logAge))
+
+data.frame(logAge_days = grid_plot,
+           sig_pubertal = sig_pubertal(grid_plot),
+           sig_none = sig_none(grid_plot),
+           sig_early = sig_early(grid_plot),
+           sig_constant = sig_constant(grid_plot)) %>%
+  pivot_longer(-logAge_days, names_to = "pattern") %>%
+  ggplot(aes(logAge_days, value * 100, color = pattern)) +
+  geom_vline(xintercept = birth, color = "gray50", linetype = "dashed") +
+  geom_hline(yintercept = 0, color = "gray50") +
+  geom_line(linewidth = 0.9) +
+  scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+  labs(x = "Age (years)", y = "True female sigma deficit (% of male sigma)", color = NULL) +
+  theme_linedraw()
+```
+
+
+## Scenarios
+
+Scenario A is run as two pairs of phenotypes that share the same relative sex difference (9%):
+
+- **Growth pair** (`A_high_growth`, `A_low_growth`): same sigma, different growth (~20x vs ~2x).
+  The relative difference *and* the effect size are the same for both, so a metric that is
+  comparable across phenotypes should give them the same integral.
+- **Sigma pair** (`A_low_sigma`, `A_high_sigma`): same growth, adult sigma of 0.05 vs 0.20.
+  The relative difference is the same, but the effect size is 4x larger in the low-sigma
+  phenotype. Which one counts as "the same" depends on whether you mean relative to size or
+  relative to variability, so metrics are expected to disagree here.
+
+Each scenario also gets a sex difference in sigma (`sig_sex_fun`), so all four sigma patterns
+appear: the A phenotypes diverge, B has none, C converges and D is constant.
+
+New scenarios go at the end of the list, so existing scenarios keep their seeds.
+
+```{r}
+scenarios <- list(
+  A_high_growth = list(sex_fun = prop_effect,     base = 50,  amp = 1000, sig = sig,  sig_sex_fun = sig_pubertal), #~20x growth
+  A_low_growth  = list(sex_fun = prop_effect,     base = 500, amp = 500,  sig = sig,  sig_sex_fun = sig_pubertal), #~2x growth
+  B_pubertal    = list(sex_fun = pubertal_effect, base = 50,  amp = 1000, sig = sig,  sig_sex_fun = sig_none),
+  C_early_shrinking = list(sex_fun = early_effect, base = 50, amp = 1000, sig = sig,  sig_sex_fun = sig_early),
+  D_late_drop   = list(sex_fun = late_drop_effect, base = 50, amp = 1000, sig = sig,  sig_sex_fun = sig_constant),
+  A_low_sigma   = list(sex_fun = prop_effect,     base = 50,  amp = 1000, sig = 0.05, sig_sex_fun = sig_pubertal),
+  A_high_sigma  = list(sex_fun = prop_effect,     base = 50,  amp = 1000, sig = 0.20, sig_sex_fun = sig_pubertal)
+)
+```
+
+# Step by step for one scenario
+
+Each step below is a function, run once on scenario A (high growth) so you can see its output.
+The next section runs all of them on every scenario.
+
+## 1. Simulate data
+
+Ages are sampled to roughly mimic a lifespan dataset: 15% prenatal, 85% postnatal, uniform on
+log age. Each scenario gets its own seed, so results don't depend on the order scenarios run in.
+
+```{r}
+sim_one <- function(spec, scen_seed) {
+  set.seed(scen_seed)
+  logAge <- c(runif(n * 0.15, min_age, birth),
+              runif(n * 0.85, birth, max_age))
+  sexMale <- rbinom(length(logAge), 1, 0.5)
+  mu <- mu_male(logAge, spec$base, spec$amp) * (1 - (1 - sexMale) * spec$sex_fun(logAge))
+  sigma <- sigma_age(logAge, spec$sig) * (1 - (1 - sexMale) * spec$sig_sex_fun(logAge))
+  #BCTo: mu is the median, matching the real models
+  y <- rBCTo(length(logAge), mu = mu, sigma = sigma, nu = nu_true, tau = tau_true)
+  data.frame(y, logAge_days = logAge, sexMale = factor(sexMale),
+             sexMale_x_logAge = sexMale * logAge)
+}
+
+demo_scen <- "A_high_growth"
+demo_seed <- seed + match(demo_scen, names(scenarios))
+demo_df <- sim_one(scenarios[[demo_scen]], demo_seed)
+
+ggplot(demo_df, aes(logAge_days, y, color = sexMale)) +
+  geom_point(alpha = 0.2, size = 0.6) +
+  scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+  scale_color_manual(values = c("0" = "#F4A15B", "1" = "#8CB3D1"), labels = c("Female", "Male")) +
+  labs(x = "Age (years)", y = "Simulated phenotype", color = NULL, title = demo_scen) +
+  theme_linedraw()
+```
+
+## 2. Fit the model
+
+```{r}
+fit_model <- function(df) {
+  gamlss(y ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale,
+         sigma.formula = ~ pb(sexMale_x_logAge) + pb(logAge_days) + sexMale,
+         family = BCTo, data = df,
+         control = gamlss.control(n.cyc = 400, trace = FALSE))
+}
+
+demo_model <- fit_model(demo_df)
+```
+
+## 2b. Centile fan plot
+
+Same plot as `fit_cv_mods_test.R`, saved to `centile_plots/` in `out_dir` for every scenario.
+Newer gamlssTools renamed `sim_data()` / `sim_data_list` to `sim_grid()` / `sim_grid_list`,
+so this works with either version. `sexMale` is a factor here, so the special term converts it
+to numeric.
+
+```{r}
+#gamlssTools version differences: sim_data -> sim_grid, sim_data_list -> sim_grid_list
+sim_fun <- if (exists("sim_grid", envir = asNamespace("gamlssTools"))) sim_grid else sim_data
+sim_arg <- if ("sim_grid_list" %in% names(formals(make_centile_fan))) "sim_grid_list" else "sim_data_list"
+
+save_fan_plot <- function(model, df, scen) {
+  sim_df <- sim_fun(df, "logAge_days", factor_var = "sexMale",
+                    special_term = "sexMale_x_logAge = as.numeric(as.character(sexMale)) * logAge_days")
+
+  fan_args <- list(gamlssModel = model,
+                   df = df,
+                   x_var = "logAge_days",
+                   color_var = "sexMale",
+                   get_peaks = TRUE,
+                   desiredCentiles = c(0.05, 0.25, 0.5, 0.75, 0.95),
+                   show_points = TRUE,
+                   label_centiles = "legend",
+                   point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
+                   color_manual = c("0" = "#c05f0d", "1" = "#38688D"),
+                   x_axis = "log_lifespan_fetal")
+  fan_args[[sim_arg]] <- sim_df
+
+  fan_plot <- do.call(make_centile_fan, fan_args) +
+    theme_linedraw() +
+    scale_color_manual(name = "Sex",
+                       values = c('0' = "#c05f0d", '1' = "#38688D"),
+                       labels = c("Female", "Male")) +
+    guides(fill = "none",
+           fill_ggnewscale_1 = "none", colour_ggnewscale_1 = "none") +
+    geom_vline(xintercept = birth, color = "gray20", linetype = "dashed") +
+    labs(title = paste(scen, "simulated model"),
+         x = "Age (years)")
+
+  ggsave(file = file.path(out_dir, "centile_plots", paste0(scen, ".png")), fan_plot,
+         width = 8, height = 5)
+  fan_plot
+}
+
+save_fan_plot(demo_model, demo_df, demo_scen)
+```
+
+## 3. Predict on an age grid
+
+For each sex, predict the median (mu) and sigma at 300 evenly spaced log ages, plus the male SD.
+
+The SD is the moment-based SD, SD(Y) = sqrt(integral of [y − E(Y)]² f(y)), computed by
+`dist_sd()` in `sex_diff_funs.R` from the fitted BCTo density at each age. BCTo has no
+closed-form variance, and the SD isn't finite for very heavy tails (small tau, especially with
+negative nu); `dist_sd()` returns NA with a warning there. Only the male SD is needed, so it
+isn't computed for females.
+
+```{r}
+grid <- seq(min_age, max_age, length.out = 300)
+
+predict_grid <- function(model, df) {
+  lapply(c("0", "1"), function(s) {
+    nd <- data.frame(logAge_days = grid, sexMale = factor(s, levels = c("0", "1")),
+                     sexMale_x_logAge = as.numeric(s) * grid)
+    p <- predictAll(model, newdata = nd, type = "response", data = df)
+    data.frame(logAge_days = grid, sex = ifelse(s == "1", "Male", "Female"),
+               med = p$mu,
+               sigma = p$sigma,
+               sd = if (s == "1") dist_sd("BCTo", p$mu, p$sigma, p$nu, p$tau) else NA)
+  }) %>%
+    bind_rows() %>%
+    pivot_wider(names_from = sex, values_from = c(med, sigma, sd))
+}
+
+demo_pred <- predict_grid(demo_model, demo_df)
+head(demo_pred)
+```
+
+## 4. Standardize the sex difference
+
+Every metric is computed from the fitted curves, along with its true counterpart (`true_*`):
+
+| Column | Formula | What it is |
+|---|---|---|
+| `pooled_z` | (med_M − med_F) / SD(all male y) | Current method in `fit_cv_mods_test.R` |
+| `age_z` | (med_M − med_F) / SD_M(age) | Effect size at each age |
+| `ref_z` | (med_M − med_F) / SD_M(age 25) | Standardized relative to one adult SD per phenotype |
+| `log_ratio` | log(med_M / med_F) | Relative difference (analogous to current method for sigma) |
+| `raw_diff` | med_M − med_F | Unstandardized difference trajectory |
+| `peak_scaled` | raw_diff / max\|raw_diff\| × 100 | % of the phenotype's peak difference |
+| `logcv_ratio` | log(sigma_M / sigma_F) | Sex difference in variability (`logcv_M_div_F`) |
+
+```{r}
+add_metrics <- function(pred, df, spec, scen) {
+  #POOLED z-score: single lifespan male SD (current method in preprint)
+  std_dev_pheno <- sd(df$y[df$sexMale == 1])
+
+  #fitted male SD at the reference age
+  ref_sd <- approx(pred$logAge_days, pred$sd_Male, xout = ref_age)$y
+
+  #truth on the same grid
+  true_M <- mu_male(grid, spec$base, spec$amp)
+  true_F <- true_M * (1 - spec$sex_fun(grid))
+  true_sd_M <- dist_sd("BCTo", true_M, sigma_age(grid, spec$sig), nu_true, tau_true)
+
+  pred %>%
+    mutate(scenario = scen,
+           true_age_z = (true_M - true_F) / true_sd_M,
+           pooled_z = (med_Male - med_Female) / std_dev_pheno,
+           age_z = (med_Male - med_Female) / sd_Male,
+           ref_z = (med_Male - med_Female) / ref_sd,
+           log_ratio = log(med_Male / med_Female),
+           raw_diff = med_Male - med_Female,
+           true_log_ratio = log(true_M / true_F),
+           true_raw_diff = true_M - true_F,
+           true_pooled_z = true_raw_diff / std_dev_pheno,
+           true_ref_z = true_raw_diff / dist_sd("BCTo", mu_male(ref_age, spec$base, spec$amp),
+                                                sigma_age(ref_age, spec$sig), nu_true, tau_true),
+           peak_scaled = raw_diff / max(abs(raw_diff)) * 100,
+           true_peak_scaled = true_raw_diff / max(abs(true_raw_diff)) * 100,
+           logcv_ratio = log(sigma_Male / sigma_Female),
+           true_logcv_ratio = -log(1 - spec$sig_sex_fun(grid)),
+           #how much smaller the pooled z is than the age-specific z
+           compression = pooled_z / age_z,
+           pooled_sd = std_dev_pheno,
+           ref_sd = ref_sd)
+}
+
+demo_res <- add_metrics(demo_pred, demo_df, scenarios[[demo_scen]], demo_scen)
+demo_res %>%
+  select(logAge_days, true_age_z, pooled_z, age_z, ref_z, log_ratio, true_log_ratio) %>%
+  slice(seq(1, n(), by = 50))
+```
+
+# Run every scenario
+
+This fits one model per scenario, so it takes a few minutes. Each model's centile fan plot is
+saved to `centile_plots/<scenario>.png` in `out_dir`.
+
+```{r}
+run_scenario <- function(scen) {
+  print(paste("scenario", scen))
+  spec <- scenarios[[scen]]
+  df <- sim_one(spec, seed + match(scen, names(scenarios)))
+  model <- fit_model(df)
+  save_fan_plot(model, df, scen)
+  pred <- predict_grid(model, df)
+  add_metrics(pred, df, spec, scen)
+}
+
+res <- bind_rows(lapply(names(scenarios), run_scenario))
+fwrite(res, file.path(out_dir, "zscore_sim_results.csv"))
+```
+
+# Does a single SD compress early-life differences?
+
+## Values at landmark ages
+
+`compression` is `pooled_z / age_z`: how much smaller the current metric (standardize by one lifespan SD) makes the sex
+difference than an age-specific effect size. `true_age_z` is the true value of `age_z`; it is the
+reference here because the reviewer's claim is about compression relative to a within-age
+effect size, not because it is the only valid target.
+
+```{r}
+metrics <- c("true_age_z", "pooled_z", "age_z", "ref_z", "log_ratio", "true_log_ratio",
+             "raw_diff", "peak_scaled", "true_peak_scaled", "logcv_ratio", "true_logcv_ratio")
+
+landmarks <- c("mid-gestation" = log10(150), "birth" = birth,
+               "1 yr" = log10(280 + 365.25), "5 yr" = log10(280 + 5 * 365.25),
+               "15 yr" = log10(280 + 15 * 365.25), "40 yr" = log10(280 + 40 * 365.25),
+               "75 yr" = log10(280 + 75 * 365.25))
+summ <- lapply(names(landmarks), function(l) {
+  res %>%
+    group_by(scenario) %>%
+    slice_min(abs(logAge_days - landmarks[[l]]), n = 1, with_ties = FALSE) %>%
+    mutate(age = l)
+}) %>%
+  bind_rows() %>%
+  select(scenario, age, all_of(metrics), compression) %>%
+  arrange(scenario, match(age, names(landmarks))) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+#fwrite(summ, file.path(out_dir, "zscore_sim_landmarks.csv"))
+
+knitr::kable(summ %>% select(scenario, age, true_age_z, age_z, pooled_z, compression))
+```
+
+
+```{r, fig.height=15}
+plot_df <- res %>%
+  select(scenario, logAge_days, true_age_z, age_z, pooled_z) %>%
+  pivot_longer(c(true_age_z, age_z, pooled_z), names_to = "metric") %>%
+  mutate(metric = recode(metric,
+                         true_age_z = "Truth (standardized to age-specific SD)",
+                         age_z = "Fitted, age-specific SD",
+                         pooled_z = "Fitted, single lifespan SD (current)"))
+
+p <- ggplot(plot_df, aes(logAge_days, value, color = metric, linetype = metric)) +
+  geom_vline(xintercept = birth, color = "gray50", linetype = "dashed") +
+  geom_line(linewidth = 0.9) +
+  facet_wrap(~ scenario, ncol = 1, scales = "free_y") +
+  scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+  scale_color_manual(values = c("Truth (standardized to age-specific SD)" = "black",
+                                "Fitted, age-specific SD" = "#38688D",
+                                "Fitted, single lifespan SD (current)" = "#c05f0d")) +
+  scale_linetype_manual(values = c("Truth (standardized to age-specific SD)" = "dotted",
+                                   "Fitted, age-specific SD" = "solid",
+                                   "Fitted, single lifespan SD (current)" = "solid")) +
+  labs(x = "Age (years)", y = "Male - Female (SD units)", color = NULL, linetype = NULL,
+       title = "Sex difference standardized by single vs age-specific male SD") +
+  theme_linedraw() +
+  theme(legend.position = "bottom")
+ggsave(file.path(out_dir, "zscore_sim.png"), p, width = 8, height = 15)
+p
+```
+
+Takeaway - z-scoring by a single SD value calculated from the lifespan distribution does compress trajectories
+at all ages relative to standardizing against an age-specific SD, young ages most of all.
+
+# Aim 1: integrals comparable across phenotypes
+
+## Integrals
+
+Each integral is divided by the age span so it reads as the average sex difference over age.
+Taking the Riemann-Stieltjes integral over log-age to rescale it to regular age in days.
+
+The last two columns compare each pair:
+
+- `high_div_low_growth`: the growth pair has the same relative difference and the same effect
+  size, so a metric that is comparable across phenotypes should give ~1.
+- `low_div_high_sigma`: the sigma pair has the same relative difference but a 4x different
+  effect size. Relative metrics should give ~1; effect-size metrics should give ~4.
+  
+`age_z` ~ "how separable are the sexes' distributions?"
+`log_ratio` ~ "how big is the male median relative to the female median?"
+
+```{r}
+#left Riemann-Stieltjes integral over raw age, as in test_rs_integral.R
+rs_integral <- function(x, y, g = function(x) 10^(x)) {
+  stopifnot(length(x) == length(y), length(x) >= 2)
+  ord <- order(x); x <- x[ord]; y <- y[ord]
+  gx <- g(x)
+  if (any(diff(gx) < 0)) stop("g(x) must be non-decreasing for a Riemann-Stieltjes integral")
+  sum(y[-length(y)] * diff(gx))
+}
+
+span_raw <- 10^max_age - 10^min_age
+integrals <- res %>%
+  group_by(scenario) %>%
+  summarise(across(all_of(metrics), ~ rs_integral(logAge_days, .x) / span_raw),
+          pooled_sd = first(pooled_sd), ref_sd = first(ref_sd)) %>%
+  pivot_longer(-c(scenario, pooled_sd, ref_sd), names_to = "metric") %>%
+  pivot_wider(names_from = scenario, values_from = value, id_cols = metric)  %>%
+  mutate(high_div_low_growth = A_high_growth / A_low_growth,
+         low_div_high_sigma = A_low_sigma / A_high_sigma) %>%
+  arrange(match(metric, metrics)) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+fwrite(integrals, file.path(out_dir, "zscore_sim_integrals.csv"))
+
+knitr::kable(integrals %>%
+  select(metric,high_div_low_growth, low_div_high_sigma))
+```
+
+## Phenotype pairs under each standardization
+
+If a metric treats a pair as equal, the two lines overlap.
+
+```{r}
+#plot one pair of phenotypes under each standardization
+#pair_labels: named vector, names = scenarios, values = legend labels
+plot_pair <- function(pair_labels, title) {
+  pair_df <- res %>%
+    filter(scenario %in% names(pair_labels)) %>%
+    select(scenario, logAge_days, pooled_z, age_z, ref_z, log_ratio, peak_scaled) %>%
+    pivot_longer(c(pooled_z, age_z, ref_z, log_ratio, peak_scaled), names_to = "metric") %>%
+    mutate(metric = factor(recode(metric,
+                                  pooled_z = "Single lifespan SD (current)",
+                                  age_z = "Age-specific SD",
+                                  ref_z = "SD at age 25",
+                                  log_ratio = "log(M / F)",
+                                  peak_scaled = "Scaled to peak (%)"),
+                           levels = c("Single lifespan SD (current)", "Age-specific SD",
+                                      "SD at age 25", "log(M / F)", "Scaled to peak (%)")))
+
+  ggplot(pair_df, aes(logAge_days, value, color = scenario)) +
+    geom_vline(xintercept = birth, color = "gray50", linetype = "dashed") +
+    geom_line(linewidth = 0.9) +
+    facet_wrap(~ metric, ncol = 3, scales = "free_y") +
+    scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+    scale_color_manual(values = setNames(c("#38688D", "#c05f0d"), names(pair_labels)),
+                       labels = pair_labels) +
+    expand_limits(y = 0) +
+    labs(x = "Age (years)", y = "Male - Female", color = NULL, title = title) +
+    theme_linedraw() +
+    theme(legend.position = "bottom")
+}
+```
+
+**Growth pair:** same relative difference and same sigma, different growth.
+
+```{r, fig.width=12, fig.height=6}
+p2 <- plot_pair(c(A_high_growth = "High growth (~20x)", A_low_growth = "Low growth (~2x)"),
+                "Same relative sex difference (9%), different growth")
+ggsave(file.path(out_dir, "zscore_sim_growth.png"), p2, width = 12, height = 6)
+p2
+```
+
+**Sigma pair:** same relative difference and same growth, different sigma.
+
+```{r, fig.width=12, fig.height=6}
+p2b <- plot_pair(c(A_low_sigma = "Low sigma (0.05)", A_high_sigma = "High sigma (0.20)"),
+                 "Same relative sex difference (9%), different sigma")
+ggsave(file.path(out_dir, "zscore_sim_sigma.png"), p2b, width = 12, height = 6)
+p2b
+```
+
+# Aim 2: converging vs diverging
+
+## Two lifespan-wide measures
+
+**Current measure (`review_test_models.Rmd`):** square the sex difference (so larger means more
+different, whatever the direction), take its derivative over log age, and integrate.
+Negative means converging, positive means diverging.
+
+Integrating a derivative just gives back the change in the original function, so over log age
+this equals (squared difference at the oldest age) − (squared difference at the youngest age).
+It only compares the two endpoints.
+
+**Alternative:** the least-squares slope of |difference| over log age. It uses the whole curve,
+gives the least weight to the endpoints, and isn't squared, so changes count the same whether
+the sex difference is large or small.
+
+Both are also expressed relative to the peak difference (`sq_int_rel`, `abs_slope_rel`). Changes
+under 5% of the peak are flagged `~constant`.
+
+```{r}
+#get_deriv() comes from sex_diff_funs.R, as in the real pipeline
+
+#log-age range, to express the slope as a change across the whole lifespan
+span_log <- max_age - min_age
+
+#fitted metric and its ground-truth counterpart
+conv_metrics <- data.frame(
+  label = c("Single lifespan SD (current)", "Raw difference", "Age-specific SD",
+            "SD at age 25", "log(M / F)", "Scaled to peak (%)"),
+  fitted = c("pooled_z", "raw_diff", "age_z", "ref_z", "log_ratio", "peak_scaled"),
+  truth = c("true_pooled_z", "true_raw_diff", "true_age_z", "true_ref_z", "true_log_ratio",
+            "true_peak_scaled")
+)
+
+#long format: one row per scenario x source (fitted/truth) x metric x age
+conv_long <- lapply(seq_len(nrow(conv_metrics)), function(i) {
+  bind_rows(
+    res %>% mutate(source = "fitted", value = .data[[conv_metrics$fitted[i]]]),
+    res %>% mutate(source = "truth", value = .data[[conv_metrics$truth[i]]])
+  ) %>%
+    mutate(metric = factor(conv_metrics$label[i], levels = conv_metrics$label)) %>%
+    select(scenario, source, metric, logAge_days, value)
+}) %>%
+  bind_rows()
+
+conv <- conv_long %>%
+  group_by(scenario, source, metric) %>%
+  arrange(logAge_days, .by_group = TRUE) %>%
+  mutate(sq = value^2,
+         sq_deriv = get_deriv(sq, logAge_days)) %>%
+  na.omit() %>%
+  summarise(
+    #review_test_models.Rmd line ~941: trapz over log age
+    sq_int = trapz(logAge_days, sq_deriv),
+    #review_test_models.Rmd line ~1049: integral over raw age
+    sq_int.unlog = rs_integral(logAge_days, sq_deriv),
+    #relative to the peak; 0 when there is no difference at any age (e.g. sig_none truth)
+    sq_int_rel = ifelse(max(sq) > 0, sq_int / max(sq), 0),
+    #raw-age version on the same scale: per day instead of per log unit, so a change spread
+    #evenly over log age gives the same value as sq_int_rel
+    sq_int.unlog_rel = ifelse(max(sq) > 0, sq_int.unlog / span_raw * span_log / max(sq), 0),
+    #least-squares slope of |difference| over log age
+    abs_slope = cov(logAge_days, abs(value)) / var(logAge_days),
+    #change across the lifespan implied by the slope, relative to the peak |difference|
+    abs_slope_rel = ifelse(max(abs(value)) > 0, abs_slope * span_log / max(abs(value)), 0),
+    .groups = "drop") %>%
+  mutate(trajectory = ifelse(sq_int < 0, "converging", "diverging"),
+         trajectory.unlog = ifelse(sq_int.unlog < 0, "converging", "diverging"),
+         trajectory_tol = ifelse(abs(sq_int_rel) < 0.05, "~constant", trajectory),
+         trajectory.unlog_tol = ifelse(abs(sq_int.unlog_rel) < 0.05, "~constant", trajectory.unlog),
+         slope_trajectory = case_when(abs(abs_slope_rel) < 0.05 ~ "~constant",
+                                      abs_slope < 0 ~ "converging",
+                                      TRUE ~ "diverging")) %>%
+  arrange(scenario, source, metric)
+fwrite(conv, file.path(out_dir, "zscore_sim_convergence.csv"))
+```
+
+## Does diverging/converging depend on the metric?
+
+Endpoint integral (the current measure) for the fitted curves. `pooled_z`, `raw_diff`, `ref_z`
+and `peak_scaled` differ only by a constant, so they always get the same call.
+
+```{r}
+conv %>%
+  #filter(source == "fitted") %>%
+  mutate(call = sprintf("%s (%+.2f)", trajectory_tol, sq_int_rel)) %>%
+  select(scenario, metric, source, call) %>%
+  pivot_wider(names_from = scenario, values_from = call) %>%
+  arrange(metric) %>%
+  knitr::kable()
+```
+
+## Endpoint integral vs slope, for the log ratios
+
+Compare each measure's fitted value to its truth. A measure that depends on the endpoints will
+be thrown off where the model fits the ends of the age range poorly (e.g. scenario D's late drop).
+
+Median, log(M / F):
+
+```{r}
+conv %>%
+  filter(metric == "log(M / F)") %>%
+  mutate(endpoint = sprintf("%s (%+.2f)", trajectory_tol, sq_int_rel),
+         slope = sprintf("%s (%+.2f)", slope_trajectory, abs_slope_rel)) %>%
+  select(scenario, source, endpoint, slope) %>%
+  pivot_wider(names_from = source, values_from = c(endpoint, slope)) %>%
+  knitr::kable()
+
+conv %>%
+  filter(metric == "Age-specific SD") %>%
+  mutate(endpoint = sprintf("%s (%+.2f)", trajectory_tol, sq_int_rel),
+         slope = sprintf("%s (%+.2f)", slope_trajectory, abs_slope_rel)) %>%
+  select(scenario, source, endpoint, slope) %>%
+  pivot_wider(names_from = source, values_from = c(endpoint, slope)) %>%
+  knitr::kable()
+```
+
+## What each measure sees
+
+Each panel shows |sex difference| (black), the thing both measures summarize, with:
+
+- **Least-squares line (blue):** its slope is `abs_slope`, in units of |difference| per tenfold
+  increase in age. The blue arrow at the right is the line's total rise or fall across the age
+  range (`abs_slope` × `span_log`).
+- **Peak (gray dashed):** `abs_slope_rel` is the blue arrow's length divided by this peak.
+- **Endpoints (orange):** the endpoint integral equals |difference|² at the oldest age minus
+  |difference|² at the youngest, so only these two points matter. `sq_int_rel` divides that by
+  the peak squared.
+
+Change `slope_metric` to see a different metric.
+
+```{r, fig.width=16, fig.height=8}
+slope_metric <- "log(M / F)"
+slope_scens <- c("A_high_growth", "B_pubertal", "C_early_shrinking", "D_late_drop")
+
+#|difference| on the age grid, dropping each group's first age as conv does (na.omit after get_deriv)
+slope_curve <- conv_long %>%
+  filter(metric == slope_metric, scenario %in% slope_scens) %>%
+  group_by(scenario, source) %>%
+  arrange(logAge_days, .by_group = TRUE) %>%
+  slice(-1) %>%
+  mutate(abs_value = abs(value)) %>%
+  ungroup()
+
+#least-squares line, endpoints and peak for each panel
+slope_fit <- slope_curve %>%
+  group_by(scenario, source) %>%
+  summarise(slope = cov(logAge_days, abs_value) / var(logAge_days),
+            intercept = mean(abs_value) - slope * mean(logAge_days),
+            x0 = min(logAge_days), x1 = max(logAge_days),
+            y_start = abs_value[which.min(logAge_days)],
+            y_end = abs_value[which.max(logAge_days)],
+            peak = max(abs_value),
+            .groups = "drop") %>%
+  mutate(line0 = intercept + slope * x0,
+         line1 = intercept + slope * x1) %>%
+  left_join(conv %>% filter(metric == slope_metric),
+            by = c("scenario", "source")) %>%
+  mutate(label = sprintf("abs_slope = %+.3f / log10 age\nabs_slope_rel = %+.2f (%s)\nendpoint sq_int_rel = %+.2f (%s)",
+                         abs_slope, abs_slope_rel, slope_trajectory, sq_int_rel, trajectory_tol))
+
+p_slope <- ggplot(slope_curve, aes(logAge_days, abs_value)) +
+  geom_vline(xintercept = birth, color = "gray50", linetype = "dashed") +
+  geom_hline(data = slope_fit, aes(yintercept = peak), color = "gray50", linetype = "dashed") +
+  geom_line(aes(color = "|difference|"), linewidth = 0.9) +
+  #least-squares line and its total change across the age range
+  geom_segment(data = slope_fit, aes(x = x0, xend = x1, y = line0, yend = line1,
+                                     color = "Least-squares line"), linewidth = 0.9) +
+  geom_segment(data = slope_fit, aes(x = x0, xend = x1, y = line0, yend = line0),
+               color = "#38688D", linetype = "dotted") +
+  geom_segment(data = slope_fit, aes(x = x1, xend = x1, y = line0, yend = line1),
+               color = "#38688D", arrow = arrow(length = unit(0.15, "cm"))) +
+  #endpoints compared by the endpoint integral
+  geom_segment(data = slope_fit, aes(x = x0, xend = x1, y = y_start, yend = y_end,
+                                     color = "Endpoints"), linetype = "dashed") +
+  geom_point(data = slope_fit, aes(x = x0, y = y_start, color = "Endpoints"), size = 2) +
+  geom_point(data = slope_fit, aes(x = x1, y = y_end, color = "Endpoints"), size = 2) +
+  geom_label(data = slope_fit, aes(x = -Inf, y = Inf, label = label),
+             hjust = -0.02, vjust = 1.05, size = 2.8, label.size = 0, alpha = 0.8) +
+  facet_grid(source ~ scenario, scales = "free_y") +
+  scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.6))) +
+  scale_color_manual(values = c("|difference|" = "black", "Least-squares line" = "#38688D",
+                                "Endpoints" = "#c05f0d")) + 
+  expand_limits(y = 0) +
+  labs(x = "Age (years)", y = paste0("|", slope_metric, "|"), color = NULL,
+       title = paste("Slope vs endpoint convergence measures,", slope_metric)) +
+  theme_linedraw() +
+  theme(legend.position = "bottom")
+ggsave(file.path(out_dir, "zscore_sim_slope_vs_endpoint_agesd.png"), p_slope, width = 16, height = 8)
+p_slope
+```
+
+## Log age vs raw age integral
+
+`review_test_models.Rmd` computes the same derivative of the squared difference two ways:
+
+- `trajectory` (`sq_int`): integrated over **log age** with `trapz`. This telescopes to
+  (squared difference at the oldest age) − (squared difference at the youngest age).
+- `trajectory.unlog` (`sq_int.unlog`): integrated over **raw age** with `rs_integral`. Each age's
+  derivative is weighted by how many days it covers, and adulthood covers most of the days, so
+  this mostly reflects the change over adulthood.
+
+`sq_int.unlog_rel` puts the raw-age version on the same scale as `sq_int_rel` (divided by
+days instead of log units, and by the peak squared), so both get the same 5% tolerance.
+
+```{r}
+conv %>%
+  mutate(log_age = sprintf("%s (%+.2f)", trajectory_tol, sq_int_rel),
+         raw_age = sprintf("%s (%+.2f)", trajectory.unlog_tol, sq_int.unlog_rel),
+         agree = ifelse(trajectory_tol == trajectory.unlog_tol, "", "differ")) %>%
+  select(scenario, source, metric, log_age, raw_age, agree) %>%
+  arrange(metric, source, scenario) %>%
+  knitr::kable()
+```
+
+The plot shows where each integral builds up its value: the running total from the youngest
+age to each age, scaled by its own largest absolute value so both fit one axis. The value at
+the right edge is the final integral, and its sign is the call.
+
+```{r, fig.width=16, fig.height=8}
+#running totals of the same two integrals, for the slope_metric scenarios above
+cum_df <- conv_long %>%
+  filter(metric == slope_metric, scenario %in% slope_scens) %>%
+  group_by(scenario, source) %>%
+  arrange(logAge_days, .by_group = TRUE) %>%
+  mutate(sq_deriv = get_deriv(value^2, logAge_days)) %>%
+  filter(!is.na(sq_deriv)) %>%
+  #zero out floating-point noise, e.g. scenario A truth, where the true change is exactly 0
+  mutate(sq_deriv = ifelse(abs(sq_deriv) < 1e-12, 0, sq_deriv),
+         n_age = n(),
+         #trapz over log age
+         `Log age (trajectory)` = c(0, cumsum(diff(logAge_days) *
+                                                (sq_deriv[-1] + sq_deriv[-n_age[1]]) / 2)),
+         #left Riemann-Stieltjes sum over raw age, as rs_integral
+         `Raw age (trajectory.unlog)` = c(0, cumsum(sq_deriv[-n_age[1]] * diff(10^logAge_days)))) %>%
+  pivot_longer(c(`Log age (trajectory)`, `Raw age (trajectory.unlog)`),
+               names_to = "integral", values_to = "running") %>%
+  group_by(scenario, source, integral) %>%
+  mutate(running = if (max(abs(running)) > 0) running / max(abs(running)) else 0) %>%
+  ungroup()
+
+p_unlog <- ggplot(cum_df, aes(logAge_days, running, color = integral)) +
+  geom_vline(xintercept = birth, color = "gray50", linetype = "dashed") +
+  geom_hline(yintercept = 0, color = "gray50") +
+  geom_line(linewidth = 0.9) +
+  facet_grid(source ~ scenario) +
+  scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+  scale_color_manual(values = c("Log age (trajectory)" = "#c05f0d",
+                                "Raw age (trajectory.unlog)" = "#38688D")) +
+  labs(x = "Age (years)", y = "Running integral (scaled to its largest |value|)", color = NULL,
+       title = paste("Where each convergence integral builds up,", slope_metric)) +
+  theme_linedraw() +
+  theme(legend.position = "bottom")
+ggsave(file.path(out_dir, "zscore_sim_unlog_logmf.png"), p_unlog, width = 16, height = 8)
+p_unlog
+```
+
+# Aim 3: trajectories under each metric
+
+Each metric on its own scale, fitted (solid) vs truth (dotted).
+
+```{r, fig.width=20, fig.height=13}
+p3 <- ggplot(conv_long, aes(logAge_days, value, linetype = source)) +
+  geom_vline(xintercept = birth, color = "gray50", linetype = "dashed") +
+  geom_hline(yintercept = 0, color = "gray50") +
+  geom_line(linewidth = 0.7) +
+  facet_grid(metric ~ scenario, scales = "free_y",
+             labeller = labeller(metric = label_wrap_gen(14))) +
+  scale_x_continuous(breaks = age_breaks, labels = age_labels) +
+  scale_linetype_manual(values = c(fitted = "solid", truth = "dotted")) +
+  labs(x = "Age (years)", y = "Male - Female", linetype = NULL,
+       title = "Sex difference under each metric") +
+  theme_linedraw() +
+  theme(legend.position = "bottom")
+ggsave(file.path(out_dir, "zscore_sim_convergence.png"), p3, width = 20, height = 13)
+p3
+```

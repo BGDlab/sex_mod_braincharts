@@ -1,5 +1,5 @@
 #Functions for estimating sex differences from fit GAMLSS models
-#requires dplyr, tidyr, gamlss, gamlssTools
+#requires dplyr, tidyr, gamlss (incl. gamlss.dist), gamlssTools
 
 #fun for derviative
 get_deriv <- function(x, age) {
@@ -92,4 +92,56 @@ process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, phen
            deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z)
 
   return(result_df)
+}
+
+# Mean and SD of a gamlss.dist distribution, from its density:
+#   E(Y) = integral of y f(y), Var(Y) = integral of [y - E(Y)]^2 f(y), SD(Y) = sqrt(Var(Y))
+#   family: gamlss family name, e.g. "BCTo", "GG", "NO", "PO"
+#   params: named list of parameter values, e.g. list(mu = 100, sigma = 0.1, nu = 0.5, tau = 10)
+# Returns NA (with a warning) when the mean or variance is not finite, e.g. heavy-tailed BCTo
+dist_moments <- function(family, params) {
+  fam <- gamlss.dist::as.gamlss.family(family)
+  dfun <- get(paste0("d", family), mode = "function")
+  qfun <- get(paste0("q", family), mode = "function")
+  f <- function(y) do.call(dfun, c(list(y), params))
+  q <- function(p) do.call(qfun, c(list(p), params))
+
+  if (fam$type == "Discrete") {
+    #sum over the support 0, 1, 2, ... up to where the remaining probability is negligible
+    y <- seq(0, q(1 - 1e-12))
+    m1 <- sum(y * f(y))
+    v <- sum((y - m1)^2 * f(y))
+  } else if (fam$type == "Continuous") {
+    #support: whole real line, positive values, or (0, 1)
+    lower <- if (fam$y.valid(-1)) -Inf else 0
+    upper <- if (fam$y.valid(2)) Inf else 1
+    #split at central quantiles so integrate() finds the mass wherever it sits
+    breaks <- c(lower, q(c(0.001, 0.5, 0.999)), upper)
+    piece_int <- function(g) {
+      sum(sapply(seq_len(length(breaks) - 1),
+                 function(i) integrate(g, breaks[i], breaks[i + 1])$value))
+    }
+    #integrate() fails when the mean or variance is infinite (heavy tails), so return NA
+    out <- tryCatch({
+      m1 <- piece_int(function(y) y * f(y))
+      v <- piece_int(function(y) (y - m1)^2 * f(y))
+      c(m1, v)
+    }, error = function(e) {
+      warning("mean/variance not finite for ", family, "(",
+              paste(names(params), signif(unlist(params), 3), sep = "=", collapse = ", "),
+              "): ", conditionMessage(e), call. = FALSE)
+      c(NA, NA)
+    })
+    m1 <- out[1]
+    v <- out[2]
+  } else {
+    stop("mixed distributions (e.g. zero-adjusted) are not supported")
+  }
+  c(mean = m1, sd = sqrt(v))
+}
+
+# Vectorized SD, e.g. one value per age from predictAll() output
+dist_sd <- function(family, mu, sigma = NULL, nu = NULL, tau = NULL) {
+  params <- Filter(Negate(is.null), list(mu = mu, sigma = sigma, nu = nu, tau = tau))
+  do.call(mapply, c(list(FUN = function(...) dist_moments(family, list(...))[["sd"]]), params))
 }
