@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision")
 ```
 
-```{r, warning=FALSE}}
+```{r, warning=FALSE}
 if(!require('pacman')) {
   install.packages('pacman')
 }
@@ -704,10 +704,10 @@ fwrite(LR_table, "figs/supplement/significance_test_results.csv")
 ##Trajectories
 Read in sexdiff csvs
 ```{r}
-sex_diffs_paths <- Sys.glob(file.path(test_path, "cent_csvs/*_sexdiffs.csv"))
-sex_diffs_paths <- sex_diffs_paths[stringr::str_detect(sex_diffs_paths, "totalTRUE")] #only total-size-corrected
+total_test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test/*_totalTRUE*/"
+sex_diffs_paths <- Sys.glob(file.path(total_test_path, "cent_csvs/*_uniform_sexdiffs.csv")) #only total-size-corrected
 
-stopifnot(length(sex_diffs_paths) <= (length(pheno_list)*2*2*2) + (68*2)) #two splits, weighted & unweighted, uniform and not uniform, plus age2plus CT (68 phenos * 2 splits)
+stopifnot(length(sex_diffs_paths) <= (length(pheno_list)*2*2) + (68*2)) #two splits, weighted & unweighted, plus age2plus CT (68 phenos * 2 splits)
 
 # Read all matching CSVs
 output_fread_sd <- lapply(sex_diffs_paths, fread)
@@ -719,8 +719,7 @@ sexdiffs_tbv_all <- bind_rows(output_fread_sd, .id="file") %>%
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
          weighted = stringr::str_detect(file, "weight"),
          age2plus = stringr::str_detect(file, "age2plus"),
-         pheno = stringr::str_remove(basename(file), "_(uniform_)?sexdiffs\\.csv"),
-         uniform = ifelse(grepl("uniform", file), TRUE, FALSE)) %>%
+         pheno = stringr::str_remove(basename(file), "_uniform_sexdiffs\\.csv")) %>%
   mutate(pheno_cat = factor(case_when(
     pheno %in% vent_list ~ "Ventricular Vol",
     pheno %in% global_list ~ "Global Vol",
@@ -739,11 +738,6 @@ sexdiffs_tbv_all <- bind_rows(output_fread_sd, .id="file") %>%
   mutate(deriv_M_minus_F_z.unlog = deriv_M_minus_F_z*deriv_age,
          deriv_logcv_M_div_F.unlog = deriv_logcv_M_div_F*deriv_age)
 
-sexdiffs.df <- sexdiffs_tbv_all %>% filter(uniform==FALSE)
-sexdiffs.df.u <- sexdiffs_tbv_all %>% 
-  filter(uniform==TRUE & age2plus == FALSE)
-
-
 rm(output_fread_sd) #save space
 ```
 
@@ -758,10 +752,10 @@ sexdiffs_tbv <- sexdiffs_tbv_all %>%
 Average across splits to make summary plots for global phenos
 
 ```{r}
-sum_cols <- setdiff(names(sexdiffs.df.u), c("logAge_days", "cv_sample", "total", "weighted", "pheno", "uniform", "pheno_cat", "age_days"))
+sum_cols <- setdiff(names(sexdiffs_tbv), c("logAge_days", "cv_sample", "total", "weighted", "pheno", "pheno_cat", "age_days"))
 
-glob_mean <- sexdiffs.df.u %>%
-  filter(pheno %in% global_list & total==TRUE) %>%
+glob_mean <- sexdiffs_tbv %>%
+  filter(pheno %in% global_list) %>%
   group_by(pheno, age_days) %>%
   #filtering outliers
   filter(age_days >= 370) %>%
@@ -2317,8 +2311,8 @@ return(plt_list)
 prep dfs
 ```{r}
 #add age-by-sex significance info
-LR.df_tot.u <- inner_join(LR.df_sigagesex, sexdiffs.df.u) %>%
-  filter(sig_fdr==TRUE & total==TRUE)
+LR.df_tot.u <- inner_join(LR.df_sigagesex, sexdiffs_tbv_all) %>%
+  filter(sig_fdr==TRUE & total==TRUE & age2plus==FALSE)
 
 LR.df_tot.uA <- LR.df_tot.u %>%
   filter(cv_sample=="A" & weighted==FALSE)

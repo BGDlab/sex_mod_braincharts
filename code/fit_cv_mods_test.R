@@ -5,6 +5,8 @@ library(data.table)
 library(dplyr)
 library(gamlss)
 library(gamlssTools)
+library(ggplot2)
+library(ggnewscale)
 
 base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
@@ -97,7 +99,13 @@ if ("logAge_days" %in% pred_list){
 #define nuisance covars to residualize from points
 resid_terms <- setdiff(pred_list, vars_of_interest)
 
+#get split-half (A/B) from save_path, e.g. .../cv_sample_A_test/...
+split <- sub(".*cv_sample_([AB])_test.*", "\\1", save_path)
+stopifnot(split %in% c("A", "B"))
+
 birth <- log(280, base=10)
+pt_show <- !isTRUE(total)
+title_text <- paste0(pheno," test model in Split-Half ", split)
 print("creating centile fan plot")
   fan_plot <- make_centile_fan(gamlssModel=model, 
                                df=df, 
@@ -105,17 +113,24 @@ print("creating centile fan plot")
                                color_var="sexMale",
                                get_peaks=TRUE, 
                                desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
+                               show_points=pt_show,
                                sim_data_list = sim_df,
+                               label_centiles = "legend",
+                               point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
+                               color_manual = c("0" = "#c05f0d", "1" = "#38688D"),
                                remove_point_effect = resid_terms,
-                               x_axis="log_lifespan_fetal")  +
+                               x_axis="log_lifespan_fetal") +
     theme_linedraw() +
-    labs(title=paste(pheno, "validation model"),
-         x ="log Age (days)") +
-  scale_color_discrete(name = "Sex", labels = c("Female", "Male")) +
-    guides(fill=FALSE) +
-    geom_vline(xintercept=birth)
+    scale_color_manual(name = "Sex",
+                       values = c('0' = "#c05f0d", '1' = "#38688D"),
+                       labels = c("Female", "Male")) +
+    guides(fill = "none",
+           fill_ggnewscale_1 = "none", colour_ggnewscale_1 = "none") +
+    geom_vline(xintercept=birth, color="gray20", linetype = "dashed") +
+    labs(title= title_text,
+         x = "Age (years)")
     
-    ggsave(file=paste0(save_path, "/centile_plots/", filename, ".png"), fan_plot)
+    ggsave(file=paste0(save_path, "/centile_plots/", filename, ".png"), fan_plot, width = 8, height = 5)
     
   #WORM PLOT
     print("creating worm plot")
@@ -239,33 +254,25 @@ get_deriv <- function(x, age) {
 }
 
 # Function to process simulated datasets and calculate sex differences
-process_sex_diffs <- function(sim_data_list, 
-                              filter_by_age = FALSE) {
-  
+process_sex_diffs <- function(sim_data_list) {
+
   fname <- model$family[[1]]
   qfun <- paste0("q", fname)
   n_param <- length(model$parameters)
-  
+
   # Initialize empty list
   centile_result_list <- list()
-  
-  # Get age range if filtering needed
-  if (isTRUE(filter_by_age)) {
-    min_age <- min(df[[age_var]])
-    max_age <- max(df[[age_var]])
-  }
-  
+
+  # Get age range of fit data to filter sim grid
+  min_age <- min(df[[age_var]])
+  max_age <- max(df[[age_var]])
+
   # Process each factor level
   for (factor_level in names(sim_data_list)) {
-    sub_df <- sim_data_list[[factor_level]]
-    
-    # Apply filtering if needed
-    if (isTRUE(filter_by_age)) {
-      sub_df <- sub_df %>%
-        select(all_of(pred_list)) %>%
-        filter(.data[[age_var]] >= min_age & .data[[age_var]] <= max_age)
-    }
-    
+    sub_df <- sim_data_list[[factor_level]] %>%
+      select(all_of(pred_list)) %>%
+      filter(.data[[age_var]] >= min_age & .data[[age_var]] <= max_age)
+
     # Predict centiles
     print("predicting...")
     pred_df <- predictAll(model, newdata=sub_df, type="response", data=df)
@@ -317,22 +324,10 @@ process_sex_diffs <- function(sim_data_list,
   return(result_df)
 }
 
-# Process sim_df 
-result_df <- process_sex_diffs(
-  sim_data_list = sim_df,
-  filter_by_age = FALSE
-)
-# Save results
-print("saving sex diffs")
-fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_sexdiffs.csv"))
-
-# Process sim_df_uniform for cross-pheno comparison
-result_df2 <- process_sex_diffs(
-  sim_data_list = sim_df_uniform,
-  filter_by_age = TRUE
-)
+# Process sim_df_uniform (shared grid for cross-pheno/split comparison)
+result_df <- process_sex_diffs(sim_data_list = sim_df_uniform)
 # Save results
 print("saving uniform sex diffs")
-fwrite(result_df2, file=paste0(save_path, "/cent_csvs/", pheno, "_uniform_sexdiffs.csv"))
+fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_uniform_sexdiffs.csv"))
 
 print("SUCCESS")

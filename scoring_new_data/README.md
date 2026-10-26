@@ -62,6 +62,9 @@ straight to [Step 2](#step-2-score-your-data).
 
 ## Step 1 (optional): convert FreeSurfer output
 
+> **WARNING:** Step 1 of the pipeline is still under development and requires additional validation.
+> Always visually inspect outputs to ensure correct compilation & renaming.
+
 `freesurfer_to_datadict.R` reads FreeSurfer stats and writes a CSV with one row per scan
 that's scorable by `oos_reference_scores.R`, including the correct column names and units.
 

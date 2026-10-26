@@ -18,6 +18,7 @@ base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 total <- as.character(args[4])
 df_save_path <- as.character(args[5])
+sim_df_uniform <- readRDS(args[6])
 
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("train", "test", filename_no_ext)
@@ -219,33 +220,25 @@ get_deriv <- function(x, age) {
 }
 
 # Function to process simulated datasets and calculate sex differences
-process_sex_diffs <- function(sim_data_list, 
-                              filter_by_age = FALSE) {
-  
+process_sex_diffs <- function(sim_data_list) {
+
   fname <- model$family[[1]]
   qfun <- paste0("q", fname)
   n_param <- length(model$parameters)
-  
+
   # Initialize empty list
   centile_result_list <- list()
-  
-  # Get age range if filtering needed
-  if (isTRUE(filter_by_age)) {
-    min_age <- min(df[[age_var]])
-    max_age <- max(df[[age_var]])
-  }
-  
+
+  # Get age range of fit data to filter sim grid
+  min_age <- min(df[[age_var]])
+  max_age <- max(df[[age_var]])
+
   # Process each factor level
   for (factor_level in names(sim_data_list)) {
-    sub_df <- sim_data_list[[factor_level]]
-    
-    # Apply filtering if needed
-    if (isTRUE(filter_by_age)) {
-      sub_df <- sub_df %>%
-        select(all_of(pred_list)) %>%
-        filter(.data[[age_var]] >= min_age & .data[[age_var]] <= max_age)
-    }
-    
+    sub_df <- sim_data_list[[factor_level]] %>%
+      select(all_of(pred_list)) %>%
+      filter(.data[[age_var]] >= min_age & .data[[age_var]] <= max_age)
+
     # Predict centiles
     print("predicting...")
     pred_df <- predictAll(model, newdata=sub_df, type="response", data=df)
@@ -297,13 +290,10 @@ process_sex_diffs <- function(sim_data_list,
   return(result_df)
 }
 
-# Process sim_df 
-result_df <- process_sex_diffs(
-  sim_data_list = sim_df,
-  filter_by_age = FALSE
-)
+# Process sim_df_uniform (shared grid for cross-pheno/split comparison)
+result_df <- process_sex_diffs(sim_data_list = sim_df_uniform)
 # Save results
-print("saving sex diffs")
-fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_sexdiffs.csv"))
+print("saving uniform sex diffs")
+fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_uniform_sexdiffs.csv"))
 
 print("SUCCESS")
