@@ -330,8 +330,7 @@ For each sex, predict the median (mu) and sigma at 300 evenly spaced log ages, p
 The SD is the moment-based SD, SD(Y) = sqrt(integral of [y − E(Y)]² f(y)), computed by
 `dist_sd()` in `sex_diff_funs.R` from the fitted BCTo density at each age. BCTo has no
 closed-form variance, and the SD isn't finite for very heavy tails (small tau, especially with
-negative nu); `dist_sd()` returns NA with a warning there. Only the male SD is needed, so it
-isn't computed for females.
+negative nu); `dist_sd()` returns NA with a warning there.
 
 ```{r}
 grid <- seq(min_age, max_age, length.out = 300)

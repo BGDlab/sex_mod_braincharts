@@ -7,24 +7,15 @@ get_deriv <- function(x, age) {
 }
 
 # Function to process simulated datasets and calculate sex differences
-# Predict 50th cent & sigma values for each simulated level of sexMale
+# Predict 50th cent, sigma & SD values for each simulated level of sexMale
+# M-F differences are z-scored against the male SD at each age (_agez)
 #   sim_data_list: list of simulated dfs, one per level of sexMale (e.g. from sim_data())
 #   model: fit gamlss model
 #   df: data model was fit on
 #   age_var: name of age column in model ("age_days" or "logAge_days")
 #   pred_list: predictors in model (from list_predictors())
-#   pheno: name of phenotype column in df
+#   pheno: name of phenotype column in df (no longer used; kept so existing calls still work)
 process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, pheno) {
-
-  # zscore relative to male's initial y values - per taki
-  male_pheno <- df %>%
-    filter(sexMale==1) %>%
-    pull(all_of(pheno))
-  mean_pheno <- mean(male_pheno)
-  std_dev_pheno <- sd(male_pheno)
-  z_score <- function(x){
-    (x - mean_pheno) / std_dev_pheno
-  }
 
   fname <- model$family[[1]]
   qfun <- paste0("q", fname)
@@ -58,6 +49,9 @@ process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, phen
 
     # Sigma
     centiles_df$sigma <- pred_df$sigma
+
+    # SD at each age, from the fitted distribution (NA where the variance isn't finite)
+    centiles_df$sd <- dist_sd(fname, pred_df$mu, pred_df$sigma, pred_df$nu, pred_df$tau)
     sub_name <- paste0("pred_", factor_level)
     centile_result_list[[sub_name]] <- centiles_df
   }
@@ -66,30 +60,26 @@ process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, phen
   result_df <- bind_rows(centile_result_list, .id = "sexMale") %>%
     mutate(sex = if_else(sexMale=="pred_1", "Male", "Female")) %>%
     select(!sexMale) %>%
-    tidyr:::pivot_wider(names_from=sex, values_from = c(median_centile, sigma))
+    tidyr:::pivot_wider(names_from=sex, values_from = c(median_centile, sigma, sd))
 
   result_df <- result_df %>%
-    #z score
-    mutate(
-      across(
-        .cols = matches("centile"),
-        .fns = z_score,
-        .names = "{.col}_z"
-      )) %>%
-    #get CV ratios
-    mutate(cv_M_div_F = sigma_Male/sigma_Female,
-           logcv_M_div_F = log(sigma_Male/sigma_Female)) %>%
+    #get ratios
+    mutate(logcv_M_div_F = log(sigma_Male/sigma_Female),
+           log_M_div_F = log(median_centile_Male/median_centile_Female)) %>%
     #get derivs
     mutate(across(
-      .cols = matches("centile|cv"),
+      .cols = matches("centile|_div_F"),
       .fns = ~ get_deriv(.x, .data[[age_var]]),
       .names = "deriv_{.col}"
     )) %>%
   #get M-F differences
     mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
-           centile_M_minus_F_z = median_centile_Male_z - median_centile_Female_z,
            deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
-           deriv_M_minus_F_z = deriv_median_centile_Male_z - deriv_median_centile_Female_z)
+           #z score against the male SD at each age
+           centile_M_minus_F_agez = if_else(is.na(sd_Male), NA_real_, centile_M_minus_F / sd_Male),
+           #derivative of the standardized difference itself: with an age-varying SD, this isn't
+           #the difference of the sexes' derivatives divided by the SD
+           deriv_M_minus_F_agez = get_deriv(centile_M_minus_F_agez, .data[[age_var]]))
 
   return(result_df)
 }
@@ -141,7 +131,7 @@ dist_moments <- function(family, params) {
 }
 
 # Vectorized SD, e.g. one value per age from predictAll() output
-dist_sd <- function(family, mu, sigma = NULL, nu = NULL, tau = NULL) {
-  params <- Filter(Negate(is.null), list(mu = mu, sigma = sigma, nu = nu, tau = tau))
+dist_sd <- function(family, mu, sigma, nu = NULL, tau = NULL) {
+  params <- Filter(Negate(is.null), list(mu = mu, sigma = sigma, nu = nu, tau = tau)) #drop unused moments
   do.call(mapply, c(list(FUN = function(...) dist_moments(family, list(...))[["sd"]]), params))
 }
