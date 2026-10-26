@@ -72,6 +72,98 @@ glob_border$data <- aseg_all_clean$data |>
   tibble::as_tibble() |>
   sf::st_as_sf()
 
+### significance outlines & hatching ###
+
+sig_border_size <- 0.45    # black outline around significant regions
+sig_halo_size <- 0.675     # white underlay so the black outline reads on dark fills
+nonsig_border_size <- 0.2
+hatch_size <- 0.15
+hatch_color <- "gray50"
+
+# clip evenly spaced 45-degree lines to each region; n_lines = lines across atlas height
+make_hatch_atlas <- function(atlas, n_lines) {
+  regions <- sf::st_as_sf(atlas$data)
+  regions$hatch_row <- seq_len(nrow(regions))
+  sf::st_agr(regions) <- "constant"
+  bb <- sf::st_bbox(regions)
+  h <- bb[["ymax"]] - bb[["ymin"]]
+  offsets <- seq(bb[["xmin"]] - h, bb[["xmax"]], by = h / n_lines)
+  hatch_lines <- sf::st_sfc(sf::st_multilinestring(
+    lapply(offsets, function(o) rbind(c(o, bb[["ymin"]]), c(o + h, bb[["ymax"]])))
+  ))
+
+  hatch <- atlas
+  hatch_data <- sf::st_intersection(regions, hatch_lines)
+  # lines grazing a region edge can come back as point/line collections
+  if (any(sf::st_geometry_type(hatch_data) == "GEOMETRYCOLLECTION")) {
+    hatch_data <- sf::st_collection_extract(hatch_data, "LINESTRING")
+  }
+
+  # slivers too small to catch a hatch line get a zero-length placeholder so ggseg still merges them
+  missed <- regions[!regions$hatch_row %in% hatch_data$hatch_row & !sf::st_is_empty(regions), ]
+  if (nrow(missed) > 0) {
+    sf::st_geometry(missed) <- sf::st_point_on_surface(sf::st_geometry(missed)) |>
+      lapply(function(p) sf::st_linestring(rbind(p, p))) |>
+      sf::st_sfc()
+    hatch_data <- rbind(hatch_data, missed)
+  }
+
+  hatch$data <- hatch_data |>
+    dplyr::arrange(hatch_row) |>
+    dplyr::select(-hatch_row) |>
+    tibble::as_tibble() |>
+    sf::st_as_sf()
+  hatch
+}
+
+dk_hatch <- make_hatch_atlas(dk_fill, n_lines = 35)
+aseg_hatch <- make_hatch_atlas(aseg_fill, n_lines = 65)
+glob_hatch <- make_hatch_atlas(aseg_all_clean, n_lines = 40)
+
+# outline layer a region belongs to; NA leaves it undrawn in that layer
+outline_key <- function(sig_fdr, sig, key) {
+  ifelse(as.logical(sig_fdr) == sig, key, NA)
+}
+
+# hatching + gray outline for non-sig regions, then haloed black outline for sig regions on top
+sig_outline_layers <- function(border_atlas, hatch_atlas, position = ggseg::position_brain()) {
+  list(
+    ggseg::geom_brain(
+      atlas = hatch_atlas,
+      position = position,
+      ggplot2::aes(color = outline_key(sig_fdr, FALSE, "hatch")),
+      fill = NA,
+      size = hatch_size
+    ),
+    ggseg::geom_brain(
+      atlas = border_atlas,
+      position = position,
+      ggplot2::aes(color = outline_key(sig_fdr, FALSE, "nonsig")),
+      fill = NA,
+      size = nonsig_border_size
+    ),
+    ggseg::geom_brain(
+      atlas = border_atlas,
+      position = position,
+      ggplot2::aes(color = outline_key(sig_fdr, TRUE, "halo")),
+      fill = NA,
+      size = sig_halo_size
+    ),
+    ggseg::geom_brain(
+      atlas = border_atlas,
+      position = position,
+      ggplot2::aes(color = outline_key(sig_fdr, TRUE, "sig")),
+      fill = NA,
+      size = sig_border_size
+    ),
+    ggplot2::scale_color_manual(
+      values = c("hatch" = hatch_color, "nonsig" = "gray", "halo" = "white", "sig" = "black"),
+      na.value = NA,
+      guide = "none"
+    )
+  )
+}
+
 ### plotting helpers ###
 
 plot_cortex <- function(df, fill_var, facet_var, show_cv_facet_labels = FALSE, margin_top = 5, keep_levels = FALSE) {
@@ -92,12 +184,7 @@ plot_cortex <- function(df, fill_var, facet_var, show_cv_facet_labels = FALSE, m
       color = NA,
       size = 0
     ) +
-    ggseg::geom_brain(
-      atlas = dk_border,
-      position = ggseg::position_brain(hemi ~ side),
-      ggplot2::aes(color = sig_fdr, size = sig_fdr),
-      fill = NA
-    ) +
+    sig_outline_layers(dk_border, dk_hatch, position = ggseg::position_brain(hemi ~ side)) +
     ggplot2::theme(
       axis.title = ggplot2::element_blank(),
       axis.text = ggplot2::element_blank(),
@@ -107,16 +194,6 @@ plot_cortex <- function(df, fill_var, facet_var, show_cv_facet_labels = FALSE, m
       strip.text.x = if (show_cv_facet_labels) ggplot2::element_text() else ggplot2::element_blank(),
       plot.margin = ggplot2::margin(margin_top, 0, 5, 0),
       legend.position = "none"
-    ) +
-    ggplot2::scale_color_manual(
-      values = c("FALSE" = "gray", "TRUE" = "black"),
-      na.value = NA,
-      guide = "none"
-    ) +
-    ggplot2::scale_size_manual(
-      values = c("FALSE" = .2, "TRUE" = .2),
-      na.value = 0,
-      guide = "none"
     )
   
   if (show_cv_facet_labels & facet_var == "cv_sample") {
@@ -146,11 +223,7 @@ plot_subcortex <- function(df, fill_var, facet_var, keep_levels = FALSE) {
       color = NA,
       size = 0
     ) +
-    ggseg::geom_brain(
-      atlas = aseg_border,
-      ggplot2::aes(color = sig_fdr, size = sig_fdr),
-      fill = NA
-    ) +
+    sig_outline_layers(aseg_border, aseg_hatch) +
     ggplot2::theme(
       axis.title = ggplot2::element_blank(),
       axis.text = ggplot2::element_blank(),
@@ -160,16 +233,6 @@ plot_subcortex <- function(df, fill_var, facet_var, keep_levels = FALSE) {
       strip.text.x = ggplot2::element_blank(),
       plot.margin = ggplot2::margin(0, 0, 0, 0),
       legend.position = "none"
-    ) +
-    ggplot2::scale_color_manual(
-      values = c("FALSE" = "gray", "TRUE" = "black"),
-      na.value = NA,
-      guide = "none"
-    ) +
-    ggplot2::scale_size_manual(
-      values = c("FALSE" = .2, "TRUE" = .2),
-      na.value = 0,
-      guide = "none"
     ) +
     ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)),
                         drop = !keep_levels)
@@ -191,11 +254,7 @@ plot_global <- function(df, fill_var, facet_var, legend_position = "right", keep
       color = NA,
       size = 0
     ) +
-    ggseg::geom_brain(
-      atlas = aseg_all_clean,
-      ggplot2::aes(color = sig_fdr, size = sig_fdr),
-      fill = NA
-    ) +
+    sig_outline_layers(aseg_all_clean, glob_hatch) +
     ggplot2::theme(
       axis.title = ggplot2::element_blank(),
       axis.text = ggplot2::element_blank(),
@@ -211,18 +270,8 @@ plot_global <- function(df, fill_var, facet_var, legend_position = "right", keep
       } else {
         ggplot2::margin(0, 0, 0, 5)
       }
-    ) +
-    ggplot2::scale_color_manual(
-      values = c("FALSE" = "gray", "TRUE" = "black"),
-      na.value = NA,
-      guide = "none"
-    ) +
-    ggplot2::scale_size_manual(
-      values = c("FALSE" = .2, "TRUE" = .2),
-      na.value = 0,
-      guide = "none"
     )
-  
+
   if (facet_var == "cv_sample") {
     p <- p + ggplot2::facet_grid(rows = ggplot2::vars(pheno_cat), cols = ggplot2::vars(!!rlang::sym(facet_var)),
                                  labeller = ggplot2::labeller(cv_sample = c("A" = "Split A", "B" = "Split B")),
