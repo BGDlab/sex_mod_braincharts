@@ -1098,9 +1098,20 @@ dominance_df %>%
 dominance_df %>%
   filter(age2plus==FALSE) %>%
   group_by(pheno_cat, cv_sample, weighted) %>% 
-  dplyr::count(dominance, pheno_cat, cv_sample) %>% 
+  dplyr::count(dominance_norm, pheno_cat, cv_sample) %>% 
   mutate(perc = n / sum(n)) %>% 
-  ggplot(aes(x=pheno_cat, y=perc, fill=dominance)) +
+  ggplot(aes(x=pheno_cat, y=perc, fill=dominance_norm)) +
+  geom_col(position="fill") +
+  facet_grid(weighted~cv_sample) +
+    geom_text(aes(label = scales::percent(perc)), position = position_fill(vjust = 0.5)) +
+  coord_flip()
+
+dominance_df %>%
+  filter(age2plus==FALSE) %>%
+  group_by(pheno_cat, cv_sample, weighted) %>% 
+  dplyr::count(dominance_norm_ratio, pheno_cat, cv_sample) %>% 
+  mutate(perc = n / sum(n)) %>% 
+  ggplot(aes(x=pheno_cat, y=perc, fill=dominance_norm_ratio)) +
   geom_col(position="fill") +
   facet_grid(weighted~cv_sample) +
     geom_text(aes(label = scales::percent(perc)), position = position_fill(vjust = 0.5)) +
@@ -1117,21 +1128,26 @@ LR.df_sigagesex <- LR.df_plot %>%
   dplyr::filter(total==TRUE & effect=="sex_age")
 
 dominance_plt_df <- inner_join(LR.df_sig, dominance_df %>% dplyr::select(!pheno_cat))
-dominance_plt_df %>%
-  mutate(dominance = ifelse(sig_fdr==TRUE, dominance, "NA")) %>%
+sig_dominance_df <- dominance_plt_df %>%
+  mutate(dominance_norm = ifelse(sig_fdr==TRUE, dominance_norm, "NA"),
+         dominance_norm_ratio = ifelse(sig_fdr==TRUE, dominance_norm_ratio, "NA"))
+
+sig_dominance_df %>%
   group_by(cv_sample, weighted, age2plus) %>%
-  summarise(F_dom = sum(dominance=="Female")/n(),
-            M_dom = sum(dominance=="Male")/n())
+  summarise(F_dom = sum(dominance_norm=="Female", na.rm=T)/n(),
+            M_dom = sum(dominance_norm=="Male", na.rm=T)/n())
 ```
 
 thresholding for sensitivity
 
 ```{r}
-ggplot(dominance_df) +
+ggplot(sig_dominance_df) +
   geom_histogram(aes(x=centile_int_norm.unlog, fill=dominance_norm))
+ggplot(sig_dominance_df) +
+  geom_histogram(aes(x=centile_int_norm_ratio.unlog, fill=dominance_norm_ratio))
 
 ggplot(dominance_df) +
-  geom_histogram(aes(x=abs(centile_int_norm.unlog/36525), fill=dominance_norm, position="identity"), alpha=.4, bins=50)
+  geom_histogram(aes(x=abs(centile_int_norm.unlog/36525), fill=dominance_norm), position="identity", alpha=.4, bins=50)
 
 dominance_df %>%
   mutate(pseudo_d = abs(centile_int_norm.unlog/36525)) %>%
@@ -1143,6 +1159,21 @@ dominance_df %>%
             thresh_0.2 = sum(pseudo_d >= 0.2)) %>%
   pivot_longer(-dominance_norm, names_to = "threshold", values_to = "n") %>%
   pivot_wider(names_from = dominance_norm, values_from = n) %>%
+  mutate(
+    male_female_ratio = Male / Female,
+    prop_male = Male / (Male + Female)
+  )
+
+dominance_df %>%
+  mutate(pseudo_d = abs(centile_int_norm_ratio.unlog/36525)) %>% #not sure about denominator here
+  group_by(dominance_norm_ratio) %>%
+  summarise(no_threshold = n(),
+            thresh_0.01 = sum(pseudo_d >= 0.01),
+            thresh_0.05 = sum(pseudo_d >= 0.05),
+            thresh_0.1 = sum(pseudo_d >= 0.1),
+            thresh_0.2 = sum(pseudo_d >= 0.2)) %>%
+  pivot_longer(-dominance_norm_ratio, names_to = "threshold", values_to = "n") %>%
+  pivot_wider(names_from = dominance_norm_ratio, values_from = n) %>%
   mutate(
     male_female_ratio = Male / Female,
     prop_male = Male / (Male + Female)
