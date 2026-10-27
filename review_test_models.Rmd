@@ -999,6 +999,30 @@ ggplot() +
   theme_bw()
 ```
 
+tmp rerunning with log-ratio-based standardization
+```{r}
+ratio_slope_df <- sexdiffs_tbv_all %>%
+  mutate(abs_diff = abs(log_M_div_F),
+         age_yrs = (age_days - 280) / 365.25) %>%
+  group_by(weighted, age2plus, cv_sample, pheno) %>%
+  arrange(age_yrs, .by_group = TRUE) %>%
+  #days each grid point covers, so every day of life counts equally
+  mutate(day_wt = c(diff(age_days), last(diff(age_days)))) %>%
+  reframe(broom::tidy(lm(abs_diff ~ age_yrs, weights = day_wt), conf.int = TRUE)) %>%
+  filter(term == "age_yrs") %>%
+  mutate(overall_trajectory = ifelse(estimate < 0, "converging", "diverging"))
+
+table(ratio_slope_df$overall_trajectory)
+
+ratio_slope_df %>%
+  mutate(weighted = ifelse(weighted == TRUE, "weighted", "unweighted"),
+         age2plus = ifelse(age2plus == TRUE, "ages 2+", "lifespan")) %>%
+ggplot() +
+  geom_histogram(aes(x=estimate, fill=overall_trajectory), alpha=0.5, position="identity", bins=50) +
+  facet_grid(cv_sample ~ weighted + age2plus) +
+  theme_bw()
+```
+
 ####Sigma
 *Do sex-differences in variance (sigma) tend to increase, decrease, or remain constant across the lifespan?*
 
@@ -1036,38 +1060,40 @@ Calculating across age, not log-age, for interpretability
 dominance_df <- sexdiffs_tbv_all %>%
   group_by(pheno, cv_sample, pheno_cat, weighted, age2plus) %>%
   arrange(logAge_days, .by_group = TRUE) %>%
-  summarise(centile_int.unlog = rs_integral(logAge_days, centile_M_minus_F_z),
-            sigma_int.unlog =  rs_integral(logAge_days, logcv_M_div_F),
+  summarise(centile_int.unlog = rs_integral(logAge_days, centile_M_minus_F_agez), #z-score normalization
+            centile_int_ratio.unlog = rs_integral(logAge_days, log_M_div_F),
+            sigma_int.unlog =  rs_integral(logAge_days, logcv_M_div_F), #log-ratio normalization
             age_range = max(age_days) - min(age_days)) %>%
   # rescaling integrals to 100 years
   mutate(centile_int_norm.unlog = (centile_int.unlog/age_range)*365.25*100,
+         centile_int_norm_ratio.unlog = (centile_int_ratio.unlog/age_range)*365.25*100,
          sigma_int_norm.unlog = (sigma_int.unlog/age_range)*365.25*100) %>%
-  mutate(dominance = case_when(
-    centile_int.unlog == 0 ~ "Balanced",
-    centile_int.unlog < 0 ~ "Female",
-    centile_int.unlog > 0 ~ "Male"
-  ),
-  dominance_norm = case_when(
+  mutate(dominance_norm = case_when(
     centile_int_norm.unlog == 0 ~ "Balanced",
     centile_int_norm.unlog < 0 ~ "Female",
     centile_int_norm.unlog > 0 ~ "Male"
   ),
-  sigma_dominance = case_when(
-    sigma_int.unlog == 0 ~ "Balanced",
-    sigma_int.unlog < 0 ~ "Female",
-    sigma_int.unlog > 0 ~ "Male"
+  dominance_norm_ratio = case_when(
+    centile_int_norm_ratio.unlog == 0 ~ "Balanced",
+    centile_int_norm_ratio.unlog < 0 ~ "Female",
+    centile_int_norm_ratio.unlog > 0 ~ "Male"
   ),
   sigma_dominance_norm = case_when(
     sigma_int_norm.unlog == 0 ~ "Balanced",
     sigma_int_norm.unlog < 0 ~ "Female",
     sigma_int_norm.unlog > 0 ~ "Male"
-  ))
+  )) %>%
+  ungroup()
+
+skim(dominance_df)
 
 dominance_df %>%
-  filter(pheno_cat=="Regional CT") %>%
+  #filter(pheno_cat=="Regional CT") %>%
   group_by(cv_sample, weighted, age2plus) %>%
-  summarise(pct_male=sum(dominance=="Male")/n()*100,
-            pct_female=sum(dominance=="Female")/n()*100)
+  summarise(pct_male=sum(dominance_norm=="Male", na.rm=T)/n()*100,
+            pct_female=sum(dominance_norm=="Female", na.rm=T)/n()*100,
+            pct_male_ratio=sum(dominance_norm_ratio=="Male", na.rm=T)/n()*100,
+            pct_female_ratio=sum(dominance_norm_ratio=="Female", na.rm=T)/n()*100)
 
 dominance_df %>%
   filter(age2plus==FALSE) %>%
@@ -1096,6 +1122,31 @@ dominance_plt_df %>%
   group_by(cv_sample, weighted, age2plus) %>%
   summarise(F_dom = sum(dominance=="Female")/n(),
             M_dom = sum(dominance=="Male")/n())
+```
+
+thresholding for sensitivity
+
+```{r}
+ggplot(dominance_df) +
+  geom_histogram(aes(x=centile_int_norm.unlog, fill=dominance_norm))
+
+ggplot(dominance_df) +
+  geom_histogram(aes(x=abs(centile_int_norm.unlog/36525), fill=dominance_norm, position="identity"), alpha=.4, bins=50)
+
+dominance_df %>%
+  mutate(pseudo_d = abs(centile_int_norm.unlog/36525)) %>%
+  group_by(dominance_norm) %>%
+  summarise(no_threshold = n(),
+            thresh_0.01 = sum(pseudo_d >= 0.01),
+            thresh_0.05 = sum(pseudo_d >= 0.05),
+            thresh_0.1 = sum(pseudo_d >= 0.1),
+            thresh_0.2 = sum(pseudo_d >= 0.2)) %>%
+  pivot_longer(-dominance_norm, names_to = "threshold", values_to = "n") %>%
+  pivot_wider(names_from = dominance_norm, values_from = n) %>%
+  mutate(
+    male_female_ratio = Male / Female,
+    prop_male = Male / (Male + Female)
+  )
 ```
 
 plot dominance on brain
