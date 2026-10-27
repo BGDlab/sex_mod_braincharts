@@ -716,7 +716,7 @@ names(output_fread_sd) <- sex_diffs_paths
 
 sexdiffs_tbv_all <- bind_rows(output_fread_sd, .id="file") %>%
   mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
-         total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
+         #total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
          weighted = stringr::str_detect(file, "weight"),
          age2plus = stringr::str_detect(file, "age2plus"),
          pheno = stringr::str_remove(basename(file), "_uniform_sexdiffs\\.csv")) %>%
@@ -730,7 +730,7 @@ sexdiffs_tbv_all <- bind_rows(output_fread_sd, .id="file") %>%
     TRUE ~ NA_character_)),
     age_days = un_log(logAge_days)) %>%
   dplyr::select(!file) %>%
-  group_by(total, weighted, cv_sample, pheno, age2plus) %>%
+  group_by(weighted, cv_sample, pheno, age2plus) %>%
   arrange(logAge_days, .by_group = TRUE) %>%
   mutate(#chain rule per taki's suggestion
     deriv_age = get_deriv(logAge_days, age_days)) %>%
@@ -742,7 +742,15 @@ rm(output_fread_sd) #save space
 write out separate dfs
 ```{r}
 sexdiffs_tbv <- sexdiffs_tbv_all %>%
-  filter(weighted==FALSE & total==TRUE & age2plus == FALSE)
+  filter(weighted==FALSE & age2plus == FALSE)
+```
+
+check for undefined variances
+```{r}
+sexdiffs_tbv_all %>% 
+   group_by(weighted, cv_sample, pheno) %>%
+  summarise(pct_NA = (sum(is.na(centile_M_minus_F_agez))/n())*100) %>%
+  filter(pct_NA > 1)
 ```
 
 ###Plots
@@ -750,7 +758,7 @@ sexdiffs_tbv <- sexdiffs_tbv_all %>%
 Average across splits to make summary plots for global phenos
 
 ```{r}
-sum_cols <- setdiff(names(sexdiffs_tbv), c("logAge_days", "cv_sample", "total", "weighted", "pheno", "pheno_cat", "age_days"))
+sum_cols <- setdiff(names(sexdiffs_tbv), c("logAge_days", "cv_sample", "weighted", "pheno", "pheno_cat", "age_days"))
 
 glob_mean <- sexdiffs_tbv %>%
   filter(pheno %in% global_list) %>%
@@ -911,108 +919,85 @@ glob_mean_sums_long %>%
 
 *Do sex-differences tend to increase, decrease, or remain constant across the lifespan?*
 
-Taking derivative of centile diffs squared:
-- positive derivative -> increasing sex diffs
-- negative derivative -> decreasing sex diffs
-- 0 derivative -> constant sex diffs
+**Method 1: Endpoint-based**
+Simplifying calc: abs(end) - abs(start), at different end and start ages
+
+Trim tails of distribution
+Upper limits = 70, 80 yrs (near upper ends of UKB dataset), max
+Lower limits = min, birth (~HBCD visit 2), 1 and 3 yrs
 
 ```{r}
-#calculate integral of deriv of diff^2 (all in z-scores)
-sexdiffs_tbv_sq <- sexdiffs_tbv_all %>%
-  mutate(sq_centile_diff_z = (centile_M_minus_F_z)^2) %>% #square so that positive -> more different, not more male
-  group_by(pheno, cv_sample, weighted, age2plus) %>%
-  arrange(logAge_days, .by_group = TRUE) %>%
-  mutate(sq_deriv_z = get_deriv(sq_centile_diff_z, logAge_days)) %>% #
-  ungroup()
+#lower/upper: an age in years, or "min"/"max" for the ends of the curve
+endpoint_change <- function(age, y, lower, upper) {
+  lo <- if (lower == "min") min(age) else as.numeric(lower)
+  hi <- if (upper == "max") max(age) else as.numeric(upper)
+  #abs diff at min
+  diff_min <- approx(age, y, xout = lo, rule = 1)$y
+  diff_max <- approx(age, y, xout = hi, rule = 1)$y
+  diff_max - diff_min
+}
+limits <- tidyr::expand_grid(lower = c("min", "0", "1", "3", "5"), upper = c("60", "70", "80", "max"))
 
-#try getting integral
-convergence_int <- sexdiffs_tbv_sq %>%
-  group_by(pheno, cv_sample, pheno_cat, weighted, age2plus)%>%
-  arrange(logAge_days, .by_group = TRUE) %>%
-  na.omit() %>%
-  summarise(sq_int_z = trapz(logAge_days, sq_deriv_z)) %>%
-  mutate(overall_trajectory = ifelse(sq_int_z <0 ,"converging", "diverging")) ##Should this be defined on `sq_int_z` or `sq_int_z.unlog`???
+endpoint_df <- sexdiffs_tbv_all %>%
+  filter(age2plus == FALSE) %>%
+  mutate(abs_diff = abs(centile_M_minus_F_agez),
+         age_yrs = (age_days - 280) / 365.25) %>%
+  group_by(weighted, cv_sample, pheno) %>%
+  arrange(age_yrs, .by_group = TRUE) %>%
+  reframe(min_age_yrs = min(age_yrs),
+          max_age_yrs = max(age_yrs),
+          lower = limits$lower,
+          upper = limits$upper,
+          change = mapply(endpoint_change, lower = limits$lower, upper = limits$upper,
+                          MoreArgs = list(age = age_yrs, y = abs_diff))) %>%
+  mutate(overall_trajectory = ifelse(change <0 ,"converging", "diverging")) %>%
+  unite(range_tested, c(lower, upper))
 
-#checking
-ggplot(convergence_int) +
-  geom_point(aes(x=sq_int_z, y= sq_int_z.unlog), alpha=.3)
+table(endpoint_df$weighted, endpoint_df$overall_trajectory)
+table(endpoint_df$range_tested, endpoint_df$overall_trajectory)
 
-convergence_int %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>%
-  filter(sq_int_z <0 & sq_int_z.unlog >0)
+range(endpoint_df$min_age_yrs)
+range(endpoint_df$max_age_yrs)
 
-sexdiffs_tbv_sq %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>%
-  filter(pheno=="SUBC.Left.Hippocampus" & cv_sample=="B") %>%
-  ggplot() +
-    geom_line(aes(x=logAge_days, y=sq_centile_diff_z))
-
-sexdiffs_tbv_sq %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>%
-  filter(pheno=="SUBC.Left.Hippocampus" & cv_sample=="B") %>%
-  ggplot() +
-    geom_line(aes(x=age_days, y=sq_centile_diff_z))
-
-convergence_int %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>%
-  filter(pheno=="SUBC.Left.Hippocampus" & cv_sample=="B")
+#chi sq test
+endpoint_df %>%
+  filter(!is.na(overall_trajectory)) %>%
+ group_by(weighted, cv_sample, range_tested) %>%
+  summarise(p_val = chisq.test(c(sum(overall_trajectory=="converging"), sum(overall_trajectory=="diverging")), p = c(0.5, 0.5))$p.value) %>%
+  group_by(weighted, cv_sample) %>%
+  mutate(
+    p.val_bf = p.adjust(
+      p_val,
+      method = "bonferroni"
+    )
+  )
 ```
 
-finding points at which pt derivative crosses 0 increasing vs decreasing
+**Method 1: Slope-based**
+Slope of abs(diff) ~ age
 
 ```{r}
-cent_df <- sexdiffs_tbv_sq %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>%
-  group_by(pheno, cv_sample)%>%
-  arrange(age_days, .by_group = TRUE) %>%
-  na.omit() %>%
-  mutate(trajectory = case_when(
-    sq_deriv_z.unlog > 0 ~ "diverging",
-    sq_deriv_z.unlog == 0 ~ "constant",
-    sq_deriv_z.unlog < 0 ~ "converging",
-  )) %>% 
-  ungroup()
+slope_df <- sexdiffs_tbv_all %>%
+  mutate(abs_diff = abs(centile_M_minus_F_agez),
+         age_yrs = (age_days - 280) / 365.25) %>%
+  group_by(weighted, age2plus, cv_sample, pheno) %>%
+  arrange(age_yrs, .by_group = TRUE) %>%
+  #days each grid point covers, so every day of life counts equally
+  mutate(day_wt = c(diff(age_days), last(diff(age_days)))) %>%
+  reframe(broom::tidy(lm(abs_diff ~ age_yrs, weights = day_wt), conf.int = TRUE)) %>%
+  filter(term == "age_yrs") %>%
+  mutate(overall_trajectory = ifelse(estimate < 0, "converging", "diverging"))
 
-#order by age first increasing
-pheno_order_mean <- cent_df %>%
-  group_by(pheno, cv_sample) %>%
-  summarize(above_0 = first_above(y = sq_deriv_z, x = age_days, 
-                                  threshold = 0, return = "x")) %>%
-  group_by(pheno) %>%
-  summarise(ord = mean(above_0), .groups = "drop") %>%
-  arrange(ord) %>%
-  pull(pheno)
+table(slope_df$overall_trajectory)
 
-cent_df %>%
-  filter(age2plus==FALSE & weighted==FALSE) %>%
-  mutate(pheno = factor(pheno, levels = pheno_order_mean)) %>%
-  ggplot() +
-  geom_line(aes(x=age_days, y=pheno, color=trajectory)) +
-  facet_grid(pheno_cat ~ cv_sample, scales="free_y", space="free_y", switch="y") +
-  format_x_axis("lifespan_fetal", cent_df$age_days) +
-  theme(axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.y=element_blank(),
-        strip.placement='outside',
-        strip.background.y=element_blank(), 
-        strip.text.y.left = element_text(angle = 0))
-
-#just look at phenos with consistent age*sex effects across both cvs
-cent_df %>%
-  filter(pheno %in% consistent_agesex) %>%
+slope_df %>%
+  mutate(weighted = ifelse(weighted == TRUE, "weighted", "unweighted"),
+         age2plus = ifelse(age2plus == TRUE, "ages 2+", "lifespan")) %>%
 ggplot() +
-  geom_histogram(aes(x=age_days, fill=trajectory), position="identity", alpha=.4) +
-  facet_grid(pheno_cat ~ cv_sample, scales="free_y") +
-  format_x_axis("lifespan_fetal", cent_df$age_days)
-
-cent_df %>%
-  filter(pheno %in% consistent_agesex) %>%
-ggplot() +
-  geom_density(aes(x=age_days, fill=trajectory), position="identity", alpha=.4) +
-  facet_grid(pheno_cat ~ cv_sample, scales="free_y") +
-  format_x_axis("lifespan_fetal", cent_df$age_days)
+  geom_histogram(aes(x=estimate, fill=overall_trajectory), alpha=0.5, position="identity", bins=50) +
+  facet_grid(cv_sample ~ weighted + age2plus) +
+  theme_bw()
 ```
-
 
 ####Sigma
 *Do sex-differences in variance (sigma) tend to increase, decrease, or remain constant across the lifespan?*
