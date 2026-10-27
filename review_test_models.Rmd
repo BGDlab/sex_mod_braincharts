@@ -701,7 +701,7 @@ LR_table <- LR.df_plot %>%
 fwrite(LR_table, "figs/supplement/significance_test_results.csv")
 ```
 
-##Trajectories
+#Trajectories
 Read in sexdiff csvs
 ```{r}
 total_test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test/*_totalTRUE*/"
@@ -734,9 +734,7 @@ sexdiffs_tbv_all <- bind_rows(output_fread_sd, .id="file") %>%
   arrange(logAge_days, .by_group = TRUE) %>%
   mutate(#chain rule per taki's suggestion
     deriv_age = get_deriv(logAge_days, age_days)) %>%
-  ungroup() %>%
-  mutate(deriv_M_minus_F_z.unlog = deriv_M_minus_F_z*deriv_age,
-         deriv_logcv_M_div_F.unlog = deriv_logcv_M_div_F*deriv_age)
+  ungroup()
 
 rm(output_fread_sd) #save space
 ```
@@ -762,28 +760,28 @@ glob_mean <- sexdiffs_tbv %>%
   summarise(across(all_of(sum_cols), mean)) %>%
   #rescale
   group_by(pheno) %>%
-  mutate(centile_M_minus_F_z = centile_M_minus_F_z / max(abs(centile_M_minus_F_z)) * 100) %>%
+  mutate(centile_M_minus_F_agez = centile_M_minus_F_agez / max(abs(centile_M_minus_F_agez)) * 100) %>%
   ungroup()
 
 glob_mean_sums <- glob_mean %>%
   summarize(#age at peak sex diff
-            max_sex_diff = extr_val(centile_M_minus_F_z, which_max_gc(abs(centile_M_minus_F_z))),
-            age_max_sex_diff = extr_val(age_days, which_max_gc(abs(centile_M_minus_F_z))),
+            max_sex_diff = extr_val(centile_M_minus_F_agez, which_max_gc(abs(centile_M_minus_F_agez))),
+            age_max_sex_diff = extr_val(age_days, which_max_gc(abs(centile_M_minus_F_agez))),
             #age peak change in sex diff
-            max_deriv = extr_val(centile_M_minus_F_z, which_max_gc(abs(deriv_M_minus_F_z))),
-            age_max_deriv = extr_val(age_days, which_max_gc(abs(deriv_M_minus_F_z))),
+            max_deriv = extr_val(centile_M_minus_F_agez, which_max_gc(abs(deriv_M_minus_F_agez))),
+            age_max_deriv = extr_val(age_days, which_max_gc(abs(deriv_M_minus_F_agez))),
             #age at male peak
-            max_M = extr_val(centile_M_minus_F_z, which_max_gc(median_centile_Male_z)),
-            age_max_M = extr_val(age_days, which_max_gc(median_centile_Male_z)),
+            max_M = extr_val(centile_M_minus_F_agez, which_max_gc(median_centile_Male)),
+            age_max_M = extr_val(age_days, which_max_gc(median_centile_Male)),
             #age at female peak
-            max_F = extr_val(centile_M_minus_F_z, which_max_gc(median_centile_Female_z)),
-            age_max_F = extr_val(age_days, which_max_gc(median_centile_Female_z)),
+            max_F = extr_val(centile_M_minus_F_agez, which_max_gc(median_centile_Female)),
+            age_max_F = extr_val(age_days, which_max_gc(median_centile_Female)),
             #age at male peak growth
-            max_deriv_M = extr_val(centile_M_minus_F_z, which_max_gc(deriv_median_centile_Male_z)),
-            age_max_deriv_M = extr_val(age_days, which_max_gc(deriv_median_centile_Male_z)),
+            max_deriv_M = extr_val(centile_M_minus_F_agez, which_max_gc(deriv_median_centile_Male)),
+            age_max_deriv_M = extr_val(age_days, which_max_gc(deriv_median_centile_Male)),
             #age at female peak growth
-            max_deriv_F = extr_val(centile_M_minus_F_z, which_max_gc(deriv_median_centile_Female_z)),
-            age_max_deriv_F = extr_val(age_days, which_max_gc(deriv_median_centile_Female_z)),
+            max_deriv_F = extr_val(centile_M_minus_F_agez, which_max_gc(deriv_median_centile_Female)),
+            age_max_deriv_F = extr_val(age_days, which_max_gc(deriv_median_centile_Female)),
             .by = pheno
             )
 
@@ -807,25 +805,25 @@ min_sex_diff_rows <- glob_mean %>%
   arrange(pheno, age_days) %>%
   group_by(pheno) %>%
   mutate(
-    sign_now  = sign(centile_M_minus_F_z),
-    sign_next = sign(lead(centile_M_minus_F_z)),
+    sign_now  = sign(centile_M_minus_F_agez),
+    sign_next = sign(lead(centile_M_minus_F_agez)),
     crosses   = !is.na(sign_next) & sign_now != 0 & sign_next != 0 & sign_now != sign_next,
     # mark the closer-to-zero row of each adjacent crossing pair
-    pick_here = crosses & abs(centile_M_minus_F_z) <= abs(lead(centile_M_minus_F_z)),
-    pick_next = lag(crosses & abs(centile_M_minus_F_z) >  abs(lead(centile_M_minus_F_z)),
+    pick_here = crosses & abs(centile_M_minus_F_agez) <= abs(lead(centile_M_minus_F_agez)),
+    pick_next = lag(crosses & abs(centile_M_minus_F_agez) >  abs(lead(centile_M_minus_F_agez)),
                     default = FALSE),
     keep      = pick_here | pick_next,
     any_cross = any(keep, na.rm = TRUE),
     # fallback: if no crossing, keep the single global min |value|
     keep      = if (any_cross[1]) keep
-                else abs(centile_M_minus_F_z) == min(abs(centile_M_minus_F_z), na.rm = TRUE)
+                else abs(centile_M_minus_F_agez) == min(abs(centile_M_minus_F_agez), na.rm = TRUE)
   ) %>%
   filter(keep) %>%
   ungroup() %>%
   transmute(
     pheno,
     metric = "min_sex_diff",
-    value  = centile_M_minus_F_z,
+    value  = centile_M_minus_F_agez,
     age    = age_days
   )
 
@@ -854,7 +852,7 @@ reformat_x <- function(x_values, simplified=FALSE){
 cent_plt_pct_mean <- glob_mean %>%
   ggplot() +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z, group=pheno, color=pheno), linewidth=1.5) +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_agez, group=pheno, color=pheno), linewidth=1.5) +
   geom_point(
     data = glob_mean_sums_long,
     aes(x = age, y = value, color = pheno, shape = metric),
