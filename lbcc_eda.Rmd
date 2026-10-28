@@ -565,7 +565,7 @@ samp_B$sample <- "B"
 full_df <- rbind(samp_A, samp_B)
 
 samp_plt <- full_df %>%
-  mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
+  mutate(Sex = ifelse(sexMale==1, "Male", "Female"),
          age_yrs = (age_days-280)/365.25) %>%
   ggplot(aes(x=sample, y=age_yrs, color=Sex))+
   geom_rain(alpha=.4) +
@@ -693,7 +693,7 @@ gtsave(cv_demo_table, "figs/supplement/cv_demo_surfhole_tbl.html")
 
 samp_plt <- full_df %>%
   filter(!is.na(SurfaceHoles)) %>%
-  mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
+  mutate(Sex = ifelse(sexMale==1, "Male", "Female"),
          age_yrs = (age_days-280)/365.25) %>%
   ggplot(aes(x=sample, y=age_yrs, color=Sex))+
   geom_rain(alpha=.4) +
@@ -899,7 +899,7 @@ gtsave(pt_demo_table, "figs/supplement/pt_cv_demo_tbl.html")
 #plot
 
 samp_plt <- case_control_demo_df %>%
-  mutate(Sex = ifelse(sexMale==0, "Male", "Female"),
+  mutate(Sex = ifelse(sexMale==1, "Male", "Female"),
          age_yrs = (age_days-280)/365.25) %>%
   ggplot(aes(x=dx, y=age_yrs, color=Sex))+
   geom_rain(point.args = list(size = 0.5, alpha = 0.4)) +
