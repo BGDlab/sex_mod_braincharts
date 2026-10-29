@@ -21,7 +21,8 @@ total <- as.logical(args[4])
 sim_df_uniform <- readRDS(args[5])
 
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
-filename <- sub("BestMod", "test", filename_no_ext)
+filename <- sub("_(BestMod|mod)$", "_test", filename_no_ext) #BestMod or runner-up (_mod) training models
+stopifnot(filename != filename_no_ext)
 file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
 
 base_mod$call$data <- "df"
