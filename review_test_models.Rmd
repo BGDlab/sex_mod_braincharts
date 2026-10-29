@@ -750,7 +750,8 @@ check for undefined variances
 sexdiffs_tbv_all %>% 
    group_by(weighted, cv_sample, pheno) %>%
   summarise(pct_NA = (sum(is.na(centile_M_minus_F_agez))/n())*100) %>%
-  filter(pct_NA > 1)
+  filter(pct_NA > 1) %>%
+  arrange(desc(pct_NA))
 ```
 
 ###Plots
@@ -973,6 +974,28 @@ endpoint_df %>%
   )
 ```
 
+tmp rerunning in log-ratio normalized data
+
+```{r}
+endpoint_df_ratio <- sexdiffs_tbv_all %>%
+  filter(age2plus == FALSE) %>%
+  mutate(abs_diff = abs(log_M_div_F),
+         age_yrs = (age_days - 280) / 365.25) %>%
+  group_by(weighted, cv_sample, pheno) %>%
+  arrange(age_yrs, .by_group = TRUE) %>%
+  reframe(min_age_yrs = min(age_yrs),
+          max_age_yrs = max(age_yrs),
+          lower = limits$lower,
+          upper = limits$upper,
+          change = mapply(endpoint_change, lower = limits$lower, upper = limits$upper,
+                          MoreArgs = list(age = age_yrs, y = abs_diff))) %>%
+  mutate(overall_trajectory = ifelse(change <0 ,"converging", "diverging")) %>%
+  unite(range_tested, c(lower, upper))
+
+table(endpoint_df_ratio$weighted, endpoint_df_ratio$overall_trajectory)
+table(endpoint_df_ratio$range_tested, endpoint_df_ratio$overall_trajectory)
+```
+
 **Method 1: Slope-based**
 Slope of abs(diff) ~ age
 
@@ -1134,8 +1157,10 @@ sig_dominance_df <- dominance_plt_df %>%
 
 sig_dominance_df %>%
   group_by(cv_sample, weighted, age2plus) %>%
-  summarise(F_dom = sum(dominance_norm=="Female", na.rm=T)/n(),
-            M_dom = sum(dominance_norm=="Male", na.rm=T)/n())
+  summarise(F_dom_norm = sum(dominance_norm=="Female", na.rm=T)/n(),
+            M_dom_norm = sum(dominance_norm=="Male", na.rm=T)/n(),
+            F_dom_ratio = sum(dominance_norm_ratio=="Female", na.rm=T)/n(),
+            M_dom_ratio = sum(dominance_norm_ratio=="Male", na.rm=T)/n())
 ```
 
 thresholding for sensitivity
@@ -1146,6 +1171,7 @@ ggplot(sig_dominance_df) +
 ggplot(sig_dominance_df) +
   geom_histogram(aes(x=centile_int_norm_ratio.unlog, fill=dominance_norm_ratio))
 
+#z-score normalization
 ggplot(dominance_df) +
   geom_histogram(aes(x=abs(centile_int_norm.unlog/36525), fill=dominance_norm), position="identity", alpha=.4, bins=50)
 
@@ -1164,14 +1190,18 @@ dominance_df %>%
     prop_male = Male / (Male + Female)
   )
 
+#log-ratio normalization - dividing by 100 years but multiplying by 100 for percents
+ggplot(dominance_df) +
+  geom_histogram(aes(x=abs(centile_int_norm_ratio.unlog/365.25), fill=dominance_norm_ratio), position="identity", alpha=.4, bins=50)
+
 dominance_df %>%
-  mutate(pseudo_d = abs(centile_int_norm_ratio.unlog/36525)) %>% #not sure about denominator here
+  mutate(pseudo_d = abs(centile_int_norm_ratio.unlog/365.25)) %>% #not sure about denominator here
   group_by(dominance_norm_ratio) %>%
   summarise(no_threshold = n(),
-            thresh_0.01 = sum(pseudo_d >= 0.01),
-            thresh_0.05 = sum(pseudo_d >= 0.05),
-            thresh_0.1 = sum(pseudo_d >= 0.1),
-            thresh_0.2 = sum(pseudo_d >= 0.2)) %>%
+            thresh_01 = sum(pseudo_d >= 1),
+            thresh_02 = sum(pseudo_d >= 2),
+            thresh_05 = sum(pseudo_d >= 5),
+            thresh_10 = sum(pseudo_d >= 10)) %>%
   pivot_longer(-dominance_norm_ratio, names_to = "threshold", values_to = "n") %>%
   pivot_wider(names_from = dominance_norm_ratio, values_from = n) %>%
   mutate(
@@ -1198,6 +1228,18 @@ full_dom_plt <- plot_cv_brain(df=dominance_plt_df_novent,
                               direction=1)
 
 ggsave("figs/supplement/dominance_tbvTRUE.png", full_dom_plt, dpi=600, height=8.5, width=7.5, bg = "white")
+
+#tmp ratio plot
+range(dominance_plt_df_novent$centile_int_norm_ratio.unlog)
+full_dom_plt_tmp <- plot_cv_brain(df=dominance_plt_df_novent, 
+                              fill_var=centile_int_norm_ratio.unlog, 
+                              fill_name="Sex Diff\n(Std.)", 
+                              fill_color="ggthemes::Orange-Blue Diverging", 
+                              fill_limits= c(-2000, 2000), 
+                              height_list=c(1.03, 4.5, .93), 
+                              direction=1)
+ggsave("figs/supplement/tmp_dominance_tbvTRUE_ratio.png", full_dom_plt_tmp, dpi=600, height=8.5, width=7.5, bg = "white")
+
 ```
 Also plot weighted and age2plus for sensitivity
 
@@ -1270,33 +1312,33 @@ prop_above <- function(x, y, threshold=0){
 
 test <- sexdiffs_tbv %>%
   filter(cv_sample =="A" & pheno=="CBV")
-prop_above(test$age_days, test$centile_M_minus_F_z)
+prop_above(test$age_days, test$centile_M_minus_F_agez)
 ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
 
 test <- sexdiffs_tbv %>%
   filter(cv_sample =="A" & pheno=="WMV")
-prop_above(test$age_days, test$centile_M_minus_F_z)
+prop_above(test$age_days, test$centile_M_minus_F_agez)
 ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
 
 test <- sexdiffs_tbv %>%
-  filter(cv_sample =="A" & pheno=="GMV")
-prop_above(test$age_days, test$centile_M_minus_F_z)
+  filter(cv_sample =="B" & pheno=="rh.GM.insula")
+prop_above(test$age_days, test$centile_M_minus_F_agez)
 ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
 
 test <- sexdiffs_tbv %>%
   filter(cv_sample =="B" & pheno=="GMV")
-prop_above(test$age_days, test$centile_M_minus_F_z)
+prop_above(test$age_days, test$centile_M_minus_F_agez)
 ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
 
 test <- sexdiffs_tbv %>%
   filter(cv_sample =="B" & pheno=="lh.SA.pericalcarine")
-prop_above(test$age_days, test$centile_M_minus_F_z)
+prop_above(test$age_days, test$centile_M_minus_F_agez)
 ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_z))
+  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
 ```
 
 ```{r}
