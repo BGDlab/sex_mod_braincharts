@@ -90,10 +90,10 @@ if (is.null(model)) {
   
   mu_diff <- base_mod$mu.lambda - model$mu.lambda
   sig_diff <- base_mod$sigma.lambda - model$sigma.lambda
-  stopifnot(c(mu_diff, sig_diff) < 0.01)
+  stopifnot(abs(c(mu_diff, sig_diff)) < 0.01)
   if (!is.null(base_mod$nu.lambda)){
 	nu_diff <- base_mod$nu.lambda - model$nu.lambda
-	stopifnot(nu_diff < 0.01)}
+	stopifnot(abs(nu_diff) < 0.01)}
 
 print (paste("saving to", file_full))
 saveRDS(model, file=file_full)
