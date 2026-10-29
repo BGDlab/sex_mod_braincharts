@@ -821,18 +821,29 @@ names(cn_df_list) <- c("A", "B")
 
 dx_list <- unique(pt_df$dx_recode)
 
+#subjects w/ both a control scan (either split) and a case scan for a given dx
+cn_ids <- c(samp_A$INDEX.ID, samp_B$INDEX.ID)
+overlap_ids <- function(dx_val) {
+  intersect(pt_df$INDEX.ID[pt_df$dx_recode == dx_val], cn_ids)
+}
+
 for (samp in c("A", "B")){
   for (dx_val in dx_list){
     print(dx_val)
-    
+
+    drop_ids <- overlap_ids(dx_val)
+    print(paste("dropping", length(drop_ids), "subjects who are both case and control"))
+
     pts <- pt_df %>%
-      filter(dx_recode == dx_val)
-    
+      filter(dx_recode == dx_val) %>%
+      filter(!(INDEX.ID %in% drop_ids))
+
     sites <- unique(pts$study_site)
     print(length(sites))
-    
+
     cn_df <- cn_df_list[[samp]] %>%
     filter(study_site %in% sites) %>% #just keep controls from pt sites
+    filter(!(INDEX.ID %in% drop_ids)) %>%
     mutate(dx_recode = paste(dx, dx_val, sep="_"))
     
     full_samp <- rbind(cn_df, pts, fill=TRUE)
@@ -848,13 +859,17 @@ plot demographics with matched controls
 
 ```{r}
 case_control_demo_df <- purrr::map_dfr(dx_list, function(dx_val) {
+  drop_ids <- overlap_ids(dx_val)
+
   pts <- pt_df %>%
-    filter(dx_recode == dx_val)
-  
+    filter(dx_recode == dx_val) %>%
+    filter(!(INDEX.ID %in% drop_ids))
+
   sites <- unique(pts$study_site)
 
   cn_df <- df_clean_sites %>%
     filter(study_site %in% sites) %>%
+    filter(!(INDEX.ID %in% drop_ids)) %>%
     mutate(dx_recode = paste(dx, dx_val, sep="_"))
   
   bind_rows(cn_df, pts)

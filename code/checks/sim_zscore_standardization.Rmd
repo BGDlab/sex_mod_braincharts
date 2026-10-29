@@ -32,7 +32,7 @@ library(data.table)
 library(pracma)
 library(gamlssTools)
 
-#shared sex-difference functions: get_deriv(), dist_moments(), dist_sd()
+#shared sex-difference functions: get_deriv(), centile_sd()
 source("../sex_diff_funs.R")
 
 out_dir <- params$out_dir
@@ -327,10 +327,11 @@ save_fan_plot(demo_model, demo_df, demo_scen)
 
 For each sex, predict the median (mu) and sigma at 300 evenly spaced log ages, plus the male SD.
 
-The SD is the moment-based SD, SD(Y) = sqrt(integral of [y − E(Y)]² f(y)), computed by
-`dist_sd()` in `sex_diff_funs.R` from the fitted BCTo density at each age. BCTo has no
-closed-form variance, and the SD isn't finite for very heavy tails (small tau, especially with
-negative nu); `dist_sd()` returns NA with a warning there.
+The SD is a centile-based approximation, computed by `centile_sd()` in `sex_diff_funs.R` from
+the fitted BCTo distribution at each age, as in `process_sex_diffs()`: the interquartile range
+divided by 1.349, which equals the SD for a normal distribution (the semi-interquartile range,
+Rigby et al. 2019 sec 2.3). Unlike the moment-based SD, it exists even when heavy tails (small
+tau, especially with negative nu) make the variance infinite.
 
 ```{r}
 grid <- seq(min_age, max_age, length.out = 300)
@@ -343,7 +344,7 @@ predict_grid <- function(model, df) {
     data.frame(logAge_days = grid, sex = ifelse(s == "1", "Male", "Female"),
                med = p$mu,
                sigma = p$sigma,
-               sd = if (s == "1") dist_sd("BCTo", p$mu, p$sigma, p$nu, p$tau) else NA)
+               sd = centile_sd("BCTo", p$mu, p$sigma, p$nu, p$tau))
   }) %>%
     bind_rows() %>%
     pivot_wider(names_from = sex, values_from = c(med, sigma, sd))
@@ -378,7 +379,7 @@ add_metrics <- function(pred, df, spec, scen) {
   #truth on the same grid
   true_M <- mu_male(grid, spec$base, spec$amp)
   true_F <- true_M * (1 - spec$sex_fun(grid))
-  true_sd_M <- dist_sd("BCTo", true_M, sigma_age(grid, spec$sig), nu_true, tau_true)
+  true_sd_M <- centile_sd("BCTo", true_M, sigma_age(grid, spec$sig), nu_true, tau_true)
 
   pred %>%
     mutate(scenario = scen,
@@ -391,8 +392,8 @@ add_metrics <- function(pred, df, spec, scen) {
            true_log_ratio = log(true_M / true_F),
            true_raw_diff = true_M - true_F,
            true_pooled_z = true_raw_diff / std_dev_pheno,
-           true_ref_z = true_raw_diff / dist_sd("BCTo", mu_male(ref_age, spec$base, spec$amp),
-                                                sigma_age(ref_age, spec$sig), nu_true, tau_true),
+           true_ref_z = true_raw_diff / centile_sd("BCTo", mu_male(ref_age, spec$base, spec$amp),
+                                                   sigma_age(ref_age, spec$sig), nu_true, tau_true),
            peak_scaled = raw_diff / max(abs(raw_diff)) * 100,
            true_peak_scaled = true_raw_diff / max(abs(true_raw_diff)) * 100,
            logcv_ratio = log(sigma_Male / sigma_Female),
