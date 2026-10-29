@@ -7,8 +7,8 @@ get_deriv <- function(x, age) {
 }
 
 # Function to process simulated datasets and calculate sex differences
-# Predict 50th cent, sigma & SD values for each simulated level of sexMale
-# M-F differences are z-scored against the male SD at each age (_agez)
+# Predict 50th cent, sigma & centile-based SD values for each simulated level of sexMale
+# M-F differences are z-scored against the male centile-based SD at each age (_agez)
 #   sim_data_list: list of simulated dfs, one per level of sexMale (e.g. from sim_data())
 #   model: fit gamlss model
 #   df: data model was fit on
@@ -50,8 +50,8 @@ process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, phen
     # Sigma
     centiles_df$sigma <- pred_df$sigma
 
-    # SD at each age, from the fitted distribution (NA where the variance isn't finite)
-    centiles_df$sd <- dist_sd(fname, pred_df$mu, pred_df$sigma, pred_df$nu, pred_df$tau)
+    # Centile-based SD at each age, from the fitted distribution (IQR / 1.349)
+    centiles_df$sd <- centile_sd(fname, pred_df$mu, pred_df$sigma, pred_df$nu, pred_df$tau)
     sub_name <- paste0("pred_", factor_level)
     centile_result_list[[sub_name]] <- centiles_df
   }
@@ -75,7 +75,7 @@ process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, phen
   #get M-F differences
     mutate(centile_M_minus_F = median_centile_Male - median_centile_Female,
            deriv_M_minus_F = deriv_median_centile_Male - deriv_median_centile_Female,
-           #z score against the male SD at each age
+           #z score against the male centile-based SD at each age
            centile_M_minus_F_agez = if_else(is.na(sd_Male), NA_real_, centile_M_minus_F / sd_Male),
            #derivative of the standardized difference itself: with an age-varying SD, this isn't
            #the difference of the sexes' derivatives divided by the SD
@@ -134,4 +134,15 @@ dist_moments <- function(family, params) {
 dist_sd <- function(family, mu, sigma, nu = NULL, tau = NULL) {
   params <- Filter(Negate(is.null), list(mu = mu, sigma = sigma, nu = nu, tau = tau)) #drop unused moments
   do.call(mapply, c(list(FUN = function(...) dist_moments(family, list(...))[["sd"]]), params))
+}
+
+# Centile-based approximation of the SD, e.g. one value per age from predictAll() output
+# Half the distance between the p and 1-p centiles, scaled so it equals the SD for a normal
+# distribution: p = 0.75 gives IQR / 1.349 (the semi-interquartile range, Rigby et al. 2019
+# sec 2.3), p = pnorm(1) gives half the 16th-84th centile range
+# Unlike dist_sd(), it always exists, even when heavy tails make the variance infinite
+centile_sd <- function(family, mu, sigma, nu = NULL, tau = NULL, p = 0.75) {
+  qfun <- get(paste0("q", family), mode = "function")
+  params <- Filter(Negate(is.null), list(mu = mu, sigma = sigma, nu = nu, tau = tau)) #drop unused moments
+  (do.call(qfun, c(list(p), params)) - do.call(qfun, c(list(1 - p), params))) / (2 * qnorm(p))
 }
