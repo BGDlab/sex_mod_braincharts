@@ -771,6 +771,8 @@ prop_above <- function(x, y, threshold=0){
   return(prop_above)
 }
 
+
+
 test <- sexdiffs_tbv %>%
   filter(cv_sample =="A" & pheno=="CBV")
 prop_above(test$age_days, test$centile_M_minus_F_agez)
@@ -873,7 +875,7 @@ ggsave("figs/supplement/prop_male_tbvTRUE_age2plus.png", full_above_plt, dpi=600
 
 **Runnerup Plot**
 
-####Sigma
+###Sigma
 
 ```{r}
 dominance_df %>%
