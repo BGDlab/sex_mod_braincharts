@@ -15,7 +15,7 @@ vol_list <- readRDS("./pheno_lists/cortical_vols.rds")
 global_list <- readRDS("./pheno_lists/global_vols.rds")
 sub_list <- readRDS("./pheno_lists/subcortical_vols.rds")
 pheno_list <- c(sa_list, ct_list, vol_list, global_list, sub_list)
-test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test/*/"
+test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test*/*/"
 #visualizing ventricles separately
 vent_list <- c("CSF", "SUBC.Left.Lateral.Ventricle", "SUBC.Right.Lateral.Ventricle", "SUBC.3rd.Ventricle", "SUBC.4th.Ventricle")
 
@@ -61,3 +61,13 @@ rs_integral <- function(x, y, g = function(x) 10^(x)) {
 
 #euclidean distance fun from https://www.geeksforgeeks.org/r-language/how-to-calculate-euclidean-distance-in-r/
 euclidean_dist <- function(vect1, vect2) sqrt(sum((vect1 - vect2)^2))
+
+
+#filter out rows indicating sensitivity analysis, except where passed to keep
+sensitivity_cols <- c("weighted", "age2plus", "runnerup")
+
+filter_sensitivity <- function(df, keep = NULL, sens = sensitivity_cols) {
+  df %>%
+    dplyr::filter(dplyr::if_all(dplyr::any_of(setdiff(sens, keep)), ~ !as.logical(.x)),
+                  dplyr::if_all(dplyr::any_of(keep), ~ as.logical(.x)))
+}

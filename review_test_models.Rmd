@@ -33,7 +33,8 @@ LR.df <- bind_rows(output_fread, .id="file") %>%
   mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
          total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
          weighted  = stringr::str_detect(file, "weight"),
-         age2plus = stringr::str_detect(file, "age2plus"))%>%
+         age2plus = stringr::str_detect(file, "age2plus"),
+         runnerup = stringr::str_detect(file, "runnerup"))%>%
   dplyr::select(!file)
 ```
 
@@ -85,8 +86,6 @@ LR.df2 <- LR.df %>%
 table(LR.df2$effect, LR.df2$total)
 ```
 
-
-
 ```{r}
 LR.df_plot <- LR.df2 %>%
   mutate(label = case_when(
@@ -103,7 +102,7 @@ LR.df_plot <- LR.df2 %>%
     pheno == "CBV" ~ "Cerebellum",
     TRUE ~ label
   )) %>%
-  group_by(total, weighted, cv_sample, age2plus) %>% #apply FDR correction within each combo
+  group_by(total, cv_sample, age2plus, weighted, runnerup) %>% #apply FDR correction within each combo
   mutate(
     p.val_fdr = p.adjust(
       p_val,
@@ -116,7 +115,11 @@ LR.df_plot <- LR.df2 %>%
          sig_resi = ifelse(sig_fdr==TRUE, resi, NA))
 
 LR.df_plot$cv_sample <- factor(LR.df_plot$cv_sample, levels = c("A", "B"))
+#save for review_trajectories.Rmd
+saveRDS(LR.df_plot, "./data/LR_df_plot.rds")
+```
 
+```{r, eval=FALSE}
 #check cortical
 setdiff(unique(dk$data$label), unique(LR.df_plot$label)) #corpus callosum is subdivided - remove from dk plots
 
@@ -132,12 +135,67 @@ setdiff(unique(LR.df_plot$label), c(unique(dk$data$label), unique(aseg$data$labe
 
 "Left-Accumbens-area", "Right-Accumbens-area", "Left-Cerebellum-Cortex" & "Left-Cerebellum-White-Matter" aren't in field of view for aseg atlas
 
+#Summarise Significance
+
+Summarise significance of all effects in main and sensitivity analyses
+
+```{r}
+all_sum <- LR.df_plot %>%
+  dplyr::filter(age2plus==FALSE) %>%
+  group_by(total, effect, cv_sample, age2plus, weighted, runnerup) %>%
+  summarise(n_sig = sum(sig_fdr==TRUE),
+            n=n(),
+            mean_s = mean(sig_resi, na.rm=T),
+            min_s = min(sig_resi, na.rm=T),
+            max_s = max(sig_resi, na.rm=T)) %>%
+  ungroup() %>%
+  mutate(pct_sig = (n_sig/n)*100,
+         analysis = case_when(
+           weighted==FALSE & age2plus == FALSE & runnerup == FALSE ~ "main",
+           weighted==TRUE & age2plus == FALSE & runnerup == FALSE ~ "weighted",
+           weighted==FALSE & age2plus == TRUE & runnerup == FALSE ~ "age2plus",
+           weighted==FALSE & age2plus == FALSE & runnerup == TRUE ~ "runnerup"
+         ),
+         tested = case_when(
+           total == FALSE & effect == "sex_age" ~ "age-by-sex",
+           total == TRUE & effect=="sex_age" ~ "size-corrected age-by-sex",
+           total == TRUE & effect=="sex_all" ~ "size-corrected sex effect",
+         )) %>%
+  select(tested, analysis, cv_sample, n_sig, n, mean_s, pct_sig)
+all_sum 
+
+#look at just CT for age2plus
+ct_sum <- LR.df_plot %>%
+  dplyr::filter(pheno_cat=="Regional CT") %>%
+  group_by(total, effect, cv_sample, age2plus, weighted, runnerup) %>%
+  summarise(n_sig = sum(sig_fdr==TRUE),
+            n=n(),
+            mean_s = mean(sig_resi, na.rm=T),
+            min_s = min(sig_resi, na.rm=T),
+            max_s = max(sig_resi, na.rm=T)) %>%
+  ungroup() %>%
+  mutate(pct_sig = (n_sig/n)*100,
+         analysis = case_when(
+           weighted==FALSE & age2plus == FALSE & runnerup == FALSE ~ "main",
+           weighted==TRUE & age2plus == FALSE & runnerup == FALSE ~ "weighted",
+           weighted==FALSE & age2plus == TRUE & runnerup == FALSE ~ "age2plus",
+           weighted==FALSE & age2plus == FALSE & runnerup == TRUE ~ "runnerup"
+         ),
+         tested = case_when(
+           total == FALSE & effect == "sex_age" ~ "age-by-sex",
+           total == TRUE & effect=="sex_age" ~ "size-corrected age-by-sex",
+           total == TRUE & effect=="sex_all" ~ "size-corrected sex effect",
+         )) %>%
+  select(tested, analysis, cv_sample, n_sig, n, mean_s, pct_sig)
+ct_sum
+```
 
 #Non-Corrected Model
 
 ```{r}
 LR.df_uncor <- LR.df_plot %>%
-  dplyr::filter(total==FALSE & weighted == FALSE & age2plus=="FALSE")
+  dplyr::filter(total==FALSE) %>%
+  filter_sensitivity() #remove sensitivity analysis rows
 
 LR.df_uncor %>%
   group_by(cv_sample) %>%
@@ -194,37 +252,25 @@ B_plt_uncor <- plot_cv_brain(df = LR.df_uncor_novent_B,
                           fill_values = NULL)
 saveRDS(B_plt_uncor, "figs/ggobjs/agebysex_B.rds")
 ```
-###Weighted
-Sensitivity analyses with inverse weighting by euler
+
+###Sensitivity Analyses
+
+summarise across sensitivity analyses
 
 ```{r}
-LR.df_plot %>%
-  dplyr::filter(total==FALSE) %>%
-  group_by(cv_sample, weighted, age2plus) %>%
-  summarise(n_sig = sum(sig_fdr==TRUE),
-            n=n(),
-            mean_s = mean(sig_resi, na.rm=T)) %>%
-  mutate(pct_sig = (n_sig/n)*100)
-
-#find phenos where both weighted and unweighted are significant
-LR.df_agree <- LR.df_plot %>%
-  dplyr::filter(total == FALSE & age2plus == FALSE) %>%
-  group_by(cv_sample, pheno) %>%
-  filter(
-    all(sig_fdr == TRUE) &        # all rows must be sig
-    n_distinct(weighted) == 2     # both levels of weighted must be present
-  ) %>%
-  ungroup()
-
-LR.df_agree %>%
-  group_by(cv_sample) %>%
-  summarise(n=n()/2)
+all_sum %>% filter(tested=="age-by-sex")
+ct_sum %>% filter(tested=="age-by-sex")
 ```
+
+#### Weighted
+
+Sensitivity analyses with inverse weighting by euler
 
 ```{r}
 #removing ventricles for visualization:
 LR.df_w_novent <- LR.df_plot %>%
-  filter(total==FALSE & weighted==TRUE & age2plus==FALSE) %>%
+  filter(total==FALSE) %>%
+  filter_sensitivity(keep="weighted") %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
@@ -243,25 +289,18 @@ full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
 ggsave("figs/supplement/resi_uncorrected_weight.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
 
-##CT in ages 2+
+####CT in ages 2+
 Sensitivity analyses
 
 ```{r}
-LR.df_plot %>%
-  dplyr::filter(weighted==FALSE & total==FALSE & pheno_cat == "Regional CT") %>%
-  group_by(cv_sample, age2plus) %>%
-  summarise(n_sig = sum(sig_fdr==TRUE),
-            n=n(),
-            mean_s = mean(sig_resi, na.rm=T)) %>%
-  mutate(pct_sig = (n_sig/n)*100)
-
-#find phenos where both weighted and unweighted are significant
+#find phenos where both full and age2plus are significant
 LR.df_agree <- LR.df_plot %>%
-  dplyr::filter(total == FALSE & weighted==FALSE) %>%
+  dplyr::filter(total == FALSE) %>%
+  filter_sensitivity(keep="age2plus") %>%
   group_by(cv_sample, pheno) %>%
   filter(
     all(sig_fdr == TRUE) &        # all rows must be sig
-    n_distinct(age2plus) == 2     # both levels of weighted must be present
+    n_distinct(age2plus) == 2     # both levels of age2plus must be present
   ) %>%
   ungroup()
 
@@ -275,7 +314,8 @@ similar but slightly larger S, slightly fewer significant regions
 ```{r}
 #removing ventricles for visualization:
 LR.df_w_novent <- LR.df_plot %>%
-  filter(total==FALSE & weighted==FALSE & age2plus==TRUE) %>%
+  filter(total==FALSE) %>%
+  filter_sensitivity(keep="age2plus") %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
@@ -295,6 +335,32 @@ full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
 ggsave("figs/supplement/resi_uncorrected_age2plus.png", full_plt_uncor, dpi=600, height=3, width=5, bg = "white")
 ```
 
+####Runner-Up
+Sensitivity analyses
+
+```{r}
+#removing ventricles for visualization:
+LR.df_w_novent <- LR.df_plot %>%
+  filter(total==FALSE) %>%
+  filter_sensitivity(keep="runnerup") %>%
+  filter(!(pheno %in% vent_list))
+range(LR.df_w_novent$resi)
+full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
+                          fill_var = resi, 
+                          fill_name = "S", 
+                          fill_color =  "grDevices::Greens 2", 
+                          fill_limits =  c(0,0.1),
+                          facet_var= "cv_sample",
+                          #height_list=c(1.03, 4.5, .93), 
+                          return_plt = TRUE, 
+                          include_global = FALSE,
+                          include_subcort = FALSE,
+                          #rel_widths = c(3, .6),
+                          direction = -1,
+                          fill_values = NULL) #keeping same scale from main models
+
+ggsave("figs/supplement/resi_uncorrected_runnerup.png", full_plt_uncor, dpi=600, height=3, width=5, bg = "white")
+```
 
 #TBV-Corrected Models
 
@@ -302,23 +368,22 @@ ggsave("figs/supplement/resi_uncorrected_age2plus.png", full_plt_uncor, dpi=600,
 
 ```{r}
 LR.df_tot <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age" & weighted == FALSE & age2plus == FALSE)
-
-table(LR.df_tot$sig_fdr)
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  filter_sensitivity()
 
 LR.df_tot %>%
 group_by(cv_sample) %>%
   summarise(n_sig = sum(sig_fdr==TRUE),
             n=n(),
-            mean_s = mean(sig_resi, na.rm=T)) %>%
+            mean_fsq = mean(sig_fsq, na.rm=T),
+            mean_s = mean(sig_resi, na.rm=T),
+            min_s = min(sig_resi, na.rm=T),
+            max_s = max(sig_resi, na.rm=T)) %>%
   mutate(pct_sig = (n_sig/n)*100)
 
 ggplot(LR.df_tot) +
   geom_histogram(aes(x=sig_resi, fill=pheno_cat), position='identity', alpha=0.6) +
   facet_wrap(~cv_sample)
-
-range(LR.df_tot$sig_fsq, na.rm=T)
-range(LR.df_tot$sig_resi, na.rm=T)
 ```
 
 ```{r}
@@ -343,53 +408,23 @@ full_plt_tot <- plot_cv_brain(df = LR.df_tot_novent,
 ggsave("figs/supplement/resi_tbv.png", full_plt_tot, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
 
-Note phenos with age*sex effects, per LR tests
-```{r}
-#consistent age*sex effects in both CV splits
-consistent_agesex <- LR.df_tot %>%
-  pivot_wider(id_cols=c(pheno, total, weighted, pheno_cat, label), names_from="cv_sample", values_from = c(chi, df, p_val, fsq, effect, resi, p.val_fdr, sig_fdr, sig_fsq, sig_resi)) %>%
-  filter(sig_fdr_A == TRUE & sig_fdr_B == TRUE) %>%
-  pull(pheno)
+###Sensitivity Analyses
 
-#just within each sample
-sig_agesex <- LR.df_tot %>%
-  mutate(samp_pheno = paste(cv_sample, pheno, sep="_")) %>%
-  filter(sig_fdr==TRUE) %>%
-  pull(samp_pheno)
+summarise across all main/sensitivity analyses
+
+```{r}
+all_sum %>% filter(tested=="size-corrected age-by-sex")
+ct_sum %>% filter(tested=="size-corrected age-by-sex")
 ```
 
-###Weighted
+#### Weighted
 Sensitivity analyses with inverse weighting by euler
-
-```{r}
-LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age" & age2plus==FALSE) %>%
-  group_by(cv_sample, weighted) %>%
-  summarise(n_sig = sum(sig_fdr==TRUE),
-            n=n(),
-            mean_s = mean(sig_resi, na.rm=T)) %>%
-  mutate(pct_sig = (n_sig/n)*100)
-
-#find phenos where both weighted and unweighted are significant
-LR.df_agree <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age" & age2plus==FALSE) %>%
-  group_by(cv_sample, pheno) %>%
-  filter(
-    all(sig_fdr == TRUE) &        # all rows must be sig
-    n_distinct(weighted) == 2     # both levels of weighted must be present
-  ) %>%
-  ungroup()
-
-LR.df_agree %>%
-  group_by(cv_sample) %>%
-  summarise(n=n()/2)
-```
-more regions are significant in weighted analyses
 
 ```{r}
 #removing ventricles for visualization:
 LR.df_w_novent <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age" & weighted==TRUE & age2plus==FALSE) %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  filter_sensitivity(keep="weighted") %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
@@ -408,29 +443,14 @@ full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
 ggsave("figs/supplement/resi_tbv_weight.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
 
-###CT in ages 2+
-Sensitivity analyses with inverse weighting by euler
-
-```{r}
-#find phenos where both 2+ and full CT models are significant
-LR.df_agree <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age" & weighted==FALSE & pheno_cat=="Regional CT") %>%
-  group_by(cv_sample, pheno) %>%
-  filter(
-    all(sig_fdr == TRUE) &        # all rows must be sig
-    n_distinct(age2plus) == 2     # both levels of weighted must be present
-  ) %>%
-  ungroup()
-
-LR.df_agree %>%
-  group_by(cv_sample) %>%
-  summarise(n=n()/2)
-```
+#### CT in ages 2+
+Sensitivity analyses in CT, removing subjects < 2 years
 
 ```{r}
 #removing ventricles for visualization:
 LR.df_w_novent <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_age" & weighted==FALSE & age2plus==TRUE) %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  filter_sensitivity(keep="age2plus") %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
@@ -445,32 +465,49 @@ full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
                           include_subcort = FALSE,
                           rel_widths = c(3, .6),
                           direction = -1,
-                          fill_values = NULL) #keeping same scale from unweighted models
+                          fill_values = NULL) #keeping same scale from main models
 
 ggsave("figs/supplement/resi_tbv_age2plus.png", full_plt_uncor, dpi=600, height=3, width=5, bg = "white")
+```
+
+#### Runner-Up
+
+```{r}
+#removing ventricles for visualization:
+LR.df_w_novent <- LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_age") %>%
+  filter_sensitivity(keep="runnerup") %>%
+  filter(!(pheno %in% vent_list))
+range(LR.df_w_novent$resi)
+full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
+                          fill_var = resi, 
+                          fill_name = "S", 
+                          fill_color =  "grDevices::Greens 2", 
+                          fill_limits =  c(0,0.1),
+                          facet_var= "cv_sample",
+                          height_list=c(1.03, 4.5, .93), 
+                          return_plt = TRUE, 
+                          include_global = FALSE, 
+                          include_subcort = FALSE,
+                          rel_widths = c(3, .6),
+                          direction = -1,
+                          fill_values = NULL) #keeping same scale from main models
+
+ggsave("figs/supplement/resi_tbv_runnerup.png", full_plt_uncor, dpi=600, height=3, width=5, bg = "white")
 ```
 
 ##Sex Effect
 
 ```{r}
 LR.df_tot_sex <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all" & weighted == FALSE & age2plus==FALSE)
+  dplyr::filter(total==TRUE & effect=="sex_all") %>%
+  filter_sensitivity()
 
 table(LR.df_tot_sex$sig_fdr, LR.df_tot_sex$cv_sample)
 
 ggplot(LR.df_tot_sex) +
   geom_boxplot(aes(y=sig_resi, fill=pheno_cat)) +
   facet_wrap(~cv_sample)
-
-range(LR.df_tot_sex$sig_fsq, na.rm=T)
-range(LR.df_tot_sex$sig_resi, na.rm=T)
-
-LR.df_tot_sex %>%
-  filter(sig_fdr == TRUE) %>%
-  group_by(cv_sample) %>%
-  summarise(min_resi = min(sig_resi),
-            max_resi = max(sig_resi),
-            mean_resi = mean(sig_resi))
 ```
 
 ```{r}
@@ -499,7 +536,7 @@ plot just in B
 ```{r}
 #removing ventricles for visualization:
 LR.df_tot_sex_noventB <- LR.df_tot_sex_novent %>%
-  filter(cv_sample=="A")
+  filter(cv_sample=="B")
 full_plt_tot_sex_B <- plot_cv_brain(df = LR.df_tot_sex_noventB, 
                           fill_var = resi, 
                           fill_name = "S", 
@@ -517,39 +554,24 @@ full_plt_tot_sex_B <- plot_cv_brain(df = LR.df_tot_sex_noventB,
 saveRDS(full_plt_tot_sex_B, "figs/ggobjs/full_plt_tot_sex_B.rds")
 ```
 
-###Weighted
-Sensitivity analyses with inverse weighting by euler
+###Sensitivity Analyses
+
+summarise across all main/sensitivity analyses
 
 ```{r}
-LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all" & age2plus == FALSE) %>%
-  group_by(cv_sample, weighted) %>%
-  summarise(n_sig = sum(sig_fdr==TRUE),
-            n=n(),
-            mean_resi = mean(sig_resi, na.rm=T)) %>%
-  mutate(pct_sig = (n_sig/n)*100)
-
-#find phenos where both weighted and unweighted are significant
-LR.df_agree <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all" & age2plus == FALSE) %>%
-  group_by(cv_sample, pheno) %>%
-  filter(
-    all(sig_fdr == TRUE) &        # all rows must be sig
-    n_distinct(weighted) == 2     # both levels of weighted must be present
-  ) %>%
-  ungroup()
-
-LR.df_agree %>%
-  group_by(cv_sample) %>%
-  summarise(n=n()/2)
+all_sum %>% filter(tested=="size-corrected sex effect")
+ct_sum %>% filter(tested=="size-corrected sex effect")
 ```
 
-RESIs and n significant regions are basically identical across weighted and unweighted models 
+#### Weighted
+Sensitivity analyses with inverse weighting by euler
+
 
 ```{r}
 #removing ventricles for visualization:
 LR.df_w_novent <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all" & weighted==TRUE) %>%
+  dplyr::filter(total==TRUE & effect=="sex_all") %>%
+  filter_sensitivity(keep="weighted") %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
@@ -568,39 +590,13 @@ full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
 ggsave("figs/supplement/resi_tbv_allsex_weight.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
 
-###CT in ages 2+
-Sensitivity analyses with inverse weighting by euler
-
-```{r}
-LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all" & weighted == FALSE & pheno_cat == "Regional CT") %>%
-  group_by(cv_sample, age2plus) %>%
-  summarise(n_sig = sum(sig_fdr==TRUE),
-            n=n(),
-            mean_resi = mean(sig_resi, na.rm=T)) %>%
-  mutate(pct_sig = (n_sig/n)*100)
-
-#find phenos where both 2+ and full CT models are significant
-LR.df_agree <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all" & weighted==FALSE & pheno_cat=="Regional CT") %>%
-  group_by(cv_sample, pheno) %>%
-  filter(
-    all(sig_fdr == TRUE) &        # all rows must be sig
-    n_distinct(age2plus) == 2     # both levels of weighted must be present
-  ) %>%
-  ungroup()
-
-LR.df_agree %>%
-  group_by(cv_sample) %>%
-  summarise(n=n()/2)
-```
-
-RESIs and n significant regions are basically identical
+#### CT in ages 2+
 
 ```{r}
 #removing ventricles for visualization:
 LR.df_w_novent <- LR.df_plot %>%
-  dplyr::filter(total==TRUE & effect=="sex_all" & age2plus==TRUE & weighted==FALSE) %>%
+  dplyr::filter(total==TRUE & effect=="sex_all") %>%
+  filter_sensitivity(keep="age2plus") %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
@@ -620,12 +616,37 @@ full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
 ggsave("figs/supplement/resi_tbv_allsex_age2plus.png", full_plt_uncor, dpi=600, height=3, width=5, bg = "white")
 ```
 
+#### Runner-Up
+```{r}
+#removing ventricles for visualization:
+LR.df_w_novent <- LR.df_plot %>%
+  dplyr::filter(total==TRUE & effect=="sex_all") %>%
+  filter_sensitivity(keep="runnerup") %>%
+  filter(!(pheno %in% vent_list))
+range(LR.df_w_novent$resi)
+full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
+                          fill_var = resi, 
+                          fill_name = "S", 
+                          fill_color =  "grDevices::Greens 2", 
+                          fill_limits =  c(0,0.2),
+                          facet_var= "cv_sample",
+                          height_list=c(1.03, 4.5, .93), 
+                          return_plt = TRUE, 
+                          include_global = FALSE,
+                          include_subcort = FALSE,
+                          rel_widths = c(3, .6),
+                          direction = -1,
+                          fill_values = NULL)
+  
+ggsave("figs/supplement/resi_tbv_allsex_runnerup.png", full_plt_uncor, dpi=600, height=3, width=5, bg = "white")
+```
+
 ##Save Table
 save out csv with all significance tests
 
 ```{r}
 LR_table <- LR.df_plot %>%
-  select(total, effect, weighted, age2plus, pheno_cat, pheno, cv_sample, chi, df, p_val, fsq, resi, p.val_fdr, sig_fdr) %>%
+  select(total, effect, weighted, age2plus, runnerup, pheno_cat, pheno, cv_sample, chi, df, p_val, fsq, resi, p.val_fdr, sig_fdr) %>%
   rename(total_size_covar = total,
          effect_tested = effect,
          surfhole_weighted = weighted,
@@ -636,7 +657,4 @@ LR_table <- LR.df_plot %>%
   mutate(effect_tested = ifelse(effect_tested=="sex_age", "age-varying sex component", "any sex effect"))
 
 fwrite(LR_table, "figs/supplement/significance_test_results.csv")
-
-#save for review_trajectories.Rmd
-saveRDS(LR.df_plot, "./data/LR_df_plot.rds")
 ```
