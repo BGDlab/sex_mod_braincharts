@@ -296,7 +296,7 @@ Sensitivity analyses
 #find phenos where both full and age2plus are significant
 LR.df_agree <- LR.df_plot %>%
   dplyr::filter(total == FALSE) %>%
-  filter_sensitivity(keep="age2plus") %>%
+  filter_sensitivity(sens = setdiff(sensitivity_cols, "age2plus")) %>% #keep both levels of age2plus
   group_by(cv_sample, pheno) %>%
   filter(
     all(sig_fdr == TRUE) &        # all rows must be sig
@@ -345,21 +345,20 @@ LR.df_w_novent <- LR.df_plot %>%
   filter_sensitivity(keep="runnerup") %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
-full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
-                          fill_var = resi, 
-                          fill_name = "S", 
-                          fill_color =  "grDevices::Greens 2", 
+full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
+                          fill_var = resi,
+                          fill_name = "S",
+                          fill_color =  "grDevices::Greens 2",
                           fill_limits =  c(0,0.1),
                           facet_var= "cv_sample",
-                          #height_list=c(1.03, 4.5, .93), 
-                          return_plt = TRUE, 
-                          include_global = FALSE,
-                          include_subcort = FALSE,
-                          #rel_widths = c(3, .6),
+                          height_list=c(1.03, 4.5, .93),
+                          return_plt = TRUE,
+                          include_global = TRUE,
+                          rel_widths = c(3, .6),
                           direction = -1,
                           fill_values = NULL) #keeping same scale from main models
 
-ggsave("figs/supplement/resi_uncorrected_runnerup.png", full_plt_uncor, dpi=600, height=3, width=5, bg = "white")
+ggsave("figs/supplement/resi_uncorrected_runnerup.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
 
 #TBV-Corrected Models
@@ -479,21 +478,20 @@ LR.df_w_novent <- LR.df_plot %>%
   filter_sensitivity(keep="runnerup") %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
-full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
-                          fill_var = resi, 
-                          fill_name = "S", 
-                          fill_color =  "grDevices::Greens 2", 
+full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
+                          fill_var = resi,
+                          fill_name = "S",
+                          fill_color =  "grDevices::Greens 2",
                           fill_limits =  c(0,0.1),
                           facet_var= "cv_sample",
-                          height_list=c(1.03, 4.5, .93), 
-                          return_plt = TRUE, 
-                          include_global = FALSE, 
-                          include_subcort = FALSE,
+                          height_list=c(1.03, 4.5, .93),
+                          return_plt = TRUE,
+                          include_global = TRUE,
                           rel_widths = c(3, .6),
                           direction = -1,
                           fill_values = NULL) #keeping same scale from main models
 
-ggsave("figs/supplement/resi_tbv_runnerup.png", full_plt_uncor, dpi=600, height=3, width=5, bg = "white")
+ggsave("figs/supplement/resi_tbv_runnerup.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
 
 ##Sex Effect
@@ -624,21 +622,20 @@ LR.df_w_novent <- LR.df_plot %>%
   filter_sensitivity(keep="runnerup") %>%
   filter(!(pheno %in% vent_list))
 range(LR.df_w_novent$resi)
-full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
-                          fill_var = resi, 
-                          fill_name = "S", 
-                          fill_color =  "grDevices::Greens 2", 
+full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
+                          fill_var = resi,
+                          fill_name = "S",
+                          fill_color =  "grDevices::Greens 2",
                           fill_limits =  c(0,0.2),
                           facet_var= "cv_sample",
-                          height_list=c(1.03, 4.5, .93), 
-                          return_plt = TRUE, 
-                          include_global = FALSE,
-                          include_subcort = FALSE,
+                          height_list=c(1.03, 4.5, .93),
+                          return_plt = TRUE,
+                          include_global = TRUE,
                           rel_widths = c(3, .6),
                           direction = -1,
                           fill_values = NULL)
-  
-ggsave("figs/supplement/resi_tbv_allsex_runnerup.png", full_plt_uncor, dpi=600, height=3, width=5, bg = "white")
+
+ggsave("figs/supplement/resi_tbv_allsex_runnerup.png", full_plt_uncor, dpi=600, height=8.5, width=7.1, bg = "white")
 ```
 
 ##Save Table
