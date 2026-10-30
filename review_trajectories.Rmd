@@ -631,35 +631,38 @@ prop_above <- function(x, y, threshold=0){
   return(prop_above)
 }
 
-test <- sexdiffs_tbv %>%
-  filter(cv_sample =="A" & pheno=="CBV")
-prop_above(test$age_days, test$centile_M_minus_F_agez)
-ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
+#spot-check prop_above: pick a random split & pheno (or pass them in), plot the curve w/ prop_above annotated
+test_prop_above <- function(df, split = NULL, phen = NULL, y_col = "centile_M_minus_F_agez", threshold = 0){
+  #sample from existing split x pheno combos, restricted to any values passed in
+  combos <- distinct(df, cv_sample, pheno)
+  if (!is.null(split)) combos <- filter(combos, cv_sample == split)
+  if (!is.null(phen)) combos <- filter(combos, pheno == phen)
+  if (nrow(combos) == 0) {
+    message("no data for cv_sample = ", split, ", pheno = ", phen)
+    return(invisible(NULL))
+  }
+  pick <- slice_sample(combos, n = 1)
+  split <- pick$cv_sample
+  phen <- pick$pheno
 
-test <- sexdiffs_tbv %>%
-  filter(cv_sample =="A" & pheno=="WMV")
-prop_above(test$age_days, test$centile_M_minus_F_agez)
-ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
+  test <- df %>%
+    filter(cv_sample == split & pheno == phen) %>%
+    arrange(age_days)
 
-test <- sexdiffs_tbv %>%
-  filter(cv_sample =="B" & pheno=="rh.GM.insula")
-prop_above(test$age_days, test$centile_M_minus_F_agez)
-ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
+  prop <- prop_above(test$age_days, test[[y_col]], threshold = threshold)
 
-test <- sexdiffs_tbv %>%
-  filter(cv_sample =="B" & pheno=="GMV")
-prop_above(test$age_days, test$centile_M_minus_F_agez)
-ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
+  ggplot(test) +
+    geom_hline(yintercept = threshold, linetype = "dashed", color = "grey50") +
+    geom_line(aes(x = age_days, y = .data[[y_col]])) +
+    annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.5,
+             label = paste0("prop_above = ", round(prop, 3))) +
+    labs(title = paste0(phen, " (sample ", split, ")"))
+}
 
-test <- sexdiffs_tbv %>%
-  filter(cv_sample =="B" & pheno=="lh.SA.pericalcarine")
-prop_above(test$age_days, test$centile_M_minus_F_agez)
-ggplot(test) +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_agez))
+test_prop_above(sexdiffs_tbv)
+test_prop_above(sexdiffs_tbv)
+test_prop_above(sexdiffs_tbv)
+test_prop_above(sexdiffs_tbv, split = "B", phen = "lh.SA.pericalcarine")
 ```
 
 ```{r}
@@ -726,7 +729,7 @@ full_above_plt <- plot_cv_brain(df=prop_above_df_novent_age2plus,
 ggsave("figs/supplement/prop_male_tbvTRUE_age2plus.png", full_above_plt, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
 
-####Sigma
+###Sigma
 
 ```{r}
 dominance_df %>%
