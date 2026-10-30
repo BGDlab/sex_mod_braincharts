@@ -138,9 +138,8 @@ dist_sd <- function(family, mu, sigma, nu = NULL, tau = NULL) {
 
 # Centile-based approximation of the SD, e.g. one value per age from predictAll() output
 # Half the distance between the p and 1-p centiles, scaled so it equals the SD for a normal
-# distribution: p = 0.75 gives IQR / 1.349 (the semi-interquartile range, Rigby et al. 2019
-# sec 2.3), p = pnorm(1) gives half the 16th-84th centile range
-# Unlike dist_sd(), it always exists, even when heavy tails make the variance infinite
+# distribution: p = 0.75 gives IQR / 1.349 (the semi-interquartile range rescaled to normal curve to approx. SD, 
+# Rigby et al. 2019 sec 2.3), p = pnorm(1) gives half the 16th-84th centile range
 centile_sd <- function(family, mu, sigma, nu = NULL, tau = NULL, p = 0.75) {
   qfun <- get(paste0("q", family), mode = "function")
   params <- Filter(Negate(is.null), list(mu = mu, sigma = sigma, nu = nu, tau = tau)) #drop unused moments
