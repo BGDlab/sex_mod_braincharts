@@ -25,10 +25,10 @@ LR.df_plot <- readRDS("./data/LR_df_plot.rds")
 #Trajectories
 Read in sexdiff csvs
 ```{r}
-total_test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test/*_totalTRUE*/"
+total_test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test*/*_totalTRUE*/"
 sex_diffs_paths <- Sys.glob(file.path(total_test_path, "cent_csvs/*_uniform_sexdiffs.csv")) #only total-size-corrected
 
-stopifnot(length(sex_diffs_paths) <= (length(pheno_list)*2*2) + (68*2)) #two splits, weighted & unweighted, plus age2plus CT (68 phenos * 2 splits)
+stopifnot(length(sex_diffs_paths) <= (length(pheno_list)*2*3) + (68*2)) #two splits (main, weighted, & runnerup), plus age2plus CT (68 phenos * 2 splits)
 
 # Read all matching CSVs
 output_fread_sd <- lapply(sex_diffs_paths, fread)
@@ -40,6 +40,7 @@ sexdiffs_tbv_all <- bind_rows(output_fread_sd, .id="file") %>%
          #total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
          weighted = stringr::str_detect(file, "weight"),
          age2plus = stringr::str_detect(file, "age2plus"),
+         runnerup = stringr::str_detect(file, "runnerup"),
          pheno = stringr::str_remove(basename(file), "_uniform_sexdiffs\\.csv")) %>%
   mutate(pheno_cat = factor(case_when(
     pheno %in% vent_list ~ "Ventricular Vol",
@@ -51,7 +52,7 @@ sexdiffs_tbv_all <- bind_rows(output_fread_sd, .id="file") %>%
     TRUE ~ NA_character_)),
     age_days = un_log(logAge_days)) %>%
   dplyr::select(!file) %>%
-  group_by(weighted, cv_sample, pheno, age2plus) %>%
+  group_by(cv_sample, pheno, age2plus, weighted, runnerup) %>%
   arrange(logAge_days, .by_group = TRUE) %>%
   mutate(#chain rule per taki's suggestion
     deriv_age = get_deriv(logAge_days, age_days)) %>%
@@ -63,13 +64,13 @@ rm(output_fread_sd) #save space
 write out separate dfs
 ```{r}
 sexdiffs_tbv <- sexdiffs_tbv_all %>%
-  filter(weighted==FALSE & age2plus == FALSE)
+  filter_sensitivity()
 ```
 
 check for undefined variances
 ```{r}
 sexdiffs_tbv_all %>% 
-   group_by(weighted, cv_sample, pheno) %>%
+   group_by(weighted, age2plus, runnerup, cv_sample, pheno) %>%
   summarise(pct_NA = (sum(is.na(centile_M_minus_F_agez))/n())*100) %>%
   filter(pct_NA > 1) %>%
   arrange(desc(pct_NA))
@@ -81,6 +82,34 @@ Average across splits to make summary plots for global phenos
 
 ```{r}
 sum_cols <- setdiff(names(sexdiffs_tbv), c("logAge_days", "cv_sample", "weighted", "pheno", "pheno_cat", "age_days"))
+
+#test plots
+sexdiffs_tbv %>%
+  filter(pheno %in% global_list) %>%
+  group_by(pheno, age_days) %>%
+  #filtering outliers
+  filter(age_days >= 370) %>%
+  summarise(across(all_of(sum_cols), mean)) %>%
+  ggplot() +
+  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+  geom_line(aes(x=age_days, y=centile_M_minus_F_agez, group=pheno, color=pheno), linewidth=1.5)
+
+sexdiffs_tbv %>%
+  filter(pheno %in% global_list) %>%
+  group_by(pheno, age_days) %>%
+  #filtering outliers
+  filter(age_days >= 370) %>%
+  summarise(across(all_of(sum_cols), mean)) %>%
+  ggplot() +
+  geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
+  geom_line(aes(x=age_days, y=log_M_div_F, group=pheno, color=pheno), linewidth=1.5)
+```
+
+```{r}
+sexdiffs_tbv %>%
+  filter(pheno %in% global_list) %>%
+  group_by(pheno, cv_sample) %>%
+  summarise(min_age = min(age_days))
 
 glob_mean <- sexdiffs_tbv %>%
   filter(pheno %in% global_list) %>%
@@ -258,13 +287,13 @@ endpoint_change <- function(age, y, lower, upper) {
   diff_max <- approx(age, y, xout = hi, rule = 1)$y
   diff_max - diff_min
 }
-limits <- tidyr::expand_grid(lower = c("min", "0", "1", "3", "5"), upper = c("60", "70", "80", "max"))
+limits <- tidyr::expand_grid(lower = c("min", "0", "1", "2", "3", "5"), upper = c("60", "70", "80", "max"))
 
 endpoint_df <- sexdiffs_tbv_all %>%
   filter(age2plus == FALSE) %>%
   mutate(abs_diff = abs(centile_M_minus_F_agez),
          age_yrs = (age_days - 280) / 365.25) %>%
-  group_by(weighted, cv_sample, pheno) %>%
+  group_by(weighted, runnerup, cv_sample, pheno) %>%
   arrange(age_yrs, .by_group = TRUE) %>%
   reframe(min_age_yrs = min(age_yrs),
           max_age_yrs = max(age_yrs),
@@ -275,16 +304,21 @@ endpoint_df <- sexdiffs_tbv_all %>%
   mutate(overall_trajectory = ifelse(change <0 ,"converging", "diverging")) %>%
   unite(range_tested, c(lower, upper))
 
-table(endpoint_df$weighted, endpoint_df$overall_trajectory)
-table(endpoint_df$range_tested, endpoint_df$overall_trajectory)
-
 range(endpoint_df$min_age_yrs)
 range(endpoint_df$max_age_yrs)
+
+endpoint_df %>%
+  filter(!is.na(overall_trajectory)) %>%
+  group_by(weighted, runnerup, cv_sample, range_tested) %>%
+  summarise(n_diverging  = sum(overall_trajectory == "diverging"),
+            n_converging = sum(overall_trajectory == "converging"),
+            n_tested     = n()) %>%
+  mutate(diverging_ratio = n_diverging / n_converging)
 
 #chi sq test
 endpoint_df %>%
   filter(!is.na(overall_trajectory)) %>%
- group_by(weighted, cv_sample, range_tested) %>%
+ group_by(weighted, runnerup, cv_sample, range_tested) %>%
   summarise(p_val = chisq.test(c(sum(overall_trajectory=="converging"), sum(overall_trajectory=="diverging")), p = c(0.5, 0.5))$p.value) %>%
   group_by(weighted, cv_sample) %>%
   mutate(
@@ -302,7 +336,7 @@ endpoint_df_ratio <- sexdiffs_tbv_all %>%
   filter(age2plus == FALSE) %>%
   mutate(abs_diff = abs(log_M_div_F),
          age_yrs = (age_days - 280) / 365.25) %>%
-  group_by(weighted, cv_sample, pheno) %>%
+  group_by(weighted, runnerup, cv_sample, pheno) %>%
   arrange(age_yrs, .by_group = TRUE) %>%
   reframe(min_age_yrs = min(age_yrs),
           max_age_yrs = max(age_yrs),
@@ -313,18 +347,23 @@ endpoint_df_ratio <- sexdiffs_tbv_all %>%
   mutate(overall_trajectory = ifelse(change <0 ,"converging", "diverging")) %>%
   unite(range_tested, c(lower, upper))
 
-table(endpoint_df_ratio$weighted, endpoint_df_ratio$overall_trajectory)
-table(endpoint_df_ratio$range_tested, endpoint_df_ratio$overall_trajectory)
+endpoint_df_ratio %>%
+  filter(!is.na(overall_trajectory)) %>%
+  group_by(weighted, runnerup, cv_sample, range_tested) %>%
+  summarise(n_diverging  = sum(overall_trajectory == "diverging"),
+            n_converging = sum(overall_trajectory == "converging"),
+            n_tested     = n()) %>%
+  mutate(diverging_ratio = n_diverging / n_converging)
 ```
 
-**Method 1: Slope-based**
+**Method 2: Slope-based**
 Slope of abs(diff) ~ age
 
 ```{r}
 slope_df <- sexdiffs_tbv_all %>%
   mutate(abs_diff = abs(centile_M_minus_F_agez),
          age_yrs = (age_days - 280) / 365.25) %>%
-  group_by(weighted, age2plus, cv_sample, pheno) %>%
+  group_by(weighted, age2plus, runnerup, cv_sample, pheno) %>%
   arrange(age_yrs, .by_group = TRUE) %>%
   #days each grid point covers, so every day of life counts equally
   mutate(day_wt = c(diff(age_days), last(diff(age_days)))) %>%
@@ -332,14 +371,20 @@ slope_df <- sexdiffs_tbv_all %>%
   filter(term == "age_yrs") %>%
   mutate(overall_trajectory = ifelse(estimate < 0, "converging", "diverging"))
 
-table(slope_df$overall_trajectory)
+slope_df %>%
+  group_by(weighted, age2plus, runnerup, cv_sample) %>%
+   summarise(n_diverging  = sum(overall_trajectory == "diverging"),
+            n_converging = sum(overall_trajectory == "converging"),
+            n_tested     = n()) %>%
+  mutate(diverging_ratio = n_diverging / n_converging)
 
 slope_df %>%
   mutate(weighted = ifelse(weighted == TRUE, "weighted", "unweighted"),
-         age2plus = ifelse(age2plus == TRUE, "ages 2+", "lifespan")) %>%
+         age2plus = ifelse(age2plus == TRUE, "ages 2+", "lifespan"),
+         runnerup = ifelse(runnerup == TRUE, "2nd-best fit", "best fit")) %>%
 ggplot() +
   geom_histogram(aes(x=estimate, fill=overall_trajectory), alpha=0.5, position="identity", bins=50) +
-  facet_grid(cv_sample ~ weighted + age2plus) +
+  facet_grid(cv_sample ~ weighted + age2plus + runnerup) +
   theme_bw()
 ```
 
@@ -348,7 +393,7 @@ tmp rerunning with log-ratio-based standardization
 ratio_slope_df <- sexdiffs_tbv_all %>%
   mutate(abs_diff = abs(log_M_div_F),
          age_yrs = (age_days - 280) / 365.25) %>%
-  group_by(weighted, age2plus, cv_sample, pheno) %>%
+  group_by(weighted, age2plus, runnerup, cv_sample, pheno) %>%
   arrange(age_yrs, .by_group = TRUE) %>%
   #days each grid point covers, so every day of life counts equally
   mutate(day_wt = c(diff(age_days), last(diff(age_days)))) %>%
@@ -356,43 +401,99 @@ ratio_slope_df <- sexdiffs_tbv_all %>%
   filter(term == "age_yrs") %>%
   mutate(overall_trajectory = ifelse(estimate < 0, "converging", "diverging"))
 
-table(ratio_slope_df$overall_trajectory)
+ratio_slope_df %>%
+  group_by(weighted, age2plus, runnerup, cv_sample) %>%
+  summarise(n_diverging  = sum(overall_trajectory == "diverging"),
+            n_converging = sum(overall_trajectory == "converging"),
+            n_tested     = n()) %>%
+  mutate(diverging_ratio = n_diverging / n_converging)
 
 ratio_slope_df %>%
   mutate(weighted = ifelse(weighted == TRUE, "weighted", "unweighted"),
-         age2plus = ifelse(age2plus == TRUE, "ages 2+", "lifespan")) %>%
+         age2plus = ifelse(age2plus == TRUE, "ages 2+", "lifespan"),
+         runnerup = ifelse(runnerup == TRUE, "2nd-best fit", "best fit")) %>%
 ggplot() +
   geom_histogram(aes(x=estimate, fill=overall_trajectory), alpha=0.5, position="identity", bins=50) +
-  facet_grid(cv_sample ~ weighted + age2plus) +
+  facet_grid(cv_sample ~ weighted + age2plus + runnerup) +
   theme_bw()
 ```
 
 ####Sigma
 *Do sex-differences in variance (sigma) tend to increase, decrease, or remain constant across the lifespan?*
 
-Taking derivative of lnCVR squared:
-- positive derivative -> increasing sex diffs
-- negative derivative -> decreasing sex diffs
-- 0 derivative -> constant sex diffs
+**Method 1: Endpoint-based**
 
 ```{r}
-sigma_df <- sexdiffs_tbv_all %>%
-  arrange(pheno, logAge_days) %>%
-  mutate(sq_cv_diff = (logcv_M_div_F)^2) %>%
-  group_by(pheno, cv_sample, weighted, age2plus) %>%
-  arrange(logAge_days, .by_group = TRUE) %>%
-  mutate(sq_cv_deriv = get_deriv(sq_cv_diff, logAge_days)) %>%
-  ungroup() %>%
-  mutate(sq_cv_deriv.unlog = sq_cv_deriv*deriv_age)
+sigma_endpoint_df <- sexdiffs_tbv_all %>%
+  filter(age2plus == FALSE) %>%
+  mutate(abs_cv_diff = abs(logcv_M_div_F),
+         age_yrs = (age_days - 280) / 365.25) %>%
+  group_by(weighted, runnerup, cv_sample, pheno) %>%
+  arrange(age_yrs, .by_group = TRUE) %>%
+  reframe(min_age_yrs = min(age_yrs),
+          max_age_yrs = max(age_yrs),
+          lower = limits$lower,
+          upper = limits$upper,
+          change = mapply(endpoint_change, lower = limits$lower, upper = limits$upper,
+                          MoreArgs = list(age = age_yrs, y = abs_cv_diff))) %>%
+  mutate(overall_trajectory = ifelse(change <0 ,"converging", "diverging")) %>%
+  unite(range_tested, c(lower, upper))
 
-#try getting integral
-sigma_convergence_df <- sigma_df %>%
-  group_by(pheno, cv_sample, pheno_cat, weighted, age2plus)%>%
-  arrange(logAge_days, .by_group = TRUE) %>%
-  na.omit() %>%
-  summarise(sq_int_z = trapz(logAge_days, sq_cv_deriv),
-            sq_int_z.unlog = rs_integral(logAge_days, sq_cv_deriv)) %>%
-  mutate(overall_trajectory = ifelse(sq_int_z <0 ,"converging", "diverging"))
+range(sigma_endpoint_df$min_age_yrs)
+range(sigma_endpoint_df$max_age_yrs)
+
+sigma_endpoint_df %>%
+  filter(!is.na(overall_trajectory)) %>%
+  group_by(weighted, runnerup, cv_sample, range_tested) %>%
+  summarise(n_diverging  = sum(overall_trajectory == "diverging"),
+            n_converging = sum(overall_trajectory == "converging"),
+            n_tested     = n()) %>%
+  mutate(diverging_ratio = n_diverging / n_converging)
+
+#chi sq test
+sigma_endpoint_df %>%
+  filter(!is.na(overall_trajectory)) %>%
+ group_by(weighted, runnerup, cv_sample, range_tested) %>%
+  summarise(p_val = chisq.test(c(sum(overall_trajectory=="converging"), sum(overall_trajectory=="diverging")), p = c(0.5, 0.5))$p.value) %>%
+  group_by(weighted, cv_sample) %>%
+  mutate(
+    p.val_bf = p.adjust(
+      p_val,
+      method = "bonferroni"
+    )
+  )
+```
+
+**Method 2: Slope-based**
+Slope of abs(diff) ~ age
+
+```{r}
+sigma_slope_df <- sexdiffs_tbv_all %>%
+  mutate(abs_cv_diff = abs(logcv_M_div_F),
+         age_yrs = (age_days - 280) / 365.25) %>%
+  group_by(weighted, age2plus, runnerup, cv_sample, pheno) %>%
+  arrange(age_yrs, .by_group = TRUE) %>%
+  #days each grid point covers, so every day of life counts equally
+  mutate(day_wt = c(diff(age_days), last(diff(age_days)))) %>%
+  reframe(broom::tidy(lm(abs_cv_diff ~ age_yrs, weights = day_wt), conf.int = TRUE)) %>%
+  filter(term == "age_yrs") %>%
+  mutate(overall_trajectory = ifelse(estimate < 0, "converging", "diverging"))
+
+sigma_slope_df %>%
+  group_by(weighted, age2plus, runnerup, cv_sample) %>%
+   summarise(n_diverging  = sum(overall_trajectory == "diverging"),
+            n_converging = sum(overall_trajectory == "converging"),
+            n_tested     = n()) %>%
+  mutate(diverging_ratio = n_diverging / n_converging)
+
+sigma_slope_df %>%
+  mutate(weighted = ifelse(weighted == TRUE, "weighted", "unweighted"),
+         age2plus = ifelse(age2plus == TRUE, "ages 2+", "lifespan"),
+         runnerup = ifelse(runnerup == TRUE, "2nd-best fit", "best fit")) %>%
+ggplot() +
+  geom_histogram(aes(x=estimate, fill=overall_trajectory), alpha=0.5, position="identity", bins=50) +
+  facet_grid(cv_sample ~ weighted + age2plus + runnerup) +
+  theme_bw()
 ```
 
 ###Sex-Dominance
