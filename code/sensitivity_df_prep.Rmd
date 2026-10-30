@@ -45,7 +45,7 @@ df_euler %>%
   geom_boxplot(aes(x=study, y=SurfaceHoles))
 ```
 
-playing around with re-scaling euler w/in study
+re-scaling euler w/in study
 ```{r}
 df_euler2 <- df_euler %>%
   group_by(study) %>%
@@ -120,14 +120,6 @@ ggplot(og_splits)+
   theme(legend.position="none")
 ```
 
-
-```{r}
-og_splits %>% 
-  filter(study=="SLIP") %>%
-  ggplot() +
-  geom_violin(aes(x=sample, y=age_days, fill=as.factor(sexMale)))
-```
-
 save
 ```{r, eval=FALSE}
 fwrite(og_sample_A_weight, "./data/cv_sample_A_euler.csv")
@@ -140,11 +132,11 @@ Rerun CT in ages 2+
 ```{r}
 two_yrs <- 365.25*2 + 280
 og_sample_A_age2plus <- og_sample_A %>%
-  filter(age_days >= two_yrs)
+  filter(age_days >= two_yrs & fs_version_CT != "FSInfant")
 stopifnot(table(og_sample_A_age2plus$fs_version_CT)[["FSInfant"]] ==0)
 
 og_sample_B_age2plus <- og_sample_B %>%
-  filter(age_days >= two_yrs)
+  filter(age_days >= two_yrs & fs_version_CT != "FSInfant")
 stopifnot(table(og_sample_B_age2plus$fs_version_CT)[["FSInfant"]] ==0)
 ```
 
