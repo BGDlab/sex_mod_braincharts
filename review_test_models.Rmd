@@ -296,7 +296,7 @@ Sensitivity analyses
 #find phenos where both full and age2plus are significant
 LR.df_agree <- LR.df_plot %>%
   dplyr::filter(total == FALSE) %>%
-  filter_sensitivity(keep="age2plus") %>%
+  filter_sensitivity(sens = setdiff(sensitivity_cols, "age2plus")) %>%
   group_by(cv_sample, pheno) %>%
   filter(
     all(sig_fdr == TRUE) &        # all rows must be sig
