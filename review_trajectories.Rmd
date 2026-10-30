@@ -22,7 +22,6 @@ stopifnot(file.exists("./data/LR_df_plot.rds")) #run review_test_models.Rmd firs
 LR.df_plot <- readRDS("./data/LR_df_plot.rds")
 ```
 
-#Trajectories
 Read in sexdiff csvs
 ```{r}
 total_test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test*/*_totalTRUE*/"
@@ -76,7 +75,7 @@ sexdiffs_tbv_all %>%
   arrange(desc(pct_NA))
 ```
 
-###Plots
+#Global Plots
 
 Average across splits to make summary plots for global phenos
 
@@ -266,7 +265,7 @@ glob_mean_sums_long %>%
   mutate(age=(age-280)/365.25)
 ```
 
-###Convergence vs Divergence
+#Convergence vs Divergence
 
 *Do sex-differences tend to increase, decrease, or remain constant across the lifespan?*
 
@@ -418,7 +417,7 @@ ggplot() +
   theme_bw()
 ```
 
-####Sigma
+##Sigma
 *Do sex-differences in variance (sigma) tend to increase, decrease, or remain constant across the lifespan?*
 
 **Method 1: Endpoint-based**
@@ -496,18 +495,18 @@ ggplot() +
   theme_bw()
 ```
 
-###Sex-Dominance
+# Sex-Dominance
 *Which regions on average are bigger/more variable in males vs females and at what points in the lifespan?*
 Now look at sex-dominance with integrals (M-F > or < 0)
 Calculating across age, not log-age, for interpretability
 
 ```{r}
 dominance_df <- sexdiffs_tbv_all %>%
-  group_by(pheno, cv_sample, pheno_cat, weighted, age2plus) %>%
+  group_by(pheno, cv_sample, pheno_cat, runnerup, weighted, age2plus) %>%
   arrange(logAge_days, .by_group = TRUE) %>%
   summarise(centile_int.unlog = rs_integral(logAge_days, centile_M_minus_F_agez), #z-score normalization
-            centile_int_ratio.unlog = rs_integral(logAge_days, log_M_div_F),
-            sigma_int.unlog =  rs_integral(logAge_days, logcv_M_div_F), #log-ratio normalization
+            centile_int_ratio.unlog = rs_integral(logAge_days, log_M_div_F),#log-ratio normalization
+            sigma_int.unlog =  rs_integral(logAge_days, logcv_M_div_F), #sigma log-ratio normalization
             age_range = max(age_days) - min(age_days)) %>%
   # rescaling integrals to 100 years
   mutate(centile_int_norm.unlog = (centile_int.unlog/age_range)*365.25*100,
@@ -542,23 +541,27 @@ dominance_df %>%
 
 dominance_df %>%
   filter(age2plus==FALSE) %>%
-  group_by(pheno_cat, cv_sample, weighted) %>% 
+  group_by(pheno_cat, cv_sample, runnerup, weighted) %>% 
   dplyr::count(dominance_norm, pheno_cat, cv_sample) %>% 
   mutate(perc = n / sum(n)) %>% 
+  mutate(weighted = ifelse(weighted == TRUE, "weighted", "unweighted"),
+         runnerup = ifelse(runnerup == TRUE, "2nd-best fit", "best fit")) %>%
   ggplot(aes(x=pheno_cat, y=perc, fill=dominance_norm)) +
   geom_col(position="fill") +
-  facet_grid(weighted~cv_sample) +
+  facet_grid(cv_sample ~ weighted + runnerup) +
     geom_text(aes(label = scales::percent(perc)), position = position_fill(vjust = 0.5)) +
   coord_flip()
 
 dominance_df %>%
   filter(age2plus==FALSE) %>%
-  group_by(pheno_cat, cv_sample, weighted) %>% 
+  group_by(pheno_cat, cv_sample, runnerup, weighted) %>% 
   dplyr::count(dominance_norm_ratio, pheno_cat, cv_sample) %>% 
   mutate(perc = n / sum(n)) %>% 
+  mutate(weighted = ifelse(weighted == TRUE, "weighted", "unweighted"),
+         runnerup = ifelse(runnerup == TRUE, "2nd-best fit", "best fit")) %>%
   ggplot(aes(x=pheno_cat, y=perc, fill=dominance_norm_ratio)) +
   geom_col(position="fill") +
-  facet_grid(weighted~cv_sample) +
+  facet_grid(cv_sample ~ weighted + runnerup) +
     geom_text(aes(label = scales::percent(perc)), position = position_fill(vjust = 0.5)) +
   coord_flip()
 ```
@@ -574,11 +577,11 @@ LR.df_sigagesex <- LR.df_plot %>%
 
 dominance_plt_df <- inner_join(LR.df_sig, dominance_df %>% dplyr::select(!pheno_cat))
 sig_dominance_df <- dominance_plt_df %>%
-  mutate(dominance_norm = ifelse(sig_fdr==TRUE, dominance_norm, "NA"),
-         dominance_norm_ratio = ifelse(sig_fdr==TRUE, dominance_norm_ratio, "NA"))
+  mutate(dominance_norm = ifelse(sig_fdr==TRUE, dominance_norm, "NS"),
+         dominance_norm_ratio = ifelse(sig_fdr==TRUE, dominance_norm_ratio, "NS"))
 
 sig_dominance_df %>%
-  group_by(cv_sample, weighted, age2plus) %>%
+  group_by(cv_sample, weighted, runnerup, age2plus) %>%
   summarise(F_dom_norm = sum(dominance_norm=="Female", na.rm=T)/n(),
             M_dom_norm = sum(dominance_norm=="Male", na.rm=T)/n(),
             F_dom_ratio = sum(dominance_norm_ratio=="Female", na.rm=T)/n(),
@@ -588,16 +591,18 @@ sig_dominance_df %>%
 thresholding for sensitivity
 
 ```{r}
-ggplot(sig_dominance_df) +
-  geom_histogram(aes(x=centile_int_norm.unlog, fill=dominance_norm))
-ggplot(sig_dominance_df) +
-  geom_histogram(aes(x=centile_int_norm_ratio.unlog, fill=dominance_norm_ratio))
+#just stick with main analyses
+main_sig_dominance <- sig_dominance_df %>%
+  filter_sensitivity()
 
 #z-score normalization
-ggplot(dominance_df) +
+ggplot(main_sig_dominance) +
+  geom_histogram(aes(x=centile_int_norm.unlog, fill=dominance_norm))
+
+ggplot(main_sig_dominance) +
   geom_histogram(aes(x=abs(centile_int_norm.unlog/36525), fill=dominance_norm), position="identity", alpha=.4, bins=50)
 
-dominance_df %>%
+main_sig_dominance %>%
   mutate(pseudo_d = abs(centile_int_norm.unlog/36525)) %>%
   group_by(dominance_norm) %>%
   summarise(no_threshold = n(),
@@ -611,12 +616,17 @@ dominance_df %>%
     male_female_ratio = Male / Female,
     prop_male = Male / (Male + Female)
   )
+```
 
+```{r}
 #log-ratio normalization - dividing by 100 years but multiplying by 100 for percents
-ggplot(dominance_df) +
+ggplot(main_sig_dominance) +
+  geom_histogram(aes(x=centile_int_norm_ratio.unlog, fill=dominance_norm_ratio))
+
+ggplot(main_sig_dominance) +
   geom_histogram(aes(x=abs(centile_int_norm_ratio.unlog/365.25), fill=dominance_norm_ratio), position="identity", alpha=.4, bins=50)
 
-dominance_df %>%
+main_sig_dominance %>%
   mutate(pseudo_d = abs(centile_int_norm_ratio.unlog/365.25)) %>% #not sure about denominator here
   group_by(dominance_norm_ratio) %>%
   summarise(no_threshold = n(),
@@ -637,7 +647,8 @@ plot dominance on brain
 ```{r}
 #removing ventricles for visualization:
 dominance_plt_df_novent <- dominance_plt_df %>%
-  filter(total==TRUE & weighted==FALSE & age2plus==FALSE) %>%
+  filter(total==TRUE) %>%
+  filter_sensitivity() %>%
   filter(!(pheno %in% vent_list))
 range(dominance_plt_df_novent$centile_int_norm.unlog)
 
@@ -663,12 +674,16 @@ full_dom_plt_tmp <- plot_cv_brain(df=dominance_plt_df_novent,
 ggsave("figs/supplement/tmp_dominance_tbvTRUE_ratio.png", full_dom_plt_tmp, dpi=600, height=8.5, width=7.5, bg = "white")
 
 ```
-Also plot weighted and age2plus for sensitivity
+
+###Sensitivity
+
+**Weighted**
 
 ```{r}
 #removing ventricles for visualization:
 dominance_plt_df_weight <- dominance_plt_df %>%
-  filter(total==TRUE & weighted==TRUE & age2plus==FALSE) %>%
+  filter(total==TRUE ) %>%
+  filter_sensitivity(keep="weighted") %>%
   filter(!(pheno %in% vent_list))
 range(dominance_plt_df_weight$centile_int_norm.unlog)
 
@@ -683,10 +698,13 @@ full_dom_plt_weighted <- plot_cv_brain(df=dominance_plt_df_weight,
 ggsave("figs/supplement/dominance_tbvTRUE_weighted.png", full_dom_plt_weighted, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
 
+**Age 2+**
+
 ```{r}
 #removing ventricles for visualization:
 dominance_plt_df_age2plus <- dominance_plt_df %>%
-  filter(total==TRUE & weighted==FALSE & age2plus==TRUE) %>%
+  filter(total==TRUE) %>%
+  filter_sensitivity(keep="age2plus") %>%
   filter(pheno %in% ct_list)
 range(dominance_plt_df_age2plus$centile_int_norm.unlog)
 
@@ -702,6 +720,27 @@ full_dom_plt_age2plus <- plot_cv_brain(df=dominance_plt_df_age2plus,
 
 ggsave("figs/supplement/dominance_tbvTRUE_age2plus.png", full_dom_plt_age2plus, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
+
+```{r}
+#removing ventricles for visualization:
+dominance_plt_df_weight <- dominance_plt_df %>%
+  filter(total==TRUE ) %>%
+  filter_sensitivity(keep="runnerup") %>%
+  filter(!(pheno %in% vent_list))
+range(dominance_plt_df_weight$centile_int_norm.unlog)
+
+full_dom_plt_weighted <- plot_cv_brain(df=dominance_plt_df_weight, 
+                              fill_var=centile_int_norm.unlog, 
+                              fill_name="Sex Diff\n(Std.)", 
+                              fill_color="ggthemes::Orange-Blue Diverging", 
+                              fill_limits= c(-12000, 12000), #keep color scale consistent
+                              height_list=c(1.03, 4.5, .93), 
+                              direction=1)
+
+ggsave("figs/supplement/dominance_tbvTRUE_runnerup.png", full_dom_plt_weighted, dpi=600, height=8.5, width=7.5, bg = "white")
+```
+
+##Lifespan Proportions
 
 How much of the lifespan are phenos male vs female dominant?
 
@@ -796,7 +835,10 @@ full_above_plt <- plot_cv_brain(df=prop_above_df_novent_main,
 ggsave("figs/supplement/prop_male_tbvTRUE.png", full_above_plt, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
 
-plot weighted & age 2+ sensitivity
+#### Sensitivity
+
+**Weighted Plot**
+
 ```{r}
 prop_above_df_novent_weighted <- prop_above_df_novent %>%
   filter(weighted==TRUE & age2plus==FALSE)
@@ -810,6 +852,8 @@ full_above_plt <- plot_cv_brain(df=prop_above_df_novent_weighted,
 
 ggsave("figs/supplement/prop_male_tbvTRUE_weighted.png", full_above_plt, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
+
+**Age 2+ Plot**
 
 ```{r}
 prop_above_df_novent_age2plus <- prop_above_df_novent %>%
@@ -826,6 +870,8 @@ full_above_plt <- plot_cv_brain(df=prop_above_df_novent_age2plus,
 
 ggsave("figs/supplement/prop_male_tbvTRUE_age2plus.png", full_above_plt, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
+
+**Runnerup Plot**
 
 ####Sigma
 
@@ -998,7 +1044,7 @@ full_dom_plt_sigmaB <- plot_cv_brain(df=dominance_plt_df_B,
 saveRDS(full_dom_plt_sigmaB, "figs/ggobjs/sig_dom_B.rds")
 ```
 
-####Spin Test
+###Spin Test
 
 exploratory check whether sex-dominance in trajectories is associated with sex-dominance in variance
 
@@ -1110,7 +1156,7 @@ spin_out %>%
 ```
 
 
-###Grouping
+#Grouping
 grouping by M vs F, converging vs diverging
 
 ```{r}
@@ -1475,7 +1521,7 @@ group_traj_plt_B <- group_traj_final %>%
 saveRDS(group_traj_plt_B, "figs/ggobjs/cent_groups_traj_B.rds")
 ```
 
-####Sigma
+##Sigma
 
 ```{r}
 prop_above_sigma_df_main <- prop_above_sigma_df %>% filter(weighted==FALSE & age2plus==FALSE)
@@ -1712,7 +1758,7 @@ for (w in c(FALSE, TRUE)) {
 }
 ```
 
-###Data-Driven Clustering
+#Data-Driven Clustering
 
 ```{r}
 clust_fun <- function(df, clust_var, k){
@@ -1910,7 +1956,7 @@ for (df in list(LR.df_tot.uA, LR.df_tot.uB, LR.df_tot.uA_w, LR.df_tot.uB_w)){
 }
 ```
 
-####Sigma
+##Sigma
 
 ```{r}
 for (df in list(LR.df_tot.uA, LR.df_tot.uB, LR.df_tot.uA_w, LR.df_tot.uB_w)){
