@@ -45,25 +45,29 @@ LR.df %>%
   summarise(n_phenos = n_unique(pheno))
 
 A_totalFALSE <- LR.df %>%
-  filter(cv_sample == "A" & total == "FALSE" & weighted == "FALSE" & age2plus=="FALSE") %>%
+  filter(cv_sample == "A" & total == "FALSE") %>%
+  filter_sensitivity() %>%
   pull(pheno) %>%
   unique()
 setdiff(pheno_list, A_totalFALSE)
 
 A_totalTRUE <- LR.df %>%
-  filter(cv_sample == "A" & total == "TRUE" & weighted == "FALSE" & age2plus=="FALSE") %>%
+  filter(cv_sample == "A" & total == "TRUE") %>%
+  filter_sensitivity() %>%
   pull(pheno) %>%
   unique()
 setdiff(pheno_list, A_totalTRUE)
 
 B_totalFALSE <- LR.df %>%
-  filter(cv_sample == "B" & total == "FALSE" & weighted == "FALSE" & age2plus=="FALSE") %>%
+  filter(cv_sample == "B" & total == "FALSE") %>%
+  filter_sensitivity() %>%
   pull(pheno) %>%
   unique()
 setdiff(pheno_list, B_totalFALSE)
 
 B_totalTRUE <- LR.df %>%
-  filter(cv_sample == "B" & total == "TRUE" & weighted == "FALSE" & age2plus=="FALSE") %>%
+  filter(cv_sample == "B" & total == "TRUE") %>%
+  filter_sensitivity() %>%
   pull(pheno) %>%
   unique()
 setdiff(pheno_list, B_totalTRUE)
@@ -153,7 +157,7 @@ all_sum <- LR.df_plot %>%
          analysis = case_when(
            weighted==FALSE & age2plus == FALSE & runnerup == FALSE ~ "main",
            weighted==TRUE & age2plus == FALSE & runnerup == FALSE ~ "weighted",
-           weighted==FALSE & age2plus == TRUE & runnerup == FALSE ~ "age2plus",
+           weighted==FALSE & age2plus == TRUE & runnerup == FALSE ~ "age2plus", #should have no rows
            weighted==FALSE & age2plus == FALSE & runnerup == TRUE ~ "runnerup"
          ),
          tested = case_when(
@@ -161,7 +165,7 @@ all_sum <- LR.df_plot %>%
            total == TRUE & effect=="sex_age" ~ "size-corrected age-by-sex",
            total == TRUE & effect=="sex_all" ~ "size-corrected sex effect",
          )) %>%
-  select(tested, analysis, cv_sample, n_sig, n, mean_s, pct_sig)
+  select(tested, analysis, cv_sample, n_sig, n, mean_s, min_s, max_s, pct_sig)
 all_sum 
 
 #look at just CT for age2plus
@@ -177,16 +181,16 @@ ct_sum <- LR.df_plot %>%
   mutate(pct_sig = (n_sig/n)*100,
          analysis = case_when(
            weighted==FALSE & age2plus == FALSE & runnerup == FALSE ~ "main",
-           weighted==TRUE & age2plus == FALSE & runnerup == FALSE ~ "weighted",
+           weighted==TRUE & age2plus == FALSE & runnerup == FALSE ~ "weighted", #should have no rows
            weighted==FALSE & age2plus == TRUE & runnerup == FALSE ~ "age2plus",
-           weighted==FALSE & age2plus == FALSE & runnerup == TRUE ~ "runnerup"
+           weighted==FALSE & age2plus == FALSE & runnerup == TRUE ~ "runnerup" #should have no rows
          ),
          tested = case_when(
            total == FALSE & effect == "sex_age" ~ "age-by-sex",
            total == TRUE & effect=="sex_age" ~ "size-corrected age-by-sex",
            total == TRUE & effect=="sex_all" ~ "size-corrected sex effect",
          )) %>%
-  select(tested, analysis, cv_sample, n_sig, n, mean_s, pct_sig)
+  select(tested, analysis, cv_sample, n_sig, n, mean_s, min_s, max_s, pct_sig)
 ct_sum
 ```
 
