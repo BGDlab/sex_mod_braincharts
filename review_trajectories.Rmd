@@ -986,7 +986,7 @@ proportion male-dominant
 
 ```{r}
 prop_above_sigma_df <- sexdiffs_tbv_all %>%
-  group_by(pheno, cv_sample, pheno_cat, weighted, age2plus) %>%
+  group_by(pheno, cv_sample, pheno_cat, weighted, age2plus, runnerup) %>%
   arrange(age_days, .by_group = TRUE) %>%
   summarise(prop_male = prop_above(age_days, logcv_M_div_F)) %>%
   ungroup() %>%
@@ -1029,10 +1029,12 @@ full_above_sig_plt <- plot_cv_brain(df=prop_above_sigma_df_novent_main,
 
 ggsave("figs/supplement/prop_male_sigma_tbvTRUE.png", full_above_sig_plt, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
+
 plot sensitivity analyses
 
 ```{r}
-prop_above_sigma_df_novent_weighted <- prop_above_sigma_df_novent %>% filter(weighted==TRUE & age2plus==FALSE)
+#weighted
+prop_above_sigma_df_novent_weighted <- prop_above_sigma_df_novent %>% filter_sensitivity(keep="weighted")
 
 full_above_sig_plt_weighted <- plot_cv_brain(df=prop_above_sigma_df_novent_weighted, 
                                     fill_var=prop_male, 
@@ -1043,7 +1045,8 @@ full_above_sig_plt_weighted <- plot_cv_brain(df=prop_above_sigma_df_novent_weigh
 
 ggsave("figs/supplement/prop_male_sigma_tbvTRUE_weighted.png", full_above_sig_plt_weighted, dpi=600, height=8.5, width=7.5, bg = "white")
 
-prop_above_sigma_df_novent_age2plus <- prop_above_sigma_df_novent %>% filter(weighted==FALSE & age2plus==TRUE)
+#age 2 plus
+prop_above_sigma_df_novent_age2plus <- prop_above_sigma_df_novent %>% filter_sensitivity(keep="age2plus")
 
 full_above_sig_plt_age2plus <- plot_cv_brain(df=prop_above_sigma_df_novent_age2plus, 
                                     fill_var=prop_male, 
@@ -1055,6 +1058,18 @@ full_above_sig_plt_age2plus <- plot_cv_brain(df=prop_above_sigma_df_novent_age2p
                                     height_list=c(1.03, 4.5, .93))
 
 ggsave("figs/supplement/prop_male_sigma_tbvTRUE_age2plus.png", full_above_sig_plt_age2plus, dpi=600, height=4, width=7.5, bg = "white")
+
+#runnerup
+prop_above_sigma_df_novent_runnerup <- prop_above_sigma_df_novent %>% filter_sensitivity(keep="runnerup")
+
+full_above_sig_plt_runnerup <- plot_cv_brain(df=prop_above_sigma_df_novent_runnerup, 
+                                    fill_var=prop_male, 
+                                    fill_name="Proportion\nMale-\nDominant", 
+                                    fill_color="ggthemes::Orange-Blue Diverging", 
+                                    fill_limits= c(0, 1), 
+                                    height_list=c(1.03, 4.5, .93))
+
+ggsave("figs/supplement/prop_male_sigma_tbvTRUE_runnerup.png", full_above_sig_plt_runnerup, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
 
 Prep for fig 2
@@ -1630,7 +1645,7 @@ saveRDS(group_traj_plt_B, "figs/ggobjs/cent_groups_traj_B.rds")
 ##Sigma
 
 ```{r}
-prop_above_sigma_df_main <- prop_above_sigma_df %>% filter(weighted==FALSE & age2plus==FALSE)
+prop_above_sigma_df_main <- prop_above_sigma_df %>% filter_sensitivity()
 
 ggplot(prop_above_sigma_df_main) +
   geom_histogram(aes(x=prop_male)) +
@@ -1655,7 +1670,7 @@ prop_above_sigma_df %>%
 prop_above_sigma_df2 <- inner_join(prop_above_sigma_df, LR.df_sigagesex)
 
 #add info about convergence vs divergence
-prop_above_sigma_df3 <- inner_join(prop_above_sigma_df2, convergence_int) %>%
+prop_above_sigma_df3 <- inner_join(prop_above_sigma_df2, slope_df) %>%
   mutate(class = paste(class, overall_trajectory, sep="_"))
 
 prop_above_sigma_df3 %>%
@@ -1667,14 +1682,14 @@ prop_above_sigma_df3 %>%
   facet_grid(weighted~age2plus)
 ```
 
-what's going on with the mixed phenotypes?
+mixed phenotypes
 
 ```{r}
 #add back trajectory
-sigma_group_cd <- full_join(sexdiffs_tbv_all, prop_above_sigma_df3)
+sigma_group_cd <- inner_join(sexdiffs_tbv_all, prop_above_sigma_df3)
 
 sigma_group_cd %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>% #ignore sensitivity for now
+  filter_sensitivity() %>%
   filter(sig_fdr==TRUE & (class=="mixed_converging" | class=="mixed_diverging")) %>%
   arrange(pheno, logAge_days) %>%
     ggplot() +
@@ -1685,16 +1700,16 @@ sigma_group_cd %>%
 #try simple grouping by sign at start and end (Lena's method)
 sigma_group_cd_mix <- sigma_group_cd %>%
   filter(class=="mixed_converging" | class=="mixed_diverging") %>%
-  select(logAge_days, cv_sample, pheno, logcv_M_div_F, weighted, age2plus) %>%
+  select(logAge_days, cv_sample, pheno, logcv_M_div_F, weighted, age2plus, runnerup) %>%
   arrange(logAge_days) %>%
-  group_by(weighted, age2plus, cv_sample, pheno) %>%
+  group_by(weighted, age2plus, runnerup, cv_sample, pheno) %>%
   slice(c(1,n())) %>%
   mutate(sex = ifelse(logcv_M_div_F > 0 , "M", "F")) %>%
   summarise(switch = paste(first(sex), last(sex), sep = "_to_"), .groups = "drop")
 table(sigma_group_cd_mix$switch, sigma_group_cd_mix$cv_sample)
 
 sigma_mixed_plt2 <- full_join(sigma_group_cd, sigma_group_cd_mix) %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>%
+  filter_sensitivity() %>%
   filter(class=="mixed_converging" | class=="mixed_diverging" & sig_fdr==TRUE) %>%
   arrange(pheno, logAge_days) %>%
     ggplot() +
@@ -1704,7 +1719,6 @@ sigma_mixed_plt2 <- full_join(sigma_group_cd, sigma_group_cd_mix) %>%
 
 #ggplotly(sigma_mixed_plt2)
 ```
-sample A rh.CT.lateraloccipital is the only feature thats wiggly, doesn't just switch M-F or vice versa
 
 ```{r}
 group_sig_traj_final <- full_join(sigma_group_cd, sigma_group_cd_mix) %>%
@@ -1725,7 +1739,7 @@ group_sig_traj_final <- full_join(sigma_group_cd, sigma_group_cd_mix) %>%
   ))
 
 group_sig_final <- group_sig_traj_final %>%
-  select(cv_sample, total, weighted, age2plus, pheno, pheno_cat, class,
+  select(cv_sample, total, weighted, runnerup, age2plus, pheno, pheno_cat, class,
          prop_male, strict_class, resi, sig_fdr, overall_trajectory,
          switch, sig_group, label, parent_group) %>%
   distinct() %>%
@@ -1737,14 +1751,24 @@ group_sig_final <- group_sig_traj_final %>%
 #group
 group_sig_final %>%
   filter(age2plus==FALSE) %>%
-  group_by(weighted, cv_sample, sig_group) %>%
+  mutate(analysis = case_when(
+           weighted==FALSE & runnerup == FALSE ~ "main",
+           weighted==TRUE & runnerup == FALSE ~ "weighted",
+           weighted==FALSE & runnerup == TRUE ~ "runnerup"
+         )) %>%
+  group_by(analysis, cv_sample, sig_group) %>%
   summarise(n = n()) %>%
   mutate(pct = (n / sum(n))*100)
 
 #parent groups
 group_sig_final %>%
-  filter(age2plus==FALSE) %>%
-  group_by(weighted, cv_sample, parent_group) %>%
+filter(age2plus==FALSE) %>%
+  mutate(analysis = case_when(
+           weighted==FALSE & runnerup == FALSE ~ "main",
+           weighted==TRUE & runnerup == FALSE ~ "weighted",
+           weighted==FALSE & runnerup == TRUE ~ "runnerup"
+         )) %>%
+  group_by(analysis, cv_sample, parent_group) %>%
   summarise(n = n()) %>%
   mutate(pct = (n / sum(n))*100)
 ```
@@ -1753,11 +1777,12 @@ group_sig_final %>%
 Plot group outputs for each value of weighted==T/F
 
 ```{r}
-for (w in c(FALSE, TRUE)) {
-  plot_suffix <- if (w) "_weighted" else ""
+for (w in c("main", "weighted", "runnerup")) {
+  plot_suffix <- ifelse(w=="main", "", paste0("_", w))
+  keep_col <- if (w == "main") NULL else w
 
-  gf  <- group_sig_final %>% filter(weighted == w & age2plus == FALSE)
-  gtf <- group_sig_traj_final %>% filter(weighted == w & age2plus == FALSE)
+  gf  <- group_sig_final %>% filter_sensitivity(keep=keep_col)
+  gtf <- group_sig_traj_final %>% filter_sensitivity(keep=keep_col)
 
 ###BARPLOTS OF COUNTS###
   group_bar_plt_total <- gf %>%
