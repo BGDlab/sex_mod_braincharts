@@ -1135,7 +1135,7 @@ prep dominance dfs
 ```{r}
 spin_prep <- dominance_df %>%
   ungroup() %>%
-  filter(age2plus==FALSE & weighted==FALSE) %>%
+  filter_sensitivity() %>%
   filter(pheno %in% c(sa_list, ct_list, vol_list)) %>%
   select(pheno, cv_sample, pheno_cat, centile_int_norm.unlog, sigma_int_norm.unlog) %>%
   mutate(hemi = stringr::str_extract(pheno, "(lh|rh)"),
@@ -1144,6 +1144,7 @@ spin_prep <- dominance_df %>%
 #check pheno names match
 stopifnot(all(unique(spin_prep$pheno[spin_prep$hemi == "lh"]) %in% rownames(lhcoords)))
 stopifnot(all(unique(spin_prep$pheno[spin_prep$hemi == "rh"]) %in% rownames(rhcoords)))
+
 #check region counts = 34
 region_counts <- spin_prep %>%
   group_by(cv_sample, pheno_cat, hemi) %>%
@@ -1204,81 +1205,62 @@ spin_out %>%
 grouping by M vs F, converging vs diverging
 
 ```{r}
-prop_above_df_main <- prop_above_df %>% filter(weighted==FALSE & age2plus==FALSE)
+prop_above_df_main <- prop_above_df %>%
+  filter_sensitivity()
 
 ggplot(prop_above_df_main) +
   geom_histogram(aes(x=prop_male)) +
   geom_vline(xintercept = .05) +
   geom_vline(xintercept = .95)
 
-# > 95% lifespan in one sex
-prop_above_df %>%
-  group_by(cv_sample, weighted, age2plus) %>%
-  summarise(n_F=sum(class=="F"),
-            n_M=sum(class=="M"),
-            n_tot=n())
-
-#100% lifespan in one sex
-prop_above_df %>%
-  group_by(cv_sample, weighted, age2plus) %>%
-  summarise(n_F=sum(strict_class=="F"),
-            n_M=sum(strict_class=="M"),
-            n_tot=n())
-
 #add age*sex significance info
 prop_above_df2 <- inner_join(prop_above_df, LR.df_sigagesex)
 
 #add info about convergence vs divergence
-prop_above_df3 <- inner_join(prop_above_df2, convergence_int) %>%
+prop_above_df3 <- inner_join(prop_above_df2, slope_df) %>%
   mutate(class = paste(class, overall_trajectory, sep="_"))
 
-prop_above_df3 %>%
-  filter(sig_fdr==TRUE) %>%
-  group_by(weighted, age2plus, cv_sample, class) %>%
-  summarise(n = n()) %>%
-  ggplot() +
-  geom_col(aes(x=cv_sample, y=n, fill=class), position="dodge") +
-  facet_grid(weighted~age2plus)
+#add back trajectory
+group_cd <- inner_join(sexdiffs_tbv_all, prop_above_df3)
+
+n_unique(group_cd$pheno)
 ```
 
 what's going on with the mixed phenotypes?
 
-```{r}
-#add back trajectory
-group_cd <- full_join(sexdiffs_tbv_all, prop_above_df3)
-
+```{r, eval=FALSE}
 mixed_plt <- group_cd %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>% #ignore sensitivity for now
+  filter_sensitivity() %>% #ignore sensitivity for now
   filter(sig_fdr==TRUE & (class=="mixed_converging" | class=="mixed_diverging")) %>%
   arrange(pheno, logAge_days) %>%
     ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_agez, group=pheno, color=pheno)) +
     facet_grid(pheno_cat~cv_sample, scales="free_y") +
   theme(legend.position="none")
 ggplotly(mixed_plt)
+```
 
+```{r}
 #try simple grouping by sign at start and end (Lena's method)
 group_cd_mix <- group_cd %>%
   filter(class=="mixed_converging" | class=="mixed_diverging") %>%
-  select(logAge_days, cv_sample, pheno, centile_M_minus_F_z, weighted, age2plus) %>%
+  select(logAge_days, cv_sample, pheno, centile_M_minus_F_agez, weighted, age2plus, runnerup) %>%
   arrange(logAge_days) %>%
-  group_by(weighted, age2plus, cv_sample, pheno) %>%
+  group_by(weighted, age2plus, runnerup, cv_sample, pheno) %>%
   slice(c(1,n())) %>%
-  mutate(sex = ifelse(centile_M_minus_F_z > 0 , "M", "F")) %>%
+  mutate(sex = ifelse(centile_M_minus_F_agez > 0 , "M", "F")) %>%
   summarise(switch = paste(first(sex), last(sex), sep = "_to_"), .groups = "drop")
 table(group_cd_mix$switch, group_cd_mix$cv_sample)
 
-mixed_plt2 <- full_join(group_cd, group_cd_mix) %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>%
+full_join(group_cd, group_cd_mix) %>%
+  filter_sensitivity() %>%
   filter(class=="mixed_converging" | class=="mixed_diverging" & sig_fdr==TRUE) %>%
   #filter(pheno != "rh.CT.rostralanteriorcingulate") %>%
   arrange(pheno, logAge_days) %>%
     ggplot() +
-    geom_line(aes(x=logAge_days, y=centile_M_minus_F_z, group=pheno, color=pheno)) +
+    geom_line(aes(x=logAge_days, y=centile_M_minus_F_agez, group=pheno, color=pheno)) +
     facet_grid(switch~cv_sample, scales="free_y") +
   theme(legend.position="none")
-
-ggplotly(mixed_plt2)
 ```
 
 ```{r}
@@ -1302,7 +1284,7 @@ group_traj_final <- full_join(group_cd, group_cd_mix) %>%
   ))
 
 group_final <- group_traj_final %>%
-  select(cv_sample, total, weighted, age2plus, pheno, pheno_cat, class,
+  select(cv_sample, total, weighted, age2plus, runnerup, pheno, pheno_cat, class,
          prop_male, strict_class, resi, sig_fdr, overall_trajectory,
          switch, cent_group, label, parent_group) %>%
   distinct() %>%
@@ -1314,17 +1296,95 @@ group_final <- group_traj_final %>%
 #group
 group_final %>%
   filter(age2plus==FALSE) %>%
-  group_by(weighted, cv_sample, cent_group) %>%
+  mutate(analysis = case_when(
+           weighted==FALSE & runnerup == FALSE ~ "main",
+           weighted==TRUE & runnerup == FALSE ~ "weighted",
+           weighted==FALSE & runnerup == TRUE ~ "runnerup"
+         )) %>%
+  group_by(analysis, cv_sample, cent_group) %>%
   summarise(n = n()) %>%
   mutate(pct = (n / sum(n))*100)
 
 #parent groups
-group_final %>%
+parent_grps <- group_final %>%
   filter(age2plus==FALSE) %>%
-  group_by(weighted, cv_sample, parent_group) %>%
+  mutate(analysis = case_when(
+           weighted==FALSE & runnerup == FALSE ~ "main",
+           weighted==TRUE & runnerup == FALSE ~ "weighted",
+           weighted==FALSE & runnerup == TRUE ~ "runnerup"
+         )) %>%
+  group_by(analysis, cv_sample, parent_group) %>%
   summarise(n = n()) %>%
   mutate(pct = (n / sum(n))*100)
+parent_grps
 ```
+
+attempt chi square test for count data
+
+```{r}
+parent_grps %>%
+  filter(parent_group != "Stable") %>%
+  group_by(analysis, cv_sample) %>%
+  reframe(tidy(chisq.test(n)))
+
+parent_grps %>%
+  filter(parent_group != "Stable") %>%
+  group_by(analysis, cv_sample) %>%
+  mutate(
+    total    = sum(n),
+    k        = n(),                 # number of categories (4)
+    expected = total / k,
+    prop     = n / total
+  ) %>%
+  rowwise() %>%
+  mutate(
+    bt       = list(binom.test(n, total, p = 1 / k)),
+    p.value  = bt$p.value,
+    ci.low   = bt$conf.int[1],
+    ci.high  = bt$conf.int[2]
+  ) %>%
+  select(-bt) %>%
+   group_by(analysis, cv_sample) %>%
+  mutate(
+    p.adj     = p.adjust(p.value, method = "bonferroni"),
+    direction = if_else(n > expected, "over", "under"),
+    sig       = p.adj < 0.05
+  ) %>%
+  ungroup()
+
+#rerun without complex
+
+parent_grps %>%
+  filter(parent_group != "Stable" & parent_group != "Complex") %>%
+  group_by(analysis, cv_sample) %>%
+  reframe(tidy(chisq.test(n)))
+
+parent_grps %>%
+  filter(parent_group != "Stable" & parent_group != "Complex") %>%
+  group_by(analysis, cv_sample) %>%
+  mutate(
+    total    = sum(n),
+    k        = n(),                 # number of categories (4)
+    expected = total / k,
+    prop     = n / total
+  ) %>%
+  rowwise() %>%
+  mutate(
+    bt       = list(binom.test(n, total, p = 1 / k)),
+    p.value  = bt$p.value,
+    ci.low   = bt$conf.int[1],
+    ci.high  = bt$conf.int[2]
+  ) %>%
+  select(-bt) %>%
+   group_by(analysis, cv_sample) %>%
+  mutate(
+    p.adj     = p.adjust(p.value, method = "bonferroni"),
+    direction = if_else(n > expected, "over", "under"),
+    sig       = p.adj < 0.05
+  ) %>%
+  ungroup()
+```
+
 
 plot formatting prep
 
@@ -1384,11 +1444,13 @@ bottom_group_legend <- get_legend(
 Plot group outputs for each value of weighted==T/F
 
 ```{r}
-for (w in c(FALSE, TRUE)) {
-  plot_suffix <- if (w) "_weighted" else ""
+for (w in c("main", "weighted", "runnerup")) {
+  
+  plot_suffix <- ifelse(w=="main", "", paste0("_", w))
+  keep_col <- if (w == "main") NULL else w
 
-  gf  <- group_final %>% filter(weighted == w & age2plus == FALSE)
-  gtf <- group_traj_final %>% filter(weighted == w & age2plus == FALSE)
+  gf  <- group_final %>% filter_sensitivity(keep=keep_col)
+  gtf <- group_traj_final %>% filter_sensitivity(keep=keep_col)
 
 ###BARPLOTS OF COUNTS###
   group_bar_plt_total <- gf %>%
@@ -1462,7 +1524,7 @@ for (w in c(FALSE, TRUE)) {
   group_traj_full <- gtf %>%
     filter(sig_fdr==TRUE & cent_group != "Complex") %>%
     arrange(pheno, age_days) %>%
-    ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
+    ggplot(aes(x=age_days, y=centile_M_minus_F_agez, color=cent_group)) +
     geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
     geom_line(aes(group=pheno), alpha=.1) +
     facet_grid(parent_group ~ cv_sample, scales="free_y") +
@@ -1499,7 +1561,7 @@ for (w in c(FALSE, TRUE)) {
 ```{r}
 #just plot B
 barplt_final <- group_final %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>%
+  filter_sensitivity() %>%
   filter(cv_sample=="B" & pheno_cat != "Ventricular Vol") %>%
   mutate(parent_group = factor(case_when(
       cent_group == "NS" ~ "Stable",
