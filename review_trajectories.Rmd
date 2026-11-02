@@ -319,7 +319,7 @@ endpoint_df %>%
   filter(!is.na(overall_trajectory)) %>%
  group_by(weighted, runnerup, cv_sample, range_tested) %>%
   summarise(p_val = chisq.test(c(sum(overall_trajectory=="converging"), sum(overall_trajectory=="diverging")), p = c(0.5, 0.5))$p.value) %>%
-  group_by(weighted, cv_sample) %>%
+  group_by(weighted, runnerup, cv_sample) %>%
   mutate(
     p.val_bf = p.adjust(
       p_val,
@@ -454,7 +454,7 @@ sigma_endpoint_df %>%
   filter(!is.na(overall_trajectory)) %>%
  group_by(weighted, runnerup, cv_sample, range_tested) %>%
   summarise(p_val = chisq.test(c(sum(overall_trajectory=="converging"), sum(overall_trajectory=="diverging")), p = c(0.5, 0.5))$p.value) %>%
-  group_by(weighted, cv_sample) %>%
+  group_by(weighted, runnerup, cv_sample) %>%
   mutate(
     p.val_bf = p.adjust(
       p_val,
@@ -533,7 +533,7 @@ skim(dominance_df)
 
 dominance_df %>%
   #filter(pheno_cat=="Regional CT") %>%
-  group_by(cv_sample, weighted, age2plus) %>%
+  group_by(cv_sample, weighted, age2plus, runnerup) %>%
   summarise(pct_male=sum(dominance_norm=="Male", na.rm=T)/n()*100,
             pct_female=sum(dominance_norm=="Female", na.rm=T)/n()*100,
             pct_male_ratio=sum(dominance_norm_ratio=="Male", na.rm=T)/n()*100,
@@ -970,16 +970,16 @@ full_dom_plt_sigma_age2plus <- plot_cv_brain(df=dominance_plt_df_age2plus,
 
 ggsave("figs/supplement/sigma_dominance_tbvTRUE_age2plus.png", full_dom_plt_sigma_age2plus, dpi=600, height=4, width=7.5, bg = "white")
 
-full_dom_plt_sigma_runnerup <- plot_cv_brain(df=dominance_plt_df_runnerup, 
-                                    fill_var=sigma_int_norm.unlog, 
-                                    fill_name="Sex Diff\n(Std.)", 
-                                    fill_color = "ggthemes::Orange-Blue Diverging", 
+range(dominance_plt_df_runnerup$sigma_int_norm.unlog)
+
+full_dom_plt_sigma_runnerup <- plot_cv_brain(df=dominance_plt_df_runnerup,
+                                    fill_var=sigma_int_norm.unlog,
+                                    fill_name="Sex Diff\n(Std.)",
+                                    fill_color = "ggthemes::Orange-Blue Diverging",
                                     fill_limits =  c(-3500, 3500),
-                                    include_global = FALSE,
-                                    include_subcort = FALSE,
                                     height_list= c(1.03, 4.5, .93))
 
-ggsave("figs/supplement/sigma_dominance_tbvTRUE_runnerup.png", full_dom_plt_sigma_runnerup, dpi=600, height=4, width=7.5, bg = "white")
+ggsave("figs/supplement/sigma_dominance_tbvTRUE_runnerup.png", full_dom_plt_sigma_runnerup, dpi=600, height=8.5, width=7.5, bg = "white")
 ```
 
 proportion male-dominant
@@ -1003,7 +1003,7 @@ prop_above_sigma_df <- sexdiffs_tbv_all %>%
 table(prop_above_sigma_df$cv_sample, prop_above_sigma_df$class)
 
 prop_above_sigma_df %>%
-  group_by(cv_sample, weighted, age2plus) %>%
+  group_by(cv_sample, weighted, age2plus, runnerup) %>%
   summarise(n_female = sum(class=="F"),
             n_male = sum(class=="M"),
             n_mixed = sum(class=="mixed"),
@@ -1018,7 +1018,7 @@ prop_above_sigma_df %>%
 prop_above_sigma_df_novent <- inner_join(LR.df_sig, prop_above_sigma_df %>% dplyr::select(!pheno_cat)) %>%
   filter(!(pheno %in% vent_list))
 
-prop_above_sigma_df_novent_main <- prop_above_sigma_df_novent %>% filter(weighted==FALSE & age2plus==FALSE)
+prop_above_sigma_df_novent_main <- prop_above_sigma_df_novent %>% filter_sensitivity()
 
 full_above_sig_plt <- plot_cv_brain(df=prop_above_sigma_df_novent_main, 
                                     fill_var=prop_male, 
@@ -1269,7 +1269,7 @@ table(group_cd_mix$switch, group_cd_mix$cv_sample)
 
 full_join(group_cd, group_cd_mix) %>%
   filter_sensitivity() %>%
-  filter(class=="mixed_converging" | class=="mixed_diverging" & sig_fdr==TRUE) %>%
+  filter((class=="mixed_converging" | class=="mixed_diverging") & sig_fdr==TRUE) %>%
   #filter(pheno != "rh.CT.rostralanteriorcingulate") %>%
   arrange(pheno, logAge_days) %>%
     ggplot() +
@@ -1603,8 +1603,8 @@ barplt_final <- group_final %>%
 saveRDS(barplt_final, "figs/ggobjs/cent_groups_barplt_B.rds")
 
 ##BRAIN PLOT
-group_finalB <- group_final %>% 
-  filter(weighted==FALSE & age2plus==FALSE) %>%
+group_finalB <- group_final %>%
+  filter_sensitivity() %>%
   filter(cv_sample=="B")
 group_brain_plt <- plot_cv_brain(group_finalB, 
                                  cent_group, 
@@ -1626,10 +1626,10 @@ saveRDS(group_brain_plt, "figs/ggobjs/cent_groups_brain_B.rds")
 
 ##TRAJECTORIES
 group_traj_plt_B <- group_traj_final %>%
-  filter(weighted==FALSE & age2plus==FALSE) %>%
+  filter_sensitivity() %>%
   filter(sig_fdr==TRUE & cv_sample=="B" & cent_group != "Complex") %>%
   arrange(pheno, age_days) %>%
-  ggplot(aes(x=age_days, y=centile_M_minus_F_z, color=cent_group)) +
+  ggplot(aes(x=age_days, y=centile_M_minus_F_agez, color=cent_group)) +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
   #geom_line(aes(group=pheno), alpha=.2) +
   facet_wrap(~parent_group, nrow=3) +
@@ -1654,14 +1654,14 @@ ggplot(prop_above_sigma_df_main) +
 
 # > 95% lifespan in one sex
 prop_above_sigma_df %>%
-  group_by(cv_sample, weighted, age2plus) %>%
+  group_by(cv_sample, weighted, age2plus, runnerup) %>%
   summarise(n_F=sum(class=="F"),
             n_M=sum(class=="M"),
             n_tot=n())
 
 #100% lifespan in one sex
 prop_above_sigma_df %>%
-  group_by(cv_sample, weighted, age2plus) %>%
+  group_by(cv_sample, weighted, age2plus, runnerup) %>%
   summarise(n_F=sum(strict_class=="F"),
             n_M=sum(strict_class=="M"),
             n_tot=n())
@@ -1670,16 +1670,16 @@ prop_above_sigma_df %>%
 prop_above_sigma_df2 <- inner_join(prop_above_sigma_df, LR.df_sigagesex)
 
 #add info about convergence vs divergence
-prop_above_sigma_df3 <- inner_join(prop_above_sigma_df2, slope_df) %>%
+prop_above_sigma_df3 <- inner_join(prop_above_sigma_df2, sigma_slope_df) %>%
   mutate(class = paste(class, overall_trajectory, sep="_"))
 
 prop_above_sigma_df3 %>%
   filter(sig_fdr==TRUE) %>%
-  group_by(weighted, age2plus, cv_sample, class) %>%
+  group_by(weighted, age2plus, runnerup, cv_sample, class) %>%
   summarise(n = n()) %>%
   ggplot() +
   geom_col(aes(x=cv_sample, y=n, fill=class), position="dodge") +
-  facet_grid(weighted~age2plus)
+  facet_grid(weighted ~ age2plus + runnerup)
 ```
 
 mixed phenotypes
@@ -1710,7 +1710,7 @@ table(sigma_group_cd_mix$switch, sigma_group_cd_mix$cv_sample)
 
 sigma_mixed_plt2 <- full_join(sigma_group_cd, sigma_group_cd_mix) %>%
   filter_sensitivity() %>%
-  filter(class=="mixed_converging" | class=="mixed_diverging" & sig_fdr==TRUE) %>%
+  filter((class=="mixed_converging" | class=="mixed_diverging") & sig_fdr==TRUE) %>%
   arrange(pheno, logAge_days) %>%
     ggplot() +
     geom_line(aes(x=logAge_days, y=logcv_M_div_F, group=pheno, color=pheno)) +
@@ -1865,7 +1865,7 @@ for (w in c("main", "weighted", "runnerup")) {
     reformat_x(gtf$age_days) +
     theme_linedraw() +
     theme(legend.position="none") +
-    labs(y="Scaled Median Sex Difference")
+    labs(y="Scaled Sex Difference in Variability")
   
   #save combined group plots for supplement
   sub_plt <- plot_grid(NULL, plts,
