@@ -182,7 +182,13 @@ if (is.null(null_model)) {
 print (paste("saving to", file_null))
 saveRDS(null_model, file=file_null)
 
-test_out <- LR.test(null_model, model, print=FALSE) #significance test
+print(paste("Full deviance:", deviance(model)))
+print(paste("Age*Sex Null deviance:", deviance(null_model)))
+#significance test
+test_out <- tryCatch({LR.test(null_model, model, print=FALSE)},
+                     error = function(e) {
+                       message(e$message, "- returning NA")
+                       list(chi = NA, df = NA, p.val = NA)})
 f2 <- cohens_f2_local(model, null_model) #effect size
 
 #TEST
@@ -192,7 +198,9 @@ test_df <- data.frame(
   "p_val" = test_out$p.val,
   "fsq" = f2,
   "pheno" = pheno,
-  "effect" = "sex_age"
+  "effect" = "sex_age",
+  "full_dev" = deviance(model),
+  "null_dev" = deviance(null_model)
 )
 
 ##################
@@ -205,7 +213,12 @@ if (total == TRUE) {
   print (paste("saving to", file_null2))
   saveRDS(null_model2, file=file_null2)
   
-  test_out2 <- LR.test(null_model2, model, print=FALSE) #significance test
+  print(paste("Full deviance:", deviance(model)))
+  print(paste("Sex Null deviance:", deviance(null_model2)))
+  test_out2 <- tryCatch({LR.test(null_model2, model, print=FALSE)},
+                        error = function(e) {
+                          message(e$message, "- returning NA")
+                          list(chi = NA, df = NA, p.val = NA)})
   f2_2 <- cohens_f2_local(model, null_model2) #effect size
   
   #TEST
@@ -215,7 +228,9 @@ if (total == TRUE) {
     "p_val" = test_out2$p.val,
     "fsq" = f2_2,
     "pheno" = pheno,
-    "effect" = "sex_all"
+    "effect" = "sex_all",
+    "full_dev" = deviance(model),
+    "null2_dev" = deviance(null_model2)
   )
   
   test_df <- rbind(test_df, test_df2)
