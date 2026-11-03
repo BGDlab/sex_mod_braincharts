@@ -135,16 +135,18 @@ gamlss_lambda_rep <- function(og_mod,
   #MU
   mu_base <- paste0(og_mod$mu.formula)[[3]]
   mu_lambdas <- og_mod$mu.lambda
+  sex_var <- get_sex_var(mu_base)
+  sex_age_var <- paste0(sex_var, "_x_logAge")
 
   #update lambdas
   if (keep_lambdas == TRUE & null_mod == "false"){
-    mu_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                   paste0("sexMale_x_logAge, lambda =", mu_lambdas[1]), mu_base)
+    mu_base <- sub(paste0(sex_age_var, ', method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)'), 
+                   paste0(sex_age_var, ", lambda =", mu_lambdas[1]), mu_base)
   } else if (null_mod != "false") {
-    mu_base <- rm_sexage(mu_base)
+    mu_base <- rm_sexage(mu_base, sex_var)
     if (null_mod == "allSex"){
       #remove sex intercept
-      mu_base <- sub('+ sexMale', '', mu_base)
+      mu_base <- sub(paste0('+ ', sex_var), '', mu_base)
     }
   } 
   
@@ -174,13 +176,13 @@ gamlss_lambda_rep <- function(og_mod,
   
   #update lambdas
   if (keep_lambdas == TRUE & null_mod == "false"){
-    sig_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                    paste0("sexMale_x_logAge, lambda =", sig_lambdas[1]), sig_base)
+    sig_base <- sub(paste0(sex_age_var, ', method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)'), 
+                    paste0(sex_age_var, ", lambda =", sig_lambdas[1]), sig_base)
   } else if (null_mod != "false") {
-    sig_base <- rm_sexage(sig_base)
+    sig_base <- rm_sexage(sig_base, sex_var)
     if (null_mod == "allSex"){
       #remove sex intercept
-      sig_base <- sub('+ sexMale', '', sig_base)
+      sig_base <- sub(paste0('+ ', sex_var), '', sig_base)
     }
   }
   
@@ -208,7 +210,7 @@ gamlss_lambda_rep <- function(og_mod,
   
   if (null_mod == "allSex"){
     #remove sex intercept
-    nu_base <- sub('+ sexMale', '', nu_base)
+    nu_base <- sub(paste0('+ ', sex_var), '', nu_base)
   }
   
   nu_form <- paste0("nu.formula = ~", nu_base)
@@ -228,6 +230,27 @@ gamlss_lambda_rep <- function(og_mod,
   result <- try_gamlss_methods(mu_form, sig_form, nu_form, control)
   
   return(result)
+}
+
+#refit_sex_coding
+#refit og_mod's exact formulas (every moment, same family) with its sex terms swapped to another coding;
+#smoothing parameters are re-selected, since the sex x age smooth's basis changes with the coding.
+#global df must have the new coding's columns (add_sex_coding())
+refit_sex_coding <- function(og_mod, sex_coding = names(sex_codings), n.cyc = 400){
+  sex_coding <- match.arg(sex_coding)
+  old_var <- get_sex_var(deparse1(og_mod$mu.formula))
+  new_var <- sex_codings[[sex_coding]]
+  recode <- function(f) gsub(old_var, new_var, deparse1(f), fixed = TRUE)
+
+  mu_form <- paste("safe_gamlss_old(formula =", recode(og_mod$mu.formula))
+  sig_form <- paste("sigma.formula =", recode(og_mod$sigma.formula))
+  nu_form <- paste("nu.formula =", recode(og_mod$nu.formula))
+  if (!is.null(og_mod$tau.formula)) {
+    nu_form <- paste0(nu_form, ", tau.formula = ", recode(og_mod$tau.formula))
+  }
+  control <- paste("control = gamlss.control(n.cyc=", n.cyc, ", nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")
+
+  try_gamlss_methods(mu_form, sig_form, nu_form, control)
 }
 
 #gamlss_lambda_etiv
@@ -473,10 +496,48 @@ try_gamlss_methods <- function(mu_form, sig_form, nu_form, control){
   
 } 
 
+### SEX CODING ###
+#female_ref: sexMale   (female=0, male=1) - original models
+#male_ref:   sexFemale (male=0, female=1)
+#effect:     sexEffect (female=-1, male=1)
+sex_codings <- c(female_ref = "sexMale", male_ref = "sexFemale", effect = "sexEffect")
+
+#expression for each coding's sex column, in terms of 0/1 sexMale (also used for sim_data special terms)
+sex_coding_expr <- c(sexMale = "as.numeric(as.character(sexMale))",
+                     sexFemale = "(1 - as.numeric(as.character(sexMale)))",
+                     sexEffect = "(2 * as.numeric(as.character(sexMale)) - 1)")
+
+#add <sex_var> and <sex_var>_x_logAge columns for a coding; sexMale is left as-is
+#and the 0/1 sexMale_x_logAge is dropped so it can't be used by mistake
+add_sex_coding <- function(df, sex_coding = names(sex_codings)) {
+  sex_coding <- match.arg(sex_coding)
+  sex_var <- sex_codings[[sex_coding]]
+  df <- as.data.frame(df)
+  df[[sex_var]] <- eval(parse(text = sex_coding_expr[[sex_var]]), df)
+  df[[paste0(sex_var, "_x_logAge")]] <- df[[sex_var]] * df$logAge_days
+  if (sex_var != "sexMale") df$sexMale_x_logAge <- NULL
+  df
+}
+
+#special_term strings for gamlssTools::sim_data() under a coding
+sex_coding_special_terms <- function(sex_coding = names(sex_codings)) {
+  sex_coding <- match.arg(sex_coding)
+  sex_var <- sex_codings[[sex_coding]]
+  terms <- paste0(sex_var, "_x_logAge = ", sex_coding_expr[[sex_var]], " * logAge_days")
+  if (sex_var != "sexMale") terms <- c(paste(sex_var, "=", sex_coding_expr[[sex_var]]), terms)
+  terms
+}
+
+#which sex column a model formula string uses (from its sex x age smooth)
+get_sex_var <- function(formula_string) {
+  hit <- regmatches(formula_string, regexpr("sex[A-Za-z]+(?=_x_logAge)", formula_string, perl = TRUE))
+  if (length(hit) == 0) "sexMale" else hit
+}
+
 #rm
-rm_sexage <- function(formula_string) {
+rm_sexage <- function(formula_string, sex_var = "sexMale") {
   sub(
-    pattern = 'pb\\(sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)\\) \\+\\s*',
+    pattern = paste0('pb\\(', sex_var, '_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)\\) \\+\\s*'),
     replacement = '',
     x = formula_string
   )
