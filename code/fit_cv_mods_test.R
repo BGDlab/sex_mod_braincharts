@@ -233,7 +233,7 @@ if (total == TRUE) {
     "null2_dev" = deviance(null_model2)
   )
   
-  test_df <- rbind(test_df, test_df2)
+  test_df <- rbindlist(test_df, test_df2, fill=TRUE)
 }
 
 fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
