@@ -17,11 +17,8 @@ OUT_PDF=$2
 echo "Model list: $LIST"
 echo "PDF: $OUT_PDF"
 
-SINGULARITY_IMAGE="$BASE/containers/r_gamlss_0.2.14.sif"
-
-singularity run --cleanenv \
-    -B $BASE \
-    $SINGULARITY_IMAGE \
-    Rscript $BASE/code/compile_sex_coding_pdf.R $LIST $OUT_PDF
+#run outside the gamlss container (no png package there), same as subjob_grab_pngs.sh
+module load R/4.4.0
+Rscript $BASE/code/compile_sex_coding_pdf.R $LIST $OUT_PDF
 
 echo "Job finished running!"
