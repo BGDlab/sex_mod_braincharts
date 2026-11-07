@@ -124,9 +124,6 @@ if (".row_id" %in% names(df)) {
 df <- df %>%
   mutate(sexMale_x_logAge = sexMale * logAge_days) #calculate sex x age interaction
 
-#convert to data.frame once here: as.data.frame() on a data.table copies the whole
-#table, and the scoring helpers call it twice per split model; on a data.frame those
-#calls are no-ops
 df <- as.data.frame(df)
 
 #with a local model directory, fail now if it is missing or incomplete
@@ -164,9 +161,7 @@ if (!is.null(pheno)) {
   fwrite(if (length(df_cent) > 0) df_cent[[1]] else data.frame(.row_id = integer(0)),
          args$out_file)
 } else {
-  #rejoin to the full input data by row key. fill each pheno's score columns by
-  #matching on .row_id (NA for unscored rows), as combine_oos_reference_scores.R does,
-  #rather than Reduce(left_join), which re-copies the growing wide table per pheno
+  #rejoin to the full input data by row key
   df_full_cent <- df
   for (s in df_cent) {
     rows <- match(df_full_cent$.row_id, s$.row_id)
