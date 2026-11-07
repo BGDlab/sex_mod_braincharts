@@ -6,7 +6,7 @@ library(dplyr)
 library(gamlss)
 library(gamlssTools)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 source(paste0(base, "code/sex_diff_funs.R"))
 options(warn = 1)
@@ -19,6 +19,11 @@ base_mod <- readRDS(args[2])
 save_path <- as.character(args[3])
 total <- as.logical(args[4])
 sim_df_uniform <- readRDS(args[5])
+
+#SEX CODING: pb(logAge_days) + pvc(logAge_days, by = sexEffect) (see gamlss_fit_funs.R)
+stopifnot("training model has no pvc sex x age term" = grepl("pvc(logAge_days", deparse1(base_mod$mu.formula), fixed = TRUE))
+df <- add_sex_effect(df)
+sim_df_uniform <- lapply(sim_df_uniform, add_sex_effect)
 
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("_(BestMod|mod)$", "_test", filename_no_ext) #BestMod or runner-up (_mod) training models
@@ -87,8 +92,8 @@ pred_list <- list_predictors(model)
 if ("logAge_days" %in% pred_list){
   age_var <- "logAge_days"
   print("simulate data for plotting")
-  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
-  vars_of_interest <- c("sexMale_x_logAge", age_var, "sexMale")
+  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = SEX_SPECIAL_TERM)
+  vars_of_interest <- c(SEX_VAR, age_var, "sexMale")
 } else {
   print("simulate data for plotting")
   age_var <- "age_days"

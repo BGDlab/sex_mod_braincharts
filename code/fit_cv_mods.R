@@ -6,7 +6,7 @@ library(dplyr)
 library(gamlss)
 library(gamlssTools)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 
 #GET ARGS
@@ -24,21 +24,25 @@ family <- "BCTo"
 
 stopifnot(total == "NULL")
 
+#SEX CODING: pb(logAge_days) + pvc(logAge_days, by = sexEffect) (see gamlss_fit_funs.R); only set up for log-age pb models
+stopifnot(log_age == TRUE, sm == "pb")
+df <- add_sex_effect(df)
+
 #loop over nu terms
 if (log_age == TRUE & sm == "pb"){
   nu_list <- list(
     int = "1",
     site = "study_site",
-    sex = "sexMale",
+    sex = "sexEffect",
     age = "logAge_days",
-    sexAge = "sexMale + logAge_days",
+    sexAge = "sexEffect + logAge_days",
     siteAge = "study_site + logAge_days",
-    siteSex = "study_site + sexMale",
-    siteAgeSex = "study_site + logAge_days + sexMale",
+    siteSex = "study_site + sexEffect",
+    siteAgeSex = "study_site + logAge_days + sexEffect",
     pbAge = "pb(logAge_days, method='GAIC', k=log(nrow(df)))",
-    sex_pbAge = "sexMale + pb(logAge_days, method='GAIC', k=log(nrow(df)))",
+    sex_pbAge = "sexEffect + pb(logAge_days, method='GAIC', k=log(nrow(df)))",
     site_pbAge = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df)))",
-    site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df))) + sexMale"
+    site_pbAgeSex = "study_site + pb(logAge_days, method='GAIC', k=log(nrow(df))) + sexEffect"
   )
 
 } else if (log_age == FALSE & sm == "pb"){
@@ -176,7 +180,9 @@ for (fs_include in fs_moment_list){
       "BIC" = model$sbc,
       "pheno" = pheno,
       "fs_moment" = fs_include,
-      "nu" = nu_name
+      "nu" = nu_name,
+      "mu_pvc_lambda" = pvc_lambda(model, "mu"), #1e7 = capped, i.e. linear sex difference in age
+      "sigma_pvc_lambda" = pvc_lambda(model, "sigma")
     ) %>%
       cbind(df_demo_stats(df)) #age (days) & sex of fit data
     summary_df <- rbind(summary_df, tmp_df)
@@ -221,7 +227,7 @@ best_mod$call$family <- family
 print("creating centile fan plot")
 print("simulate data")
 if (log_age == TRUE){
-  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = SEX_SPECIAL_TERM)
   age_var <- "logAge_days"
 } else {
   sim_df <- sim_data(df, "age_days", factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")

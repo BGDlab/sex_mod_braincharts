@@ -7,7 +7,7 @@
 #SBATCH --mem-per-cpu=10G
 #SBATCH --array=1-484
 
-CONFIGFN=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/config_files/converge_check_config.txt
+CONFIGFN=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/config_files/converge_check_config.txt
 
 DF=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $2}' $CONFIGFN )
 PHENO=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $3}' $CONFIGFN )
@@ -15,10 +15,10 @@ echo "DF: $DF"
 echo "PHENO: $PHENO"
 
 # Singularity image path 
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/containers/r_gamlss_0.2.4.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.4.sif"
 
 #------------------
-BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/
+BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/
 
 # Run R script inside Singularity container
 singularity run --cleanenv \

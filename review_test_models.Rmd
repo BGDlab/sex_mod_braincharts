@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision")
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc")
 ```
 
 ```{r, warning=FALSE}

@@ -6,6 +6,14 @@ Gardner M, Dorfschmidt L, Zimmerman D, et al. Brain charts for neuroanatomical s
 
 > For instructions and information on calculating reference scores for new data from these models, see [scoring_new_data/README.md](scoring_new_data/README.md).
 
+> **`sex_pvc` branch.** Model training & testing (steps 2-4 below) refit with the sex x age term in mu and sigma coded as
+> `pb(logAge_days) + pvc(logAge_days, by = sexEffect) + sexEffect`, with `sexEffect` = -1 female / +1 male, in place of
+> `pb(sexMale_x_logAge) + pb(logAge_days) + sexMale`. Nu's sex terms also use `sexEffect`. The null model for the sex x age
+> LR test drops the `pvc()` term. See the `SEX CODING` notes at the top of `code/gamlss_fit_funs.R`, including the
+> two gamlss 5.5-0 bugs for a numeric `by` that `patch_pvc_numeric_by()` fixes when the file is sourced.
+> Paths point to `/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc`: clone the repo there on this branch
+> and copy in `data/` (the `cv_sample_?_dfs/` split-halves and `v3_full_sim.rds`) and `containers/` from the main folder. Copy rather than symlink, since jobs only bind-mount `$BASE`. The job scripts stop if that checkout isn't on `sex_pvc`.
+
 # Manuscript Analyses
 ## Data Prep and QC
 Nearly all data prep, filtering, etc, is in `lbcc_eda.Rmd`. This includes identifying and writing lists of
@@ -34,13 +42,13 @@ sbatch code/subjobs_cv_dfs.sh ./code/config_files/cv_sample_B_logPhenoFALSE_tota
 2. Train sex-moderated models: `code/config_cv_mods.sh`, `code/fit_cv_mods.R`, `code/subjobs_cv_mods.sh`
 ```
 ./code/config_cv_mods.sh --total FALSE --log_age TRUE --sm "pb"
-sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/subjobs_cv_mods.sh
+sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/subjobs_cv_mods.sh
 ```
 
 3. Train sex-moderated models with correction for total brain size: `code/config_cv_mods.sh`, `code/fit_cv_total_mods.R`, `code/subjobs_cv_total_mods.sh`
 ```
 ./code/config_cv_mods.sh --total TRUE --log_age TRUE --sm "pb"
-sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/subjobs_cv_total_mods.sh
+sbatch --array=1-478%200 /mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/subjobs_cv_total_mods.sh
 ```
 
 4. Fit test models in alternate split-half: `code/config_cv_mods_test.sh`, `code/fit_cv_mods_test.R`, `code/subjobs_cv_mods_test.sh`

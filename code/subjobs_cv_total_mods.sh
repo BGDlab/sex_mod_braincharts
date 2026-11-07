@@ -5,10 +5,11 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=16G
-#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/cv_total_train/R-%A_%a.out
-#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/cv_total_train/R-%A_%a.err
+#SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_total_train/R-%A_%a.out
+#SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_total_train/R-%A_%a.err
 
-BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision
+BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc
+source $BASE/code/check_branch.sh
 
 CONFIGFN=$BASE/code/config_files/cv_mods_totalTRUE_logAgeTRUE_smpb_config.txt
 

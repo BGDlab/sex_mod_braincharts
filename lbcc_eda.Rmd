@@ -4,7 +4,7 @@ Script for cleaning and preparing LBCC data.
 
 
 ```{r}
-setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision")
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc")
 ```
 
 ```{r, warning=FALSE}}

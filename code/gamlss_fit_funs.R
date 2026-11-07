@@ -3,6 +3,31 @@
 library(gamlss)
 #library(gamlss2)
 
+### SEX CODING (sex_pvc branch) ###
+#sex x age term in mu & sigma: pb(logAge_days) + pvc(logAge_days, by = sexEffect), sexEffect = -1 female / +1 male
+#(in place of pb(sexMale_x_logAge) + pb(logAge_days)).
+#- pvc() centres a numeric `by` on its mean, so the term is beta(age) * (sexEffect - mean(sexEffect)): pb(logAge_days)
+#  is the curve at the sample-weighted average of the sexes and pvc the penalized sex difference (M - F = 2 * beta(age))
+#- mu & sigma keep a sex main effect, as in the published models, so the null (pvc dropped) stays nested. It is
+#  aliased with pvc's constant, but gamlss counts pvc as edf - 1 (its placeholder column is all zero), so the main
+#  effect supplies that 1 df
+#- gamlss 5.5-0 needs two fixes for a numeric `by`; see patch_pvc_numeric_by() (applied when this file is sourced)
+SEX_VAR <- "sexEffect"
+SEX_SPECIAL_TERM <- "sexEffect = 2 * sexMale - 1" #for sim_data(special_term =)
+
+#add sexEffect (-1 F, +1 M) from sexMale (0/1, numeric or factor)
+add_sex_effect <- function(df) {
+  sex_male <- as.numeric(as.character(df$sexMale))
+  stopifnot("sexMale must be 0/1" = all(sex_male %in% c(0, 1)))
+  df[[SEX_VAR]] <- 2 * sex_male - 1
+  df
+}
+
+#sex x age smooth terms for mu & sigma (pb before pvc: gamlss backfits smoothers in formula order)
+make_sexage <- function(lambda = NULL) {
+  paste(make_pb("logAge_days", lambda), "+", make_pvc(lambda), "+", SEX_VAR)
+}
+
 ### MAIN FIT FUNS ###
 
 #gamlss_lambda
@@ -18,22 +43,20 @@ gamlss_lambda <- function(pheno, lambda=NULL,
   #define formulas for each moment
   mu_base <- paste(
     "safe_gamlss_old(formula =", pheno, "~",
-    make_pb("sexMale_x_logAge", lambda), "+",
-    make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
+    make_sexage(lambda), "+ random(study_site)"
   )
-  
+
   if (fs_moment != "none"){
     mu_form <- paste(mu_base, "+", fs_ver) #add fs_version term if needed
   } else {
     mu_form <- paste(mu_base) #or just comma
   }
-  
+
   sig_base <- paste(
     "sigma.formula = ~",
-    make_pb("sexMale_x_logAge", lambda), "+",
-    make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
+    make_sexage(lambda), "+ random(study_site)"
   )
-  
+
   if (fs_moment == "both" | fs_moment == "all") {
     sig_form <- paste(sig_base, "+", fs_ver)
   } else {
@@ -119,115 +142,72 @@ gamlss_lambda <- function(pheno, lambda=NULL,
 
 #gamlss_lambda_rep
 #rep model with lambdas from another model obj
-gamlss_lambda_rep <- function(og_mod, 
+#each moment's formula is rebuilt from og_mod's terms: with keep_lambdas, every smoother (pb/pvc/random) gets its
+#fitted lambda (gamlss stores <moment>.lambda in formula order); null_mod "true" drops the pvc sex x age term,
+#"allSex" also drops the sex main effect
+gamlss_lambda_rep <- function(og_mod,
                                null_mod=c("false", "true", "allSex"),
                                keep_lambdas=TRUE,
                                start.from=NULL,
                                weight=NULL,
                                n.cyc=800){
-  
-  pheno <- paste0(og_mod$mu.formula)[[2]]
-  fam <- og_mod$family[1]
+
+  pheno <- deparse1(og_mod$mu.formula[[2]])
   null_mod <- match.arg(null_mod)
 
-  #define formulas for each moment
-  
-  #MU
-  mu_base <- paste0(og_mod$mu.formula)[[3]]
-  mu_lambdas <- og_mod$mu.lambda
+  mu_rhs <- rep_rhs(og_mod$mu.formula, og_mod$mu.lambda, keep_lambdas, null_mod)
+  sig_rhs <- rep_rhs(og_mod$sigma.formula, og_mod$sigma.lambda, keep_lambdas, null_mod)
+  nu_rhs <- rep_rhs(og_mod$nu.formula, og_mod$nu.lambda, keep_lambdas, null_mod)
 
-  #update lambdas
-  if (keep_lambdas == TRUE & null_mod == "false"){
-    mu_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                   paste0("sexMale_x_logAge, lambda =", mu_lambdas[1]), mu_base)
-  } else if (null_mod != "false") {
-    mu_base <- rm_sexage(mu_base)
-    if (null_mod == "allSex"){
-      #remove sex intercept
-      mu_base <- sub('+ sexMale', '', mu_base)
-    }
-  } 
-  
-  if (keep_lambdas == TRUE){
-    mu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                   paste0("logAge_days, lambda =", mu_lambdas[2]), mu_base)
-    mu_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", mu_lambdas[3], ")"), mu_base)
-    
-    #replace TBV or other pbs if needed
-    if (length(mu_lambdas)==4){
-      mu_base <- sub('method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                     paste0("lambda =", mu_lambdas[4]), mu_base)
-    }
-  }
-  
   if (is.null(weight)){
-    mu_form <- paste0("safe_gamlss_old(formula =", pheno, "~", mu_base)
+    mu_form <- paste0("safe_gamlss_old(formula = ", pheno, " ~ ", mu_rhs)
   } else {
     #bypass safe_gamlss when fitting with weights
-    mu_form <- paste0("gamlss(formula =", pheno, "~", mu_base)
+    mu_form <- paste0("gamlss(formula = ", pheno, " ~ ", mu_rhs)
   }
-  
-  
-  #SIGMA
-  sig_base <- paste0(og_mod$sigma.formula)[[2]]
-  sig_lambdas <- og_mod$sigma.lambda
-  
-  #update lambdas
-  if (keep_lambdas == TRUE & null_mod == "false"){
-    sig_base <- sub('sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                    paste0("sexMale_x_logAge, lambda =", sig_lambdas[1]), sig_base)
-  } else if (null_mod != "false") {
-    sig_base <- rm_sexage(sig_base)
-    if (null_mod == "allSex"){
-      #remove sex intercept
-      sig_base <- sub('+ sexMale', '', sig_base)
-    }
-  }
-  
-  if (keep_lambdas==TRUE){
-    sig_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                    paste0("logAge_days, lambda =", sig_lambdas[2]), sig_base)
-    sig_base <- sub("random\\(study_site\\)", paste0("random(study_site, lambda =", sig_lambdas[3], ")"), sig_base)
-    
-    #replace TBV or other pbs if needed
-    if (length(sig_lambdas)==4){
-      sig_base <- sub('method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                     paste0("lambda =", sig_lambdas[4]), sig_base)
-    }
-  }
-  
-  sig_form <- paste0("sigma.formula = ~", sig_base)
-  
-  #NU
-  nu_base <- paste0(og_mod$nu.formula)[[2]]
-  if (!is.null(og_mod$nu.lambda) & keep_lambdas==TRUE){
-    nu_lambdas <- og_mod$nu.lambda
-    nu_base <- sub('logAge_days, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)', 
-                    paste0("logAge_days, lambda =", nu_lambdas[1]), nu_base)
-  }
-  
-  if (null_mod == "allSex"){
-    #remove sex intercept
-    nu_base <- sub('+ sexMale', '', nu_base)
-  }
-  
-  nu_form <- paste0("nu.formula = ~", nu_base)
-  
+  sig_form <- paste0("sigma.formula = ~ ", sig_rhs)
+  nu_form <- paste0("nu.formula = ~ ", nu_rhs)
+
   control <- paste("control = gamlss.control(n.cyc=", n.cyc,", nu.step=0.25), family =", og_mod$family[[1]], ", data= df, trace = FALSE)")
 
   if (!is.null(start.from)) {
     control <- paste0("start.from = ", start.from,", ", control)
   }
-  
+
   if (!is.null(weight)) {
     control <- paste0("weights = df$", weight, ", ", control)
   }
-  
+
   #try methods
-  
+
   result <- try_gamlss_methods(mu_form, sig_form, nu_form, control)
-  
+
   return(result)
+}
+
+#rep_rhs: right-hand side of one moment's formula for gamlss_lambda_rep()
+rep_rhs <- function(f, lambdas, keep_lambdas, null_mod) {
+  tt <- terms(f)
+  stopifnot(attr(tt, "intercept") == 1, is.null(attr(tt, "offset")))
+  labs <- attr(tt, "term.labels")
+  is_smo <- grepl("^(pb|pvc|random)\\(", labs)
+  if (keep_lambdas && any(is_smo)) {
+    stopifnot("one lambda per smoother" = sum(is_smo) == length(lambdas))
+    labs[is_smo] <- mapply(set_lambda, labs[is_smo], lambdas, USE.NAMES = FALSE)
+  }
+  if (null_mod != "false") labs <- labs[!grepl("^pvc\\(", labs)]
+  if (null_mod == "allSex") labs <- labs[labs != SEX_VAR]
+  if (length(labs) == 0) "1" else paste(labs, collapse = " + ")
+}
+
+#set_lambda: rewrite one smoother term with a fixed lambda (dropping its lambda-selection args)
+set_lambda <- function(term, lambda) {
+  cl <- str2lang(term)
+  cl$method <- NULL
+  cl$k <- NULL
+  cl$df <- NULL
+  cl$lambda <- unname(lambda)
+  deparse1(cl)
 }
 
 #gamlss_lambda_etiv
@@ -247,8 +227,7 @@ gamlss_lambda_etiv <- function(pheno, lambda=NULL,
   #MU BASE
   mu_base <- paste(
     "safe_gamlss_old(formula =", pheno, "~",
-    make_pb("sexMale_x_logAge", lambda), "+",
-    make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
+    make_sexage(lambda), "+ random(study_site)"
   )
   
   #add fs_version
@@ -264,8 +243,7 @@ gamlss_lambda_etiv <- function(pheno, lambda=NULL,
   #SIGMA BASE
   sig_base <- paste(
     "sigma.formula = ~",
-    make_pb("sexMale_x_logAge", lambda), "+",
-    make_pb("logAge_days", lambda), "+ sexMale + random(study_site)"
+    make_sexage(lambda), "+ random(study_site)"
   )
   
   if (fs_moment == "both" | fs_moment == "all") {
@@ -473,14 +451,7 @@ try_gamlss_methods <- function(mu_form, sig_form, nu_form, control){
   
 } 
 
-#rm
-rm_sexage <- function(formula_string) {
-  sub(
-    pattern = 'pb\\(sexMale_x_logAge, method = \\"GAIC\\", k = log\\(nrow\\(df\\)\\)\\) \\+\\s*',
-    replacement = '',
-    x = formula_string
-  )
-}
+#(rm_sexage() removed: gamlss_lambda_rep() now drops the pvc term via rep_rhs())
 
 #scaling/unscaling phenotype functions
 log_scale <- function(x){log(x + 5, base=10)}
@@ -542,6 +513,57 @@ make_pb <- function(var, lambda) {
     paste0("pb(", var, ", lambda=", lambda, ", method='GAIC', k=log(nrow(df)))")
   }
 }
+
+#pvc sex x age deviation term, lambda selected by the same GAIC (k = log(n)) as the pb terms
+make_pvc <- function(lambda) {
+  if (is.null(lambda)) {
+    paste0("pvc(logAge_days, by=", SEX_VAR, ", method='GAIC', k=log(nrow(df)))")
+  } else {
+    paste0("pvc(logAge_days, by=", SEX_VAR, ", lambda=", lambda, ")")
+  }
+}
+
+#lambda of a model's pvc term in one moment (NA if none); <moment>.lambda is in formula order of the smoothers
+pvc_lambda <- function(model, what = c("mu", "sigma")) {
+  what <- match.arg(what)
+  labs <- attr(terms(model[[paste0(what, ".formula")]]), "term.labels")
+  smo <- labs[grepl("^(pb|pvc|random)\\(", labs)]
+  i <- grep("^pvc\\(", smo)
+  if (length(i) != 1) return(NA_real_)
+  unname(model[[paste0(what, ".lambda")]][i])
+}
+
+#patch_pvc_numeric_by
+#two gamlss 5.5-0 bugs for pvc(x, by = <numeric>), patched in this session's gamlss namespace:
+#1. lambda selection: with method "GAIC", fnGAIC scores sum(w * (y - fv)^2) where fv is beta(x), fit to
+#   yvar = y / by with weights w * by^2. It should score yvar, otherwise GAIC always picks the 1e7 cap (linear).
+#2. predict(newdata =): pvc() centres `by` on the mean of old + new data together, so the term is refit and
+#   predicted with a different centring than the fit. Re-centring on the fitting rows (the first length(y)) restores
+#   the fit's centring; during fitting `by` already has mean 0, so it changes nothing there.
+#stops if the source doesn't match (other gamlss version) instead of fitting with an unpatched pvc
+patch_pvc_numeric_by <- function() {
+  f <- gamlss:::gamlss.pvc
+  src <- deparse(f, width.cutoff = 500L)
+  if (any(grepl("pvc_ctr", src, fixed = TRUE))) return(invisible(TRUE)) #already patched (file sourced again)
+  old_gaic <-"GAIC <- sum(w * (y - fv)^2) + k * fit$edf"
+  old_pred <- "pred <- drop(nx %*% fit$beta) * by.varExtra"
+  i_gaic <- grep(old_gaic, src, fixed = TRUE)
+  i_pred <- grep(old_pred, src, fixed = TRUE)
+  i_by <- grep("by.var <- if (is.null(xeval))", src, fixed = TRUE)
+  i_if <- grep("^\\s*if \\(!is.null\\(by.var\\)\\) \\{$", src)
+  i_if <- i_if[i_if > i_by[1]][1]
+  if (length(i_gaic) != 1 || length(i_pred) != 1 || length(i_by) != 1 || is.na(i_if))
+    stop("patch_pvc_numeric_by: gamlss.pvc source not as expected (gamlss ", packageVersion("gamlss"), "); not fitting with an unpatched pvc")
+  src[i_gaic] <- sub(old_gaic, "GAIC <- sum(w * (yvar - fv)^2) + k * fit$edf", src[i_gaic], fixed = TRUE)
+  src[i_pred] <- sub(old_pred, "pred <- drop(nx %*% fit$beta) * (by.varExtra - pvc_ctr)", src[i_pred], fixed = TRUE)
+  src <- append(src, "    pvc_ctr <- if (!is.null(by.var) && !is.factor(by.var)) mean(by.var) else 0; if (pvc_ctr != 0) by.var <- by.var - pvc_ctr",
+                after = i_if - 1)
+  g <- eval(parse(text = src))
+  environment(g) <- environment(f)
+  assignInNamespace("gamlss.pvc", g, "gamlss")
+  invisible(TRUE)
+}
+patch_pvc_numeric_by()
 #summarise age (in days) & sex of the df a model was fit on, for model_sums/*_summary.csv
 #age back-transformed from logAge_days (log10(age_days)); falls back to age_days for models fit on linear age
 df_demo_stats <- function(df) {

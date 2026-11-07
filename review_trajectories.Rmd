@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision")
+setwd("/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc")
 ```
 
 ```{r, warning=FALSE}
@@ -24,7 +24,7 @@ LR.df_plot <- readRDS("./data/LR_df_plot.rds")
 
 Read in sexdiff csvs
 ```{r}
-total_test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/cv_sample_?_test*/*_totalTRUE*/"
+total_test_path <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/cv_sample_?_test*/*_totalTRUE*/"
 sex_diffs_paths <- Sys.glob(file.path(total_test_path, "cent_csvs/*_uniform_sexdiffs.csv")) #only total-size-corrected
 
 stopifnot(length(sex_diffs_paths) <= (length(pheno_list)*2*3) + (68*2)) #two splits (main, weighted, & runnerup), plus age2plus CT (68 phenos * 2 splits)

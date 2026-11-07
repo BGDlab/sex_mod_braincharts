@@ -6,7 +6,7 @@ library(dplyr)
 library(gamlss)
 library(gamlssTools)
 
-base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/"
+base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
 source(paste0(base, "code/sex_diff_funs.R"))
 options(warn = 1)
