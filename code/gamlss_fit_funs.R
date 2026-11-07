@@ -11,7 +11,8 @@ library(gamlss)
 #- mu & sigma keep a sex main effect, as in the published models, so the null (pvc dropped) stays nested. It is
 #  aliased with pvc's constant, but gamlss counts pvc as edf - 1 (its placeholder column is all zero), so the main
 #  effect supplies that 1 df
-#- gamlss 5.5-0 needs two fixes for a numeric `by`; see patch_pvc_numeric_by() (applied when this file is sourced)
+#- gamlss 5.5-0's GAIC lambda selection is broken for a numeric `by`; see patch_pvc_gaic() (applied when this file
+#  is sourced). Predicting from pvc models needs gamlssTools with pvc() support (checked when this file is sourced)
 SEX_VAR <- "sexEffect"
 SEX_SPECIAL_TERM <- "sexEffect = 2 * sexMale - 1" #for sim_data(special_term =)
 
@@ -533,37 +534,36 @@ pvc_lambda <- function(model, what = c("mu", "sigma")) {
   unname(model[[paste0(what, ".lambda")]][i])
 }
 
-#patch_pvc_numeric_by
-#two gamlss 5.5-0 bugs for pvc(x, by = <numeric>), patched in this session's gamlss namespace:
-#1. lambda selection: with method "GAIC", fnGAIC scores sum(w * (y - fv)^2) where fv is beta(x), fit to
-#   yvar = y / by with weights w * by^2. It should score yvar, otherwise GAIC always picks the 1e7 cap (linear).
-#2. predict(newdata =): pvc() centres `by` on the mean of old + new data together, so the term is refit and
-#   predicted with a different centring than the fit. Re-centring on the fitting rows (the first length(y)) restores
-#   the fit's centring; during fitting `by` already has mean 0, so it changes nothing there.
+#patch_pvc_gaic
+#gamlss 5.5-0 bug in pvc(x, by = <numeric>) lambda selection, patched in this session's gamlss namespace: with
+#method "GAIC", fnGAIC scores sum(w * (y - fv)^2) where fv is beta(x), fit to yvar = y / by with weights w * by^2.
+#It should score yvar, otherwise GAIC always picks the 1e7 cap (linear).
 #stops if the source doesn't match (other gamlss version) instead of fitting with an unpatched pvc
-patch_pvc_numeric_by <- function() {
+patch_pvc_gaic <- function() {
   f <- gamlss:::gamlss.pvc
   src <- deparse(f, width.cutoff = 500L)
-  if (any(grepl("pvc_ctr", src, fixed = TRUE))) return(invisible(TRUE)) #already patched (file sourced again)
-  old_gaic <-"GAIC <- sum(w * (y - fv)^2) + k * fit$edf"
-  old_pred <- "pred <- drop(nx %*% fit$beta) * by.varExtra"
+  #(the factor-by fnGAICforFactor already scores yvar, so the corrected line appears once unpatched, twice patched)
+  new_gaic <- "GAIC <- sum(w * (yvar - fv)^2) + k * fit$edf"
+  old_gaic <- "GAIC <- sum(w * (y - fv)^2) + k * fit$edf"
   i_gaic <- grep(old_gaic, src, fixed = TRUE)
-  i_pred <- grep(old_pred, src, fixed = TRUE)
-  i_by <- grep("by.var <- if (is.null(xeval))", src, fixed = TRUE)
-  i_if <- grep("^\\s*if \\(!is.null\\(by.var\\)\\) \\{$", src)
-  i_if <- i_if[i_if > i_by[1]][1]
-  if (length(i_gaic) != 1 || length(i_pred) != 1 || length(i_by) != 1 || is.na(i_if))
-    stop("patch_pvc_numeric_by: gamlss.pvc source not as expected (gamlss ", packageVersion("gamlss"), "); not fitting with an unpatched pvc")
-  src[i_gaic] <- sub(old_gaic, "GAIC <- sum(w * (yvar - fv)^2) + k * fit$edf", src[i_gaic], fixed = TRUE)
-  src[i_pred] <- sub(old_pred, "pred <- drop(nx %*% fit$beta) * (by.varExtra - pvc_ctr)", src[i_pred], fixed = TRUE)
-  src <- append(src, "    pvc_ctr <- if (!is.null(by.var) && !is.factor(by.var)) mean(by.var) else 0; if (pvc_ctr != 0) by.var <- by.var - pvc_ctr",
-                after = i_if - 1)
+  n_new <- length(grep(new_gaic, src, fixed = TRUE))
+  if (length(i_gaic) == 0 && n_new == 2) return(invisible(TRUE)) #already patched (file sourced again)
+  if (length(i_gaic) != 1 || n_new != 1)
+    stop("patch_pvc_gaic: gamlss.pvc source not as expected (gamlss ", packageVersion("gamlss"), "); not fitting with an unpatched pvc")
+  src[i_gaic] <- sub(old_gaic, new_gaic, src[i_gaic], fixed = TRUE)
   g <- eval(parse(text = src))
   environment(g) <- environment(f)
   assignInNamespace("gamlss.pvc", g, "gamlss")
   invisible(TRUE)
 }
-patch_pvc_numeric_by()
+patch_pvc_gaic()
+
+#predictions (centile fans, centile coverage, sex differences) go through gamlssTools, which rebuilds pvc() terms
+#from the fit: gamlss's own predict(newdata =) centres pvc's numeric `by` on old + new data together, shifting every
+#prediction. Needs gamlssTools with pvc() support (dev branch, commit c080639 or later)
+if (!exists(".pvc_spec", envir = asNamespace("gamlssTools"), inherits = FALSE))
+  stop("gamlssTools ", packageVersion("gamlssTools"), " has no pvc() support; ",
+       "install the dev branch (commit c080639 or later) so pvc models predict correctly")
 #summarise age (in days) & sex of the df a model was fit on, for model_sums/*_summary.csv
 #age back-transformed from logAge_days (log10(age_days)); falls back to age_days for models fit on linear age
 df_demo_stats <- function(df) {

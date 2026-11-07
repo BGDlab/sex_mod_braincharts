@@ -17,10 +17,6 @@ get_deriv <- function(x, age) {
 #   pheno: name of phenotype column in df (no longer used; kept so existing calls still work)
 process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, pheno) {
 
-  fname <- model$family[[1]]
-  qfun <- paste0("q", fname)
-  n_param <- length(model$parameters)
-
   # Initialize empty list
   centile_result_list <- list()
 
@@ -28,30 +24,32 @@ process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, phen
   min_age <- min(df[[age_var]])
   max_age <- max(df[[age_var]])
 
+  sim_list <- lapply(sim_data_list, function(s) s %>%
+                       select(all_of(pred_list)) %>%
+                       filter(.data[[age_var]] >= min_age & .data[[age_var]] <= max_age))
+
+  # Predict via gamlssTools, which rebuilds pb()/pvc()/random() terms from the fit
+  # (gamlss's predictAll() mis-centres pvc(x, by = <numeric>) on newdata)
+  print("predicting...")
+  cents <- centile_fan_values(model, sim_list, age_var, centiles = c(0.25, 0.5, 0.75), fit_data = df)
+  sigs <- sigma_values(model, sim_list, age_var, fit_data = df)
+
   # Process each factor level
-  for (factor_level in names(sim_data_list)) {
-    sub_df <- sim_data_list[[factor_level]] %>%
-      select(all_of(pred_list)) %>%
-      filter(.data[[age_var]] >= min_age & .data[[age_var]] <= max_age)
-
-    # Predict centiles
-    print("predicting...")
-    pred_df <- predictAll(model, newdata=sub_df, type="response", data=df)
-
-    median_centile <- pred_centile(0.5, df = pred_df, q_func = qfun, n_param = n_param)
-    centiles_df <- as.data.frame(median_centile)
+  for (factor_level in names(sim_list)) {
+    cent_df <- cents[[paste0("fanCentiles_", factor_level)]]
+    centiles_df <- data.frame(median_centile = cent_df$cent_0.5)
 
     # check correct dim
-    stopifnot(nrow(centiles_df) == nrow(pred_df))
+    stopifnot(nrow(centiles_df) == nrow(sim_list[[factor_level]]))
 
     #add x_vals, predicted sigma name centiles for factor_var level and append to results list
-    centiles_df[[age_var]] <- sub_df[[age_var]]
+    centiles_df[[age_var]] <- sim_list[[factor_level]][[age_var]]
 
     # Sigma
-    centiles_df$sigma <- pred_df$sigma
+    centiles_df$sigma <- sigs[[paste0("sigma_", factor_level)]]$sigma
 
-    # Centile-based SD at each age, from the fitted distribution (IQR / 1.349)
-    centiles_df$sd <- centile_sd(fname, pred_df$mu, pred_df$sigma, pred_df$nu, pred_df$tau)
+    # Centile-based SD at each age, from the fitted distribution (IQR / 1.349, as in centile_sd())
+    centiles_df$sd <- (cent_df$cent_0.75 - cent_df$cent_0.25) / (2 * qnorm(0.75))
     sub_name <- paste0("pred_", factor_level)
     centile_result_list[[sub_name]] <- centiles_df
   }

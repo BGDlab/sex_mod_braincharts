@@ -10,7 +10,9 @@ Gardner M, Dorfschmidt L, Zimmerman D, et al. Brain charts for neuroanatomical s
 > `pb(logAge_days) + pvc(logAge_days, by = sexEffect) + sexEffect`, with `sexEffect` = -1 female / +1 male, in place of
 > `pb(sexMale_x_logAge) + pb(logAge_days) + sexMale`. Nu's sex terms also use `sexEffect`. The null model for the sex x age
 > LR test drops the `pvc()` term. See the `SEX CODING` notes at the top of `code/gamlss_fit_funs.R`, including the
-> two gamlss 5.5-0 bugs for a numeric `by` that `patch_pvc_numeric_by()` fixes when the file is sourced.
+> gamlss 5.5-0 GAIC bug for a numeric `by` that `patch_pvc_gaic()` fixes when the file is sourced.
+> Predictions need [gamlssTools](https://github.com/BGDlab/gamlssTools/tree/dev) with `pvc()` support (dev branch,
+> commit c080639 or later) in the job containers; `code/gamlss_fit_funs.R` stops if it's missing.
 > Paths point to `/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc`: clone the repo there on this branch
 > and copy in `data/` (the `cv_sample_?_dfs/` split-halves and `v3_full_sim.rds`) and `containers/` from the main folder. Copy rather than symlink, since jobs only bind-mount `$BASE`. The job scripts stop if that checkout isn't on `sex_pvc`.
 
