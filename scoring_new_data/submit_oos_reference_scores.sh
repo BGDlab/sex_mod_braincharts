@@ -61,7 +61,7 @@ PASS+=(--df "$DF_COPY")
 ALL_PHENOS="$SCRIPT_DIR/all_phenos.txt"
 if [[ ! -f "$ALL_PHENOS" ]]; then
   ALL_PHENOS="$WORK_DIR/all_phenos.txt"
-  curl -fsSL "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/scoring_new_data/all_phenos.txt" \
+  curl -fsSL "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/main/scoring_new_data/all_phenos.txt" \
     -o "$ALL_PHENOS"
 fi
 
