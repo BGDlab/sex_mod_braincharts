@@ -1,6 +1,7 @@
 #!/bin/bash
-#refit training BestMods with sexFemale (male=0, female=1) & sexEffect (female=-1, male=1) coding,
-#then compile a pdf comparing centile fans & sex-specific worm plots across all 3 codings
+#refit training BestMods with sexFemale (male=0, female=1), sexEffect (female=-1, male=1) and
+#pb(logAge_days) + pvc(logAge_days, by = sexEffect) coding,
+#then compile a pdf comparing centile fans & sex-specific worm plots across all 4 codings
 #run from outside code dir
 #usage: ./code/submit_sex_coding.sh --list <file> [--pdf <output.pdf>] [--compile_only TRUE]
 #  --list: one BestMod path per line (sexMale-coded training models, total-corrected or not),

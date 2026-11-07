@@ -8,7 +8,8 @@
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/sex_coding/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/code/jobfiles/sex_coding/R-%A_%a.err
 
-#refit one BestMod (line SLURM_ARRAY_TASK_ID of the list) with sexFemale & sexEffect coding + plot all 3 codings
+#refit one BestMod (line SLURM_ARRAY_TASK_ID of the list) with sexFemale, sexEffect & pb + pvc(by = sexEffect) coding
+#+ plot all 4 codings
 #list: one BestMod path per line, optionally followed by a tab and its training csv
 #submit with submit_sex_coding.sh
 

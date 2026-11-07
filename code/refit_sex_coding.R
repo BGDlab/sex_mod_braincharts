@@ -1,5 +1,6 @@
 #Refit a training BestMod (sexMale: female=0, male=1) on the same data with sexFemale (male=0, female=1)
-#and sexEffect (female=-1, male=1) coding, then plot centile fans + sex-specific worm plots for all 3 codings.
+#and sexEffect (female=-1, male=1) coding, and with pb(logAge_days) + pvc(logAge_days, by = sexEffect) in place of
+#the sex x age smooth, then plot centile fans + sex-specific worm plots for all 4 codings.
 #Outputs go to <model dir>/sex_coding/<model name>/ and are compiled by compile_sex_coding_pdf.R
 set.seed(99999)
 
@@ -13,6 +14,12 @@ library(ggnewscale)
 
 base <- Sys.getenv("SEX_MOD_BASE", "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_revision/")
 source(paste0(base, "code/gamlss_fit_funs.R"))
+
+#centile fans predict through gamlssTools, which rebuilds pvc() terms from the fit: gamlss's own predict(newdata =)
+#centres pvc's numeric `by` on old + new data together, shifting every prediction
+if (!exists(".pvc_spec", envir = asNamespace("gamlssTools"), inherits = FALSE))
+  stop("gamlssTools ", packageVersion("gamlssTools"), " has no pvc() support; ",
+       "install the dev branch (commit c080639 or later) so the pvc coding plots correctly")
 
 #GET ARGS
 args <- commandArgs(trailingOnly = TRUE)
@@ -56,7 +63,8 @@ dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 coding_labels <- c(female_ref = "sexMale (F=0, M=1), original",
                    male_ref = "sexFemale (M=0, F=1)",
-                   effect = "sexEffect (F=-1, M=1)")
+                   effect = "sexEffect (F=-1, M=1)",
+                   pvc = "pb(logAge) + pvc(logAge, by = sexEffect) (F=-1, M=1)")
 total_candidates <- c("TBV", "mean.CT", "total.SA")
 birth <- log(280, base=10)
 
@@ -65,6 +73,7 @@ stats_df <- data.frame()
 for (sex_coding in names(sex_codings)) {
   sex_var <- sex_codings[[sex_coding]]
   sex_age_var <- paste0(sex_var, "_x_logAge")
+  sex_age_lab <- sexage_label(sex_coding) #how the sex x age smooth appears in the model's term labels
   print(paste("sex coding:", sex_coding, "->", sex_var))
 
   #global df: model formulas use k=log(nrow(df)) and data=df
@@ -74,12 +83,13 @@ for (sex_coding in names(sex_codings)) {
   if (sex_coding == "female_ref") {
     model <- og_mod
   } else {
-    m_file <- file.path(out_dir, paste0(m_name, "_", sex_var, ".rds"))
+    #(effect & pvc both use sexEffect, so pvc gets its own file name)
+    m_file <- file.path(out_dir, paste0(m_name, "_", if (sex_coding == "pvc") "pvc_sexEffect" else sex_var, ".rds"))
     model <- NULL
     if (file.exists(m_file)) {
       print("loading pre-fit model")
       model <- tryCatch(readRDS(m_file), error = function(e) NULL)
-      if (!is.null(model) && (!isTRUE(model$converged) || get_sex_var(deparse1(model$mu.formula)) != sex_var)) {
+      if (!is.null(model) && (!isTRUE(model$converged) || get_sex_coding(deparse1(model$mu.formula)) != sex_coding)) {
         print("pre-fit model not converged or wrong coding - refitting")
         model <- NULL
       }
@@ -100,12 +110,13 @@ for (sex_coding in names(sex_codings)) {
   model$call$family <- model$family[[1]]
 
   #STATS
-  #edf of the sex x age smooth in mu & sigma
-  smo_edf <- function(what) {
+  #edf & lambda of the sex x age smooth in mu & sigma (lambda 1e7 = capped, i.e. linear in age)
+  smo_stat <- function(what, stat) {
     smo <- model[[paste0(what, ".coefSmo")]]
-    i <- grep(sex_age_var, colnames(model[[paste0(what, ".s")]]), fixed = TRUE)
-    if (length(i) == 1) smo[[i]]$edf else NA
+    i <- grep(sex_age_lab, colnames(model[[paste0(what, ".s")]]), fixed = TRUE)
+    if (length(i) == 1) smo[[i]][[stat]] else NA
   }
+  smo_edf <- function(what) smo_stat(what, "edf")
   stats_df <- rbind(stats_df, data.frame(
     coding = sex_coding,
     sex_var = sex_var,
@@ -115,7 +126,9 @@ for (sex_coding in names(sex_codings)) {
     AIC = model$aic,
     BIC = model$sbc,
     mu_sexAge_edf = smo_edf("mu"),
-    sigma_sexAge_edf = smo_edf("sigma")
+    sigma_sexAge_edf = smo_edf("sigma"),
+    mu_sexAge_lambda = smo_stat("mu", "lambda"),
+    sigma_sexAge_lambda = smo_stat("sigma", "lambda")
   ))
 
   #CENTILE FAN PLOT (as in replot_centiles.R)

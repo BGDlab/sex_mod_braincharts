@@ -236,11 +236,17 @@ gamlss_lambda_rep <- function(og_mod,
 #refit og_mod's exact formulas (every moment, same family) with its sex terms swapped to another coding;
 #smoothing parameters are re-selected, since the sex x age smooth's basis changes with the coding.
 #global df must have the new coding's columns (add_sex_coding())
+#pvc: pb(<sex>_x_logAge, ...) becomes pvc(logAge_days, by = sexEffect, ...) with the same lambda-selection args,
+#placed right after pb(logAge_days) (gamlss backfits smoothers in formula order); the sex main effect is recoded
 refit_sex_coding <- function(og_mod, sex_coding = names(sex_codings), n.cyc = 400){
   sex_coding <- match.arg(sex_coding)
   old_var <- get_sex_var(deparse1(og_mod$mu.formula))
   new_var <- sex_codings[[sex_coding]]
-  recode <- function(f) gsub(old_var, new_var, deparse1(f), fixed = TRUE)
+  recode <- if (sex_coding == "pvc") {
+    function(f) recode_pvc(f, old_var, new_var)
+  } else {
+    function(f) gsub(old_var, new_var, deparse1(f), fixed = TRUE)
+  }
 
   mu_form <- paste("safe_gamlss_old(formula =", recode(og_mod$mu.formula))
   sig_form <- paste("sigma.formula =", recode(og_mod$sigma.formula))
@@ -252,6 +258,55 @@ refit_sex_coding <- function(og_mod, sex_coding = names(sex_codings), n.cyc = 40
 
   try_gamlss_methods(mu_form, sig_form, nu_form, control)
 }
+
+#recode_pvc: one moment's formula (as a string) with its sex x age smooth swapped for pvc(logAge_days, by = new_var)
+#and its sex main effect recoded; moments without a sex x age smooth (nu/tau) only get the main effect recoded
+recode_pvc <- function(f, old_var, new_var) {
+  tt <- terms(f)
+  stopifnot(attr(tt, "intercept") == 1, is.null(attr(tt, "offset")))
+  labs <- attr(tt, "term.labels")
+  is_int <- startsWith(labs, paste0("pb(", old_var, "_x_logAge"))
+  if (any(is_int)) {
+    is_age <- grepl("^pb\\(logAge_days[,)]", labs)
+    stopifnot(sum(is_int) == 1, sum(is_age) == 1)
+    #pvc term with the pb term's lambda-selection args (method, k, ...)
+    pb_call <- str2lang(labs[is_int])
+    pvc_lab <- deparse1(as.call(c(as.name("pvc"), as.name("logAge_days"), by = as.name(new_var),
+                                  as.list(pb_call)[-(1:2)])))
+    labs <- labs[!is_int]
+    labs <- append(labs, pvc_lab, after = which(grepl("^pb\\(logAge_days[,)]", labs)))
+  }
+  #sex main effect (exact label; leaves e.g. <old_var>_x_logAge alone)
+  labs[labs == old_var] <- new_var
+  stopifnot("sex terms left in old coding" = !any(grepl(old_var, labs, fixed = TRUE)))
+  rhs <- if (length(labs) == 0) "1" else paste(labs, collapse = " + ")
+  if (length(f) == 3) paste(deparse1(f[[2]]), "~", rhs) else paste("~", rhs)
+}
+
+#patch_pvc_gaic
+#gamlss 5.5-0 bug in pvc(x, by = <numeric>) lambda selection, patched in this session's gamlss namespace: with
+#method "GAIC", fnGAIC scores sum(w * (y - fv)^2) where fv is beta(x), fit to yvar = y / by with weights w * by^2.
+#It should score yvar, otherwise GAIC always picks the 1e7 cap (linear). Only fnGAIC (numeric `by`, or no `by`,
+#where yvar = y) is changed; the factor-by fnGAICforFactor already scores yvar.
+#stops if the source doesn't match (other gamlss version) instead of fitting with an unpatched pvc
+patch_pvc_gaic <- function() {
+  f <- gamlss:::gamlss.pvc
+  src <- deparse(f, width.cutoff = 500L)
+  #(fnGAICforFactor already has the corrected line, so it appears once unpatched, twice patched)
+  new_gaic <- "GAIC <- sum(w * (yvar - fv)^2) + k * fit$edf"
+  old_gaic <- "GAIC <- sum(w * (y - fv)^2) + k * fit$edf"
+  i_gaic <- grep(old_gaic, src, fixed = TRUE)
+  n_new <- length(grep(new_gaic, src, fixed = TRUE))
+  if (length(i_gaic) == 0 && n_new == 2) return(invisible(TRUE)) #already patched (file sourced again)
+  if (length(i_gaic) != 1 || n_new != 1)
+    stop("patch_pvc_gaic: gamlss.pvc source not as expected (gamlss ", packageVersion("gamlss"), "); not fitting with an unpatched pvc")
+  src[i_gaic] <- sub(old_gaic, new_gaic, src[i_gaic], fixed = TRUE)
+  g <- eval(parse(text = src))
+  environment(g) <- environment(f)
+  assignInNamespace("gamlss.pvc", g, "gamlss")
+  invisible(TRUE)
+}
+patch_pvc_gaic()
 
 #gamlss_lambda_etiv
 #using with default lambda=NULL -> model will select
@@ -500,7 +555,10 @@ try_gamlss_methods <- function(mu_form, sig_form, nu_form, control){
 #female_ref: sexMale   (female=0, male=1) - original models
 #male_ref:   sexFemale (male=0, female=1)
 #effect:     sexEffect (female=-1, male=1)
-sex_codings <- c(female_ref = "sexMale", male_ref = "sexFemale", effect = "sexEffect")
+#pvc:        sexEffect (female=-1, male=1), with pvc(logAge_days, by = sexEffect) in place of pb(<sex>_x_logAge):
+#            pb(logAge_days) is the curve at the sample-weighted average of the sexes and pvc the penalized sex
+#            difference (pvc centres the numeric `by` on its mean; M - F = 2 * beta(age)). Needs patch_pvc_gaic()
+sex_codings <- c(female_ref = "sexMale", male_ref = "sexFemale", effect = "sexEffect", pvc = "sexEffect")
 
 #expression for each coding's sex column, in terms of 0/1 sexMale (also used for sim_data special terms)
 sex_coding_expr <- c(sexMale = "as.numeric(as.character(sexMale))",
@@ -530,8 +588,22 @@ sex_coding_special_terms <- function(sex_coding = names(sex_codings)) {
 
 #which sex column a model formula string uses (from its sex x age smooth)
 get_sex_var <- function(formula_string) {
-  hit <- regmatches(formula_string, regexpr("sex[A-Za-z]+(?=_x_logAge)", formula_string, perl = TRUE))
+  hit <- regmatches(formula_string, regexpr("sex[A-Za-z]+(?=_x_logAge)|(?<=pvc\\(logAge_days, by = )sex[A-Za-z]+",
+                                            formula_string, perl = TRUE))
   if (length(hit) == 0) "sexMale" else hit
+}
+
+#which coding (name of sex_codings) a model formula string uses
+get_sex_coding <- function(formula_string) {
+  if (grepl("pvc(logAge_days, by = ", formula_string, fixed = TRUE)) return("pvc")
+  sex_var <- get_sex_var(formula_string)
+  names(sex_codings)[sex_codings == sex_var & names(sex_codings) != "pvc"]
+}
+
+#term label pattern (fixed string) of a coding's sex x age smooth, e.g. to find it in colnames(<moment>.s)
+sexage_label <- function(sex_coding = names(sex_codings)) {
+  sex_coding <- match.arg(sex_coding)
+  if (sex_coding == "pvc") "pvc(logAge_days" else paste0(sex_codings[[sex_coding]], "_x_logAge")
 }
 
 #rm
