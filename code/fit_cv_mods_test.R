@@ -230,7 +230,7 @@ if (total == TRUE) {
     "pheno" = pheno,
     "effect" = "sex_all",
     "full_dev" = deviance(model),
-    "null2_dev" = deviance(null_model2)
+    "null_dev" = deviance(null_model2)
   )
   
   test_df <- rbind(test_df, test_df2)
