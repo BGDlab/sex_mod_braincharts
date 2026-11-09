@@ -31,13 +31,13 @@ if (log_age == TRUE){
 #drop extra variables
 if (total == 'NULL'){
   df <- df %>%
-    dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "study_site"))) %>%
+    dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "sexEffect", "study_site"))) %>%
     na.omit() %>%
     trunc_coverage(age_var, max_loops=100) %>% #drop points at ends if too sparse
     droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
 } else {
   df <- df %>%
-    dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "study_site", total))) %>%
+    dplyr::select(any_of(c(pheno, fs, age_var, sex_age_var, "sexMale", "sexEffect", "study_site", total))) %>%
     na.omit() %>%
     trunc_coverage(c(total, age_var), max_loops=100) %>% #drop points at ends if too sparse
     droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
