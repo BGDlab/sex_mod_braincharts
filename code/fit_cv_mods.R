@@ -26,7 +26,7 @@ stopifnot(total == "NULL")
 
 #SEX CODING: pb(logAge_days) + pvc(logAge_days, by = sexEffect) (see gamlss_fit_funs.R); only set up for log-age pb models
 stopifnot(log_age == TRUE, sm == "pb")
-df <- add_sex_effect(df)
+stopifnot("df has no sexEffect column (rerun lbcc_eda.Rmd)" = SEX_VAR %in% names(df))
 
 #loop over nu terms
 if (log_age == TRUE & sm == "pb"){
@@ -141,20 +141,6 @@ for (fs_include in fs_moment_list){
                           nu_form=nu,
                           start.from = "first_mod") #use first model as starting point
       
-    } else if (sm == "cs" & log_age == TRUE){
-      model <- gamlss_cs(pheno,
-                         fs_ver=fs,
-                         fs_moment=fs_include,
-                         fam=family,
-                         nu_form=nu,
-                         start.from = "first_mod") #use first model as starting point
-    } else if (sm == "cs" & log_age == FALSE){
-      model <- gamlss_csage(pheno,
-                            fs_ver=fs,
-                            fs_moment=fs_include,
-                            fam=family,
-                            nu_form=nu,
-                            start.from = "first_mod") #use first model as starting point
     }
   }
   

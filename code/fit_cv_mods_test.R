@@ -22,8 +22,10 @@ sim_df_uniform <- readRDS(args[5])
 
 #SEX CODING: pb(logAge_days) + pvc(logAge_days, by = sexEffect) (see gamlss_fit_funs.R)
 stopifnot("training model has no pvc sex x age term" = grepl("pvc(logAge_days", deparse1(base_mod$mu.formula), fixed = TRUE))
-df <- add_sex_effect(df)
-sim_df_uniform <- lapply(sim_df_uniform, add_sex_effect)
+#sexEffect comes from the data (lbcc_eda.Rmd); the sim grid must vary it with sexMale (built with SEX_SPECIAL_TERM)
+stopifnot("df has no sexEffect column (rerun lbcc_eda.Rmd)" = SEX_VAR %in% names(df),
+          "sim_df_uniform's sexEffect doesn't match sexMale (rebuild v3_full_sim.rds with special_term = SEX_SPECIAL_TERM)" =
+            all(vapply(sim_df_uniform, function(s) SEX_VAR %in% names(s) && all(s[[SEX_VAR]] == 2 * s$sexMale - 1), logical(1))))
 
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("_(BestMod|mod)$", "_test", filename_no_ext) #BestMod or runner-up (_mod) training models
@@ -249,8 +251,7 @@ fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
 
 
 # Process sim_df_uniform (shared grid for cross-pheno/split comparison)
-result_df <- process_sex_diffs(sim_data_list = sim_df_uniform, model = model, df = df,
-                               age_var = age_var, pred_list = pred_list, pheno = pheno)
+result_df <- process_sex_diffs(sim_data_list = sim_df_uniform, model = model, df = df, age_var = age_var)
 # Save results
 print("saving uniform sex diffs")
 fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_uniform_sexdiffs.csv"))

@@ -207,8 +207,7 @@ fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
 
 
 # Process sim_df_uniform (shared grid for cross-pheno/split comparison)
-result_df <- process_sex_diffs(sim_data_list = sim_df_uniform, model = model, df = df,
-                               age_var = age_var, pred_list = pred_list, pheno = pheno)
+result_df <- process_sex_diffs(sim_data_list = sim_df_uniform, model = model, df = df, age_var = age_var)
 # Save results
 print("saving uniform sex diffs")
 fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_uniform_sexdiffs.csv"))

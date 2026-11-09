@@ -31,7 +31,7 @@ echo "SIM DF: $SIMDF"
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/
 source $BASE/code/check_branch.sh
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.9.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.17.sif"
 
 singularity run --cleanenv \
     -B $BASE \

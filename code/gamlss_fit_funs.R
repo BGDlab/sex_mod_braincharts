@@ -1,28 +1,19 @@
 #functions to fit various gamlss models
 
 library(gamlss)
-#library(gamlss2)
 
-### SEX CODING (sex_pvc branch) ###
+### SEX CODING (sex_pvc branch helpers) ###
 #sex x age term in mu & sigma: pb(logAge_days) + pvc(logAge_days, by = sexEffect), sexEffect = -1 female / +1 male
 #(in place of pb(sexMale_x_logAge) + pb(logAge_days)).
 #- pvc() centres a numeric `by` on its mean, so the term is beta(age) * (sexEffect - mean(sexEffect)): pb(logAge_days)
 #  is the curve at the sample-weighted average of the sexes and pvc the penalized sex difference (M - F = 2 * beta(age))
-#- mu & sigma keep a sex main effect, as in the published models, so the null (pvc dropped) stays nested. It is
+#- mu & sigma keep a sex main effect, so the null (pvc dropped) stays nested. It is
 #  aliased with pvc's constant, but gamlss counts pvc as edf - 1 (its placeholder column is all zero), so the main
 #  effect supplies that 1 df
 #- gamlss 5.5-0's GAIC lambda selection is broken for a numeric `by`; see patch_pvc_gaic() (applied when this file
 #  is sourced). Predicting from pvc models needs gamlssTools with pvc() support (checked when this file is sourced)
 SEX_VAR <- "sexEffect"
 SEX_SPECIAL_TERM <- "sexEffect = 2 * sexMale - 1" #for sim_data(special_term =)
-
-#add sexEffect (-1 F, +1 M) from sexMale (0/1, numeric or factor)
-add_sex_effect <- function(df) {
-  sex_male <- as.numeric(as.character(df$sexMale))
-  stopifnot("sexMale must be 0/1" = all(sex_male %in% c(0, 1)))
-  df[[SEX_VAR]] <- 2 * sex_male - 1
-  df
-}
 
 #sex x age smooth terms for mu & sigma (pb before pvc: gamlss backfits smoothers in formula order)
 make_sexage <- function(lambda = NULL) {
@@ -153,7 +144,7 @@ gamlss_lambda_rep <- function(og_mod,
                                weight=NULL,
                                n.cyc=800){
 
-  pheno <- deparse1(og_mod$mu.formula[[2]])
+  pheno <- paste0(og_mod$mu.formula)[[2]]
   null_mod <- match.arg(null_mod)
 
   mu_rhs <- rep_rhs(og_mod$mu.formula, og_mod$mu.lambda, keep_lambdas, null_mod)
@@ -180,7 +171,6 @@ gamlss_lambda_rep <- function(og_mod,
   }
 
   #try methods
-
   result <- try_gamlss_methods(mu_form, sig_form, nu_form, control)
 
   return(result)
@@ -564,6 +554,7 @@ patch_pvc_gaic()
 if (!exists(".pvc_spec", envir = asNamespace("gamlssTools"), inherits = FALSE))
   stop("gamlssTools ", packageVersion("gamlssTools"), " has no pvc() support; ",
        "install the dev branch (commit c080639 or later) so pvc models predict correctly")
+
 #summarise age (in days) & sex of the df a model was fit on, for model_sums/*_summary.csv
 #age back-transformed from logAge_days (log10(age_days)); falls back to age_days for models fit on linear age
 df_demo_stats <- function(df) {

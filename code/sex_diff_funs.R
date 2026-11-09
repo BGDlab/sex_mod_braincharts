@@ -13,9 +13,7 @@ get_deriv <- function(x, age) {
 #   model: fit gamlss model
 #   df: data model was fit on
 #   age_var: name of age column in model ("age_days" or "logAge_days")
-#   pred_list: predictors in model (from list_predictors())
-#   pheno: name of phenotype column in df (no longer used; kept so existing calls still work)
-process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, pheno) {
+process_sex_diffs <- function(sim_data_list, model, df, age_var) {
 
   # Initialize empty list
   centile_result_list <- list()
@@ -24,8 +22,8 @@ process_sex_diffs <- function(sim_data_list, model, df, age_var, pred_list, phen
   min_age <- min(df[[age_var]])
   max_age <- max(df[[age_var]])
 
+  #(no column subsetting needed: gamlssTools' data-free prediction picks the model's predictors by name)
   sim_list <- lapply(sim_data_list, function(s) s %>%
-                       select(all_of(pred_list)) %>%
                        filter(.data[[age_var]] >= min_age & .data[[age_var]] <= max_age))
 
   # Predict via gamlssTools, which rebuilds pb()/pvc()/random() terms from the fit

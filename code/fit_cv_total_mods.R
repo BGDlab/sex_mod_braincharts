@@ -26,7 +26,7 @@ family <- "BCTo"
 
 #SEX CODING: pb(logAge_days) + pvc(logAge_days, by = sexEffect) (see gamlss_fit_funs.R); only set up for log-age pb models
 stopifnot(log_age == TRUE, sm == "pb")
-df <- add_sex_effect(df)
+stopifnot("df has no sexEffect column (rerun lbcc_eda.Rmd)" = SEX_VAR %in% names(df))
 
 #loop over nu terms
 if (log_age == TRUE & sm == "pb"){
