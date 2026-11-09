@@ -3,7 +3,7 @@
 #SBATCH --job-name=cv_mods
 #SBATCH --time=400:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=16G #almost all jobs run with 8G, upping for resubmission
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_train/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_train/R-%A_%a.err
@@ -41,10 +41,17 @@ script=$BASE/code/fit_cv_mods.R
 
 echo "SCRIPT: $script"
 
+#fit_cv_mods.R fits its model grid on $SLURM_CPUS_PER_TASK cores (memory is per cpu, so it scales too)
+
+#one BLAS/OpenMP thread per forked worker so the workers don't oversubscribe the allocated cores
+#(SINGULARITYENV_ vars get through --cleanenv)
+export SINGULARITYENV_OMP_NUM_THREADS=1
+export SINGULARITYENV_OPENBLAS_NUM_THREADS=1
+
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $script $DF $PHENO $FS $TOTAL $SAVE_PATH $LOG_AGE $SMOOTH
+    Rscript $script $DF $PHENO $FS $TOTAL $SAVE_PATH $LOG_AGE $SMOOTH ${SLURM_CPUS_PER_TASK:-1}
 
 chmod 777 -R $SAVE_PATH
 

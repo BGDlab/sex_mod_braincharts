@@ -5,6 +5,7 @@ library(data.table)
 library(dplyr)
 library(gamlss)
 library(gamlssTools)
+library(parallel)
 
 base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
@@ -19,6 +20,8 @@ total <- as.character(args[4])
 save_path <- as.character(args[5])
 log_age <- as.logical(args[6])
 sm <- as.character(args[7])
+#cores to fit the model grid on (pass $SLURM_CPUS_PER_TASK; singularity --cleanenv hides it from R); default 1 = serial
+n_cores <- if (length(args) >= 8 && !is.na(suppressWarnings(as.integer(args[8])))) as.integer(args[8]) else 1L
 
 stopifnot(!is.null(total))
 
@@ -65,105 +68,129 @@ if (log_age == TRUE & sm == "pb"){
 moment_list <- c("none", "mu", "both", "all")
 moment_list2 <- c("mu", "both", "all") #make sure total is at least in mu
 
-#initialize empty lists
-mod_count <- 0
-first_mod <- NULL
-results_df <- data.frame()
-summary_df <- data.frame()
+#model grid, in the order the old nested loops fit it: fs moment, then total moment, then nu (fastest)
+grid <- expand.grid(nu_name = names(nu_list), total_include = moment_list2, fs_include = moment_list,
+                    stringsAsFactors = FALSE)[, c("fs_include", "total_include", "nu_name")]
 
-#FIT MODEL
-for (fs_include in moment_list){
+#fit (or load) grid model i, save it, and return its summary row (NULL summary if it failed to fit)
+#return_model = TRUE also returns the model (only used for first_mod: workers don't ship models back)
+fit_grid_mod <- function(i, return_model = FALSE){
+  fs_include <- grid$fs_include[i]
+  total_include <- grid$total_include[i]
+  nu_name <- grid$nu_name[i]
+  nu <- nu_list[[nu_name]]
   
-  for (total_include in moment_list2){
-
-    for (nu in nu_list){
-    nu_name <- names(nu_list)[nu_list==nu]
-    
-    print(paste("fitting model with fs in", fs_include, 
-                ", total in", total_include, 
-                "and nu = ", nu_name))
-    
-    m_name <- paste(paste0("fs", fs_include), nu_name, paste0("total", total_include), sep="_")
-    m_file <- paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds")
-    
-    model <- NULL
-    
-    #CHECK IF MODEL EXISTS
-    if (file.exists(m_file)){
-      print("loading pre-fit model")
-      model <- tryCatch({readRDS(m_file)
+  print(paste("fitting model with fs in", fs_include, 
+              ", total in", total_include, 
+              "and nu = ", nu_name))
+  
+  m_name <- paste(paste0("fs", fs_include), nu_name, paste0("total", total_include), sep="_")
+  m_file <- paste0(save_path, "/model_objs/", pheno, "_", m_name, "_mod.rds")
+  
+  model <- NULL
+  
+  #CHECK IF MODEL EXISTS
+  if (file.exists(m_file)){
+    print(paste(m_name, ": loading pre-fit model"))
+    model <- tryCatch({readRDS(m_file)
+    }, error = function(e){
+      message(e$message, "- trying again")
+      tryCatch({readRDS(m_file)
       }, error = function(e){
-        message(e$message, "- trying again")
-        tryCatch({readRDS(m_file)
-        }, error = function(e){
-          message(e$message, "- refit")
-          NULL
-        })
+        message(e$message, "- refit")
+        NULL
       })
-      #double-check that loaded model did converge
-      if (!is.null(model) && isFALSE(model$converged)) {
-        print("loaded model was not converged")
-        init_mod <- model
-        print("fitting new gamlss model")
-        #FIT BASIC MODEL
-        model <- gamlss_lambda_etiv(pheno,
-                                    total_var=total, total_moment=total_include,
-                                    fs_ver=fs, fs_moment=fs_include, 
-                                    fam=family,
-                                    nu_form=nu,
-                                    start.from = "init_mod") #use loaded model as starting point
-      }
-    } 
-    
-    if (is.null(model)){
+    })
+    #double-check that loaded model did converge
+    if (!is.null(model) && isFALSE(model$converged)) {
+      print(paste(m_name, ": loaded model was not converged"))
+      #gamlss_lambda_etiv() evaluates its call text with lookup through the global env, so init_mod has to be
+      #global (as in the old top-level loop); in a forked worker this only touches that worker's copy
+      assign("init_mod", model, envir = globalenv())
+      print("fitting new gamlss model")
       #FIT BASIC MODEL
       model <- gamlss_lambda_etiv(pheno,
                                   total_var=total, total_moment=total_include,
                                   fs_ver=fs, fs_moment=fs_include, 
                                   fam=family,
                                   nu_form=nu,
-                                  start.from = "first_mod") #use first model as starting point
+                                  start.from = "init_mod") #use loaded model as starting point
     }
+  } 
   
-    #if model isn't fit, skip to next loop
-    if (is.null(model)) {
-      message("model fitting failed")
-      next
-    } else {
-      message("model fit")
-      mod_count <- mod_count + 1
-    }
-    
-    #save
-    saveRDS(model, file=m_file)
-    
-    #retain first successful model
-    if (is.null(first_mod)){
-      first_mod <- model
-    }
-  
-   
-    #COMPILE
-      #BIC & AIC
-      tmp_df <- data.frame(
-        "AIC" = model$aic,
-        "BIC" = model$sbc,
-        "pheno" = pheno,
-        "fs_moment" = fs_include,
-        "total_moment" = total_include,
-        "nu" = nu_name,
-        "mu_pvc_lambda" = pvc_lambda(model, "mu"), #1e7 = capped, i.e. linear sex difference in age
-        "sigma_pvc_lambda" = pvc_lambda(model, "sigma")
-      ) %>%
-        cbind(df_demo_stats(df)) #age (days) & sex of fit data
-      summary_df <- rbind(summary_df, tmp_df)
-      
-    #get back memory
-    rm(model)
-    }
+  if (is.null(model)){
+    #FIT BASIC MODEL
+    model <- gamlss_lambda_etiv(pheno,
+                                total_var=total, total_moment=total_include,
+                                fs_ver=fs, fs_moment=fs_include, 
+                                fam=family,
+                                nu_form=nu,
+                                start.from = "first_mod") #use first model as starting point
   }
+  
+  #if model isn't fit, skip to next model
+  if (is.null(model)) {
+    message(m_name, ": model fitting failed")
+    return(list(summary = NULL, model = NULL))
+  }
+  message(m_name, ": model fit")
+  
+  #save
+  saveRDS(model, file=m_file)
+  
+  #COMPILE
+  #BIC & AIC
+  tmp_df <- data.frame(
+    "AIC" = model$aic,
+    "BIC" = model$sbc,
+    "pheno" = pheno,
+    "fs_moment" = fs_include,
+    "total_moment" = total_include,
+    "nu" = nu_name,
+    "mu_pvc_lambda" = pvc_lambda(model, "mu"), #1e7 = capped, i.e. linear sex difference in age
+    "sigma_pvc_lambda" = pvc_lambda(model, "sigma")
+  ) %>%
+    cbind(df_demo_stats(df)) #age (days) & sex of fit data
+  
+  list(summary = tmp_df, model = if (return_model) model)
 }
-expected <- length(nu_list)*length(moment_list)*3
+
+#FIT MODELS
+fits <- vector("list", nrow(grid))
+first_mod <- NULL
+
+#fit in grid order until one model fits: that first successful model is the starting point for every later fit
+i <- 0
+while (is.null(first_mod) && i < nrow(grid)){
+  i <- i + 1
+  fits[[i]] <- fit_grid_mod(i, return_model = TRUE)
+  first_mod <- fits[[i]]$model
+  fits[[i]]$model <- NULL
+}
+
+#the remaining fits only depend on first_mod, so run them in parallel (forked workers inherit df, first_mod
+#and the patched gamlss namespace); mc.preschedule = FALSE hands out one model at a time, since fit times vary a lot
+rest <- seq_len(nrow(grid))[-seq_len(i)]
+if (length(rest) > 0){
+  print(paste("fitting", length(rest), "remaining models on", n_cores, "cores"))
+  fits[rest] <- mclapply(rest, fit_grid_mod, mc.cores = n_cores, mc.preschedule = FALSE)
+}
+
+#a worker that hit an uncaught error (which stopped the old serial loop) returns a try-error, and one that was
+#killed (e.g. out of memory) returns NULL: stop before picking a best model from an incomplete set
+#(models that did fit are saved, so a rerun only refits the missing ones)
+bad <- which(vapply(fits, function(f) is.null(f) || inherits(f, "try-error"), logical(1)))
+if (length(bad) > 0){
+  for (b in bad){
+    message("model ", paste(grid[b, ], collapse = "/"), " errored: ",
+            if (is.null(fits[[b]])) "worker died (out of memory?)" else as.character(fits[[b]]))
+  }
+  stop(length(bad), " model fit(s) errored; rerun to refit them")
+}
+
+summary_df <- do.call(rbind, lapply(fits, `[[`, "summary"))
+mod_count <- if (is.null(summary_df)) 0 else nrow(summary_df)
+expected <- nrow(grid)
 print(paste(mod_count, "of", expected, "models fit"))
 
 stopifnot(mod_count > 0)
