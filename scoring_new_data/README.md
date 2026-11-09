@@ -10,10 +10,10 @@ Any batch (site) effects of your data are estimated and removed along the way.
 1. **Get the code.** Download just this folder (under 1 MB) with a git sparse checkout:
 
    ```bash
-   git clone --filter=blob:none --no-checkout --branch sharing https://github.com/BGDlab/sex_mod_braincharts.git
+   git clone --filter=blob:none --no-checkout --branch main https://github.com/BGDlab/sex_mod_braincharts.git
    cd sex_mod_braincharts
    git sparse-checkout set --no-cone '/scoring_new_data/'
-   git checkout sharing
+   git checkout main
    ```
 
 2. **Install R packages.** You need `dplyr`, `data.table`, `gamlss`, `devtools` and `remotes`.
@@ -237,7 +237,7 @@ underscores are interchangeable (`--min-ref` = `--min_ref`).
 | `--batch` | | `study_site` | Column holding the batch (site) variable whose effects will be estimated and removed. |
 | `--pheno_list` | | all 242 phenotypes (`all_phenos.txt` on GitHub) | To score just a subset, pass a text file of phenotypes to score, one phenotype column name per line. |
 | `--model_dir` | | none (stream from GitHub) | Alternatively, can point to a folder containing brain chart models. |
-| `--model_ref` | | `sharing` | Branch, tag or commit SHA of `BGDlab/sex_mod_braincharts` to stream models from. Ignored when `--model_dir` is set. Pin a tag or SHA for reproducible results. |
+| `--model_ref` | | `main` | Branch, tag or commit SHA of `BGDlab/sex_mod_braincharts` to stream models from. Ignored when `--model_dir` is set. Pin a tag or SHA for reproducible results. |
 
 #### `--total`: correcting for brain size
 
@@ -284,13 +284,13 @@ and `oos_reference_scores_helper_funs.R`. `all_phenos.txt` is optional (streamed
 if missing).
 
 The easiest way to get them is to download just this folder from the repository
-(`sharing` branch) with a git sparse checkout:
+(`main` branch) with a git sparse checkout:
 
 ```bash
-git clone --filter=blob:none --no-checkout --branch sharing https://github.com/BGDlab/sex_mod_braincharts.git
+git clone --filter=blob:none --no-checkout --branch main https://github.com/BGDlab/sex_mod_braincharts.git
 cd sex_mod_braincharts
 git sparse-checkout set --no-cone '/scoring_new_data/'
-git checkout sharing
+git checkout main
 ```
 
 This gives you a `sex_mod_braincharts/` folder containing only `scoring_new_data/`

@@ -2,7 +2,7 @@
 
 #argument defaults
 DEFAULTS <- list(
-  pheno_list = "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/scoring_new_data/all_phenos.txt", 
+  pheno_list = "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/main/scoring_new_data/all_phenos.txt", 
   total = "FALSE", #TRUE = total-corrected models, FALSE = uncorrected
   df = NULL,
   batch = "study_site",
@@ -10,7 +10,7 @@ DEFAULTS <- list(
   min_ref = 100,
   out_file = NULL,
   model_dir = NULL, #NULL=stream from github, otherwise local path to models
-  model_ref = "sharing" # BGDlab/sex_mod_braincharts branch, tag, or commit SHA corresponding to models for reproducibiltiy
+  model_ref = "main" # BGDlab/sex_mod_braincharts branch, tag, or commit SHA corresponding to models for reproducibiltiy
                      # only used when model_dir is NULL
 )
 

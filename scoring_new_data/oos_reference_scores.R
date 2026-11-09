@@ -44,7 +44,7 @@ library(gamlss2charts)
 
 #source helpers from github; if that fails (e.g. no internet), fall back to
 #a local copy next to this script
-helper_url <- "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/sharing/scoring_new_data/oos_reference_scores_helper_funs.R"
+helper_url <- "https://raw.githubusercontent.com/BGDlab/sex_mod_braincharts/refs/heads/main/scoring_new_data/oos_reference_scores_helper_funs.R"
 
 script_dir <- function() {
   #Rscript
@@ -124,6 +124,8 @@ if (".row_id" %in% names(df)) {
 df <- df %>%
   mutate(sexMale_x_logAge = sexMale * logAge_days) #calculate sex x age interaction
 
+df <- as.data.frame(df)
+
 #with a local model directory, fail now if it is missing or incomplete
 check_model_dir(args$model_dir, pheno_list, args$total)
 
@@ -160,12 +162,14 @@ if (!is.null(pheno)) {
          args$out_file)
 } else {
   #rejoin to the full input data by row key
-  df_full_cent <- Reduce(
-    function(a, b) dplyr::left_join(a, b, by = ".row_id"),
-    df_cent,
-    init = as.data.frame(df)
-  ) %>%
-    dplyr::select(-.row_id)
+  df_full_cent <- df
+  for (s in df_cent) {
+    rows <- match(df_full_cent$.row_id, s$.row_id)
+    for (col in setdiff(names(s), ".row_id")) {
+      df_full_cent[[col]] <- s[[col]][rows]
+    }
+  }
+  df_full_cent$.row_id <- NULL
   fwrite(df_full_cent, args$out_file)
 }
 
