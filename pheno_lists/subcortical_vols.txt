@@ -1,4 +1,5 @@
 SUBC.Left.Lateral.Ventricle
+SUBC.Left.Inf.Lat.Vent
 SUBC.Left.Cerebellum.White.Matter
 SUBC.Left.Cerebellum.Cortex
 SUBC.Left.Thalamus.Proper
@@ -23,6 +24,7 @@ SUBC.Right.Amygdala
 SUBC.Right.Accumbens.area
 SUBC.Right.VentralDC
 SUBC.Right.Lateral.Ventricle
+SUBC.Right.Inf.Lat.Vent
 SUBC.CC_Posterior
 SUBC.CC_Mid_Posterior
 SUBC.CC_Central
