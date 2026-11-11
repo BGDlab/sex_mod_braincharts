@@ -5,6 +5,7 @@ library(data.table)
 library(dplyr)
 library(gamlss)
 library(gamlssTools)
+library(ggnewscale)
 
 base <- "/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/"
 source(paste0(base, "code/gamlss_fit_funs.R"))
@@ -106,6 +107,8 @@ if ("logAge_days" %in% pred_list){
 #define nuisance covars to residualize from points
 resid_terms <- setdiff(pred_list, vars_of_interest)
 
+split <- sub(".*cv_sample_([AB])_.*", "\\1", args[1])
+title_text <- if (isTRUE(total)) paste(pheno, "validation model controlling for total brain size in Split-Half", split) else paste(pheno, "validation model in Split-Half", split)
 birth <- log(280, base=10)
 pt_show <- !isTRUE(total)
 print("creating centile fan plot")
@@ -115,18 +118,24 @@ print("creating centile fan plot")
                                color_var="sexMale",
                                get_peaks=TRUE, 
                                desiredCentiles=c(0.05, 0.25, 0.5, 0.75, 0.95),
+                               show_points=pt_show,
                                sim_data_list = sim_df,
-                               show_points = pt_show,
+                               label_centiles = "legend",
+                               point_color_manual = c('0' = "#F4A15BFF", '1' = "#8CB3D1FF"),
+                               color_manual = c("0" = "#c05f0d", "1" = "#38688D"),
                                remove_point_effect = resid_terms,
-                               x_axis="log_lifespan_fetal")  +
+                               x_axis="log_lifespan_fetal") +
     theme_linedraw() +
-    labs(title=paste(pheno, "validation model"),
-         x ="log Age (days)") +
-  scale_color_discrete(name = "Sex", labels = c("Female", "Male")) +
-    guides(fill=FALSE) +
-    geom_vline(xintercept=birth)
+    scale_color_manual(name = "Sex",
+                       values = c('0' = "#c05f0d", '1' = "#38688D"),
+                       labels = c("Female", "Male")) +
+    guides(fill = "none",
+           fill_ggnewscale_1 = "none", colour_ggnewscale_1 = "none") +
+    geom_vline(xintercept=birth, color="gray20", linetype = "dashed") +
+    labs(title= title_text,
+         x = "Age (years)")
     
-    ggsave(file=paste0(save_path, "/centile_plots/", filename, ".png"), fan_plot)
+    ggsave(file=paste0(save_path, "/centile_plots/", filename, ".png"), fan_plot, width = 8, height = 5)
     
   #WORM PLOT
     print("creating worm plot")
