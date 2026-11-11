@@ -4,7 +4,7 @@
 #SBATCH --time=500:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=16G
+#SBATCH --mem-per-cpu=6G
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_total_train/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_total_train/R-%A_%a.err
 

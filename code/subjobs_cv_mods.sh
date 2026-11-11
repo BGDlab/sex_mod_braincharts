@@ -1,10 +1,10 @@
 #!/bin/bash
 #
 #SBATCH --job-name=cv_mods
-#SBATCH --time=400:00:00
+#SBATCH --time=168:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=12G #almost all jobs run with 8G, upping for resubmission
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=4G #almost all jobs run with 8G, upping for resubmission
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_train/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_train/R-%A_%a.err
 
