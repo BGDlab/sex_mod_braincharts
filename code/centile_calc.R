@@ -48,19 +48,14 @@ mod_list <- lapply(mod_list, function(m) {
 pred_list <- list_predictors(mod_list$full)
 pheno <- get_y(mod_list$full) %>% as.character()
 
-all_list <- c(unlist(pred_list), pheno, "INDEX.ID", "dx", "dx_recode")
+all_list <- c(unlist(pred_list), pheno, "INDEX.ID", "dx", "dx_recode", "sexMale")
 
 # identify factor predictors in the model and grab the levels seen during fitting
-# (generalizes the previous study_site-only filter; required because weighted models'
-# trunc_coverage step can drop e.g. fs_version_GM = "synthseg-young" rows)
 pred_vec <- unique(unlist(pred_list))
 factor_preds <- pred_vec[pred_vec %in% names(df.og)]
 factor_preds <- factor_preds[vapply(factor_preds, function(p) is.factor(df.og[[p]]), logical(1))]
 valid_levels <- lapply(factor_preds, function(p) unique(as.character(df.og[[p]])))
 names(valid_levels) <- factor_preds
-
-# print(length(all_list))
-# print(all_list)
 
 # age2plus models are only fit on age_days >= 2yr + 280d gestation (see sensitivity_df_prep.Rmd),
 # so drop younger patients to avoid extrapolated centiles
@@ -69,10 +64,6 @@ if (grepl("age2plus_", mod_path)) {
   n_pre <- nrow(df)
   df <- df %>% dplyr::filter(age_days >= two_yrs)
   print(paste0("age2plus mode: filtered patient df from ", n_pre, " to ", nrow(df), " rows (age_days >= ", two_yrs, ")"))
-}
-
-if (grepl("weighted_", mod_path)) {
-  print("weighted mode: using QC-weighted training model for centile calculation")
 }
 
 #drop extra variables

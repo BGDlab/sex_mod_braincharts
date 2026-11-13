@@ -29,18 +29,10 @@ echo "DX: $DX"
 echo "TOTAL: $TOTAL"
 echo "MODE: $MODE"
 
-#echo "=== Node: $(hostname) ==="
-#echo "=== /tmp on host: ==="
-#df -h /tmp
-#echo "=== TMPDIR env: $TMPDIR ==="
-#echo "=== SLURM_TMPDIR: $SLURM_TMPDIR ==="
-#echo "=== Free space on \$BASE: ==="
-#df -h $BASE
-
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.11.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.18.sif"
 
 singularity run --cleanenv \
     -B $BASE \
