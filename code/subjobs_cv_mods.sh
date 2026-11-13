@@ -24,6 +24,7 @@ TOTAL=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $5}' $CO
 SAVE_PATH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $6}' $CONFIGFN )
 LOG_AGE=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $7}' $CONFIGFN )
 SMOOTH=$(awk -v ArrayTaskID=$SLURM_ARRAY_TASK_ID '$1==ArrayTaskID {print $8}' $CONFIGFN )
+N_CORES=${SLURM_CPUS_PER_TASK:-1} #cores the R script fits its model grid on
 
 echo "DF: $DF"
 echo "PHENO: $PHENO"
@@ -32,6 +33,7 @@ echo "TOTAL COV: $TOTAL"
 echo "SAVE_PATH: $SAVE_PATH"
 echo "LOG-SCALE AGE: $LOG_AGE"
 echo "SMOOTH: $SMOOTH"
+echo "N CORES: $N_CORES"
 
 #------------------
 
@@ -51,7 +53,7 @@ export SINGULARITYENV_OPENBLAS_NUM_THREADS=1
 singularity run --cleanenv \
     -B $BASE \
     $SINGULARITY_IMAGE \
-    Rscript $script $DF $PHENO $FS $TOTAL $SAVE_PATH $LOG_AGE $SMOOTH ${SLURM_CPUS_PER_TASK:-1}
+    Rscript $script $DF $PHENO $FS $TOTAL $SAVE_PATH $LOG_AGE $SMOOTH $N_CORES
 
 chmod 777 -R $SAVE_PATH
 

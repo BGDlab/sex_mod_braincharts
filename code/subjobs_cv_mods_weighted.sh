@@ -4,7 +4,7 @@
 #SBATCH --time=60:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=10G
+#SBATCH --mem-per-cpu=8G
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/w_train/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/w_train/R-%A_%a.err
 
@@ -29,7 +29,7 @@ echo "TBV-corrected: $TBV"
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.4.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.18.sif"
 
 singularity run --cleanenv \
     -B $BASE \

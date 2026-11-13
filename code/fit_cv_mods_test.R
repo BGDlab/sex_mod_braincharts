@@ -100,7 +100,7 @@ if ("logAge_days" %in% pred_list){
 } else {
   print("simulate data for plotting")
   age_var <- "age_days"
-  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
+  sim_df <- sim_data(df, age_var, factor_var="sexMale", special_term = SEX_SPECIAL_TERM)
   vars_of_interest <- c("sexMale_x_age", age_var, "sexMale")
 }
 

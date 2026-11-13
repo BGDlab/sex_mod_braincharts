@@ -24,11 +24,23 @@ sim_df_uniform <- readRDS(args[6])
 filename_no_ext <- sub("\\.[^.]*$", "", basename(args[2]))
 filename <- sub("train", "test", filename_no_ext)
 file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
+file_null <- paste0(save_path, "/model_objs/", filename, "_null_mod.rds")
+file_null2 <- paste0(save_path, "/model_objs/", filename, "_null2_mod.rds")
 
-# #check if this pheno is already run, and if so, end
-# if (file.exists(paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))){
-#   stop("Already tested, skipping pheno")
-# }
+#load a model saved by an earlier run of this job (NULL if there is none, or it can't be read twice -> refit)
+load_saved_mod <- function(f){
+  if (!file.exists(f)) return(NULL)
+  print(paste("loading pre-fit model", f))
+  tryCatch({readRDS(f)
+  }, error = function(e){
+    message(e$message, "- trying again")
+    tryCatch({readRDS(f)
+    }, error = function(e){
+      message(e$message, "- refit")
+      NULL
+    })
+  })
+}
 
 ##### READ INFO #####
 base_mod$call$data <- "df"
@@ -38,26 +50,26 @@ pred_list <- list_predictors(base_mod)
 #check if age is log-scaled
 if ("logAge_days" %in% pred_list){
   age_var <- "logAge_days"
-  sex_age_var <- "sexMale_x_logAge"
+  sex_age_var <- SEX_VAR
 } else {
   age_var <- "age_days"
   sex_age_var <- "sexMale_x_age"
 }
 #define nuisance covars to residualize from points
-vars_of_interest <- c(age_var, sex_age_var, "sexMale")
+vars_of_interest <- c(age_var, sex_age_var)
 resid_terms <- setdiff(pred_list, vars_of_interest)
 
 ##### PREP DATAFRAME #####
 #drop extra variables
 if (total == "FALSE"){
   df <- full_df %>%
-    dplyr::select(all_of(c(pred_list, pheno, "weight"))) %>%
+    dplyr::select(all_of(c(pred_list, "sexMale", pheno, "weight"))) %>%
     na.omit() %>%
     trunc_coverage(age_var) %>% #drop points at ends if too sparse
     droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
 } else {
   df <- full_df %>%
-    dplyr::select(all_of(c(pred_list, pheno, "weight"))) %>%
+    dplyr::select(all_of(c(pred_list, "sexMale", pheno, "weight"))) %>%
   na.omit() %>%
     trunc_coverage(c(total, age_var)) %>% #drop points at ends if too sparse
     droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
@@ -70,12 +82,14 @@ fwrite(df, df_filename)
 
 ##### FIT TEST MODEL #####
 #check if this pheno is already run, and if so, load
-model <- NULL
-
-model <- gamlss_lambda_rep(base_mod, 
-                            null_mod="false",
-                            keep_lambdas=TRUE,
-                            weight="weight")
+model <- load_saved_mod(file_full)
+if (is.null(model)){
+  model <- gamlss_lambda_rep(base_mod,
+                              null_mod="false",
+                              keep_lambdas=TRUE,
+                              weight="weight",
+                              n.cyc=1000)
+}
 
 #if model isn't fit, skip to next loop
 if (is.null(model)) {
@@ -112,7 +126,7 @@ print("creating centile fan plot")
 #check if age is log-scaled
 if ("logAge_days" %in% pred_list){
   print("simulate data for plotting")
-  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = SEX_SPECIAL_TERM)
 } else {
   print("simulate data for plotting")
   sim_df <- sim_data(df, "age_days", factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")
@@ -163,13 +177,28 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 ##################
 #FIT NULL MODEL
 print("fitting null model")
-null_model <- gamlss_lambda_rep(base_mod, null_mod="true", weight="weight")
-#test saving null 
-file_null <- paste0(save_path, "/model_objs/", filename, "_null_mod.rds")
+#check if null is already run, and if so, load
+null_model <- load_saved_mod(file_null)
+if (is.null(null_model)){
+  null_model <- gamlss_lambda_rep(base_mod, null_mod="true", weight="weight", n.cyc=1000)
+}
+
+#if model doesn't fit, fail
+if (is.null(null_model)) {
+  message("null model fitting failed")
+  stop("null model fitting failed")
+}
+
 print (paste("saving to", file_null))
 saveRDS(null_model, file=file_null)
 
-test_out <- LR.test(null_model, model, print=FALSE) #significance test
+print(paste("Full deviance:", deviance(model)))
+print(paste("Age*Sex Null deviance:", deviance(null_model)))
+#significance test
+test_out <- tryCatch({LR.test(null_model, model, print=FALSE)},
+                     error = function(e) {
+                       message(e$message, "- returning NA")
+                       list(chi = NA, df = NA, p.val = NA)})
 f2 <- cohens_f2_local(model, null_model) #effect size
 
 #TEST
@@ -179,16 +208,36 @@ test_df <- data.frame(
   "p_val" = test_out$p.val,
   "fsq" = f2,
   "pheno" = pheno,
-  "effect" = "sex_age"
+  "effect" = "sex_age",
+  "full_dev" = deviance(model),
+  "null_dev" = deviance(null_model)
 )
 
 ##################
 #FIT NULL MODEL WITH NO SEX-EFFECT FOR TBV-CORRECTED MODELS
 if (total != FALSE) {
   print("fitting null model of all sex effects")
-  null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex", weight="weight")
-  
-  test_out2 <- LR.test(null_model2, model, print=FALSE) #significance test
+  #check if null is already run, and if so, load
+  null_model2 <- load_saved_mod(file_null2)
+  if (is.null(null_model2)){
+    null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex", weight="weight", n.cyc=1200)
+  }
+
+  #if model doesn't fit, fail
+  if (is.null(null_model2)) {
+    message("sex null model fitting failed")
+    stop("sex null model fitting failed")
+  }
+
+  print (paste("saving to", file_null2))
+  saveRDS(null_model2, file=file_null2)
+
+  print(paste("Full deviance:", deviance(model)))
+  print(paste("Sex Null deviance:", deviance(null_model2)))
+  test_out2 <- tryCatch({LR.test(null_model2, model, print=FALSE)},
+                        error = function(e) {
+                          message(e$message, "- returning NA")
+                          list(chi = NA, df = NA, p.val = NA)})
   f2_2 <- cohens_f2_local(model, null_model2) #effect size
   
   #TEST
@@ -198,7 +247,9 @@ if (total != FALSE) {
     "p_val" = test_out2$p.val,
     "fsq" = f2_2,
     "pheno" = pheno,
-    "effect" = "sex_all"
+    "effect" = "sex_all",
+    "full_dev" = deviance(model),
+    "null_dev" = deviance(null_model2)
   )
   
   test_df <- rbind(test_df, test_df2)
@@ -210,9 +261,6 @@ fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
 ####################
 #GET SEX-DIFFERENCES
 # Predict 50th cent & sigma values for each simulated level of factor_var
-
-
-# Process sim_df_uniform (shared grid for cross-pheno/split comparison)
 result_df <- process_sex_diffs(sim_data_list = sim_df_uniform, model = model, df = df, age_var = age_var)
 # Save results
 print("saving uniform sex diffs")
