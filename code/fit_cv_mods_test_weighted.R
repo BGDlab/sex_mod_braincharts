@@ -27,21 +27,6 @@ file_full <- paste0(save_path, "/model_objs/", filename, "_full_mod.rds")
 file_null <- paste0(save_path, "/model_objs/", filename, "_null_mod.rds")
 file_null2 <- paste0(save_path, "/model_objs/", filename, "_null2_mod.rds")
 
-#load a model saved by an earlier run of this job (NULL if there is none, or it can't be read twice -> refit)
-load_saved_mod <- function(f){
-  if (!file.exists(f)) return(NULL)
-  print(paste("loading pre-fit model", f))
-  tryCatch({readRDS(f)
-  }, error = function(e){
-    message(e$message, "- trying again")
-    tryCatch({readRDS(f)
-    }, error = function(e){
-      message(e$message, "- refit")
-      NULL
-    })
-  })
-}
-
 ##### READ INFO #####
 base_mod$call$data <- "df"
 pheno <- base_mod$mu.terms[[2]] %>% as.character()

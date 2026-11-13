@@ -36,26 +36,26 @@ pred_list <- list_predictors(base_mod)
 #check if age is log-scaled
 if ("logAge_days" %in% pred_list){
   age_var <- "logAge_days"
-  sex_age_var <- "sexMale_x_logAge"
+  sex_age_var <- SEX_VAR
 } else {
   age_var <- "age_days"
   sex_age_var <- "sexMale_x_age"
 }
 #define nuisance covars to residualize from points
-vars_of_interest <- c(age_var, sex_age_var, "sexMale")
+vars_of_interest <- c(age_var, sex_age_var)
 resid_terms <- setdiff(pred_list, vars_of_interest)
 
 ##### PREP DATAFRAME #####
 #drop extra variables
 if (total == "FALSE"){
   df <- full_df %>%
-    dplyr::select(all_of(c(pred_list, pheno))) %>%
+    dplyr::select(all_of(c(pred_list, "sexMale", pheno))) %>%
     na.omit() %>%
     trunc_coverage(age_var, max_loops=100) %>% #drop points at ends if too sparse
     droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
 } else {
   df <- full_df %>%
-    dplyr::select(all_of(c(pred_list, pheno))) %>%
+    dplyr::select(all_of(c(pred_list, "sexMale", pheno))) %>%
     na.omit() %>%
     trunc_coverage(c(total, age_var), max_loops=100) %>% #drop points at ends if too sparse
     droplevels() #drop factor levels emptied by filtering (else they become an empty reference level)
@@ -84,7 +84,7 @@ print("creating centile fan plot")
 #check if age is log-scaled
 if ("logAge_days" %in% pred_list){
   print("simulate data for plotting")
-  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = "sexMale_x_logAge = sexMale * logAge_days")
+  sim_df <- sim_data(df, "logAge_days", factor_var="sexMale", special_term = SEX_SPECIAL_TERM)
 } else {
   print("simulate data for plotting")
   sim_df <- sim_data(df, "age_days", factor_var="sexMale", special_term = "sexMale_x_age = sexMale * age_days")

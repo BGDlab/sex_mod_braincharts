@@ -29,7 +29,7 @@ echo "TBV-corrected: $TBV"
 #------------------
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.14.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.18.sif"
 
 singularity run --cleanenv \
     -B $BASE \

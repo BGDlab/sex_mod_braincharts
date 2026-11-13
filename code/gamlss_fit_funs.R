@@ -2,6 +2,21 @@
 
 library(gamlss)
 
+#load a model saved by an earlier run of this job (NULL if there is none, or it can't be read twice -> refit)
+load_saved_mod <- function(f){
+  if (!file.exists(f)) return(NULL)
+  print(paste("loading pre-fit model", f))
+  tryCatch({readRDS(f)
+  }, error = function(e){
+    message(e$message, "- trying again")
+    tryCatch({readRDS(f)
+    }, error = function(e){
+      message(e$message, "- refit")
+      NULL
+    })
+  })
+}
+
 ### SEX CODING (sex_pvc branch helpers) ###
 #sex x age term in mu & sigma: pb(logAge_days) + pvc(logAge_days, by = sexEffect), sexEffect = -1 female / +1 male
 #(in place of pb(sexMale_x_logAge) + pb(logAge_days)).
