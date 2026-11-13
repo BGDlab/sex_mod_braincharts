@@ -38,20 +38,7 @@ base_mod$call$family <- base_mod$family[[1]]
 
 #FIT BASIC MODEL
 #check if this pheno is already run, and if so, load
-model <- NULL
-
-if (file.exists(file_full)){
-  print("loading pre-fit model")
-  model <- tryCatch({readRDS(file_full)
-  }, error = function(e){
-    message(e$message, "- trying again")
-    tryCatch({readRDS(file_full)
-    }, error = function(e){
-      message(e$message, "- refit")
-      NULL
-    })
-  })
-}
+model <- load_saved_mod(file_full)
 if (is.null(model)){
   model <- gamlss_lambda_rep(base_mod, null_mod="false", n.cyc=1800)
 }
@@ -145,8 +132,6 @@ print("creating centile fan plot")
     
   #COMPILE
     print("compiling stats")
-    #centiles
-    results_df <- cent_cdf(model, df, plot=FALSE, group="sexMale")
     
     #BIC & AIC
     summary_df <- data.frame(
@@ -159,9 +144,6 @@ print("creating centile fan plot")
 #SAVE CSVs
 print("saving csvs")
 
-#centiles
-fwrite(results_df, file=paste0(save_path, "/cent_csvs/", filename, "_centiles.csv"))
-
 #BIC & AIC
 fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.csv"))
 
@@ -170,21 +152,8 @@ fwrite(summary_df, file=paste0(save_path, "/model_sums/", filename, "_summary.cs
 print("fitting null model")
 
 #check if null is already run, and if so, load
-null_model <- NULL
 file_null <- paste0(save_path, "/model_objs/", filename, "_null_mod.rds")
-
-if (file.exists(file_null)){
-  print("loading pre-fit model")
-  null_model <- tryCatch({readRDS(file_null)
-  }, error = function(e){
-    message(e$message, "- trying again")
-    tryCatch({readRDS(file_null)
-    }, error = function(e){
-      message(e$message, "- refit")
-      NULL
-    })
-  })
-}
+null_model <- load_saved_mod(file_null)
 if (is.null(null_model)){
   null_model <- gamlss_lambda_rep(base_mod, null_mod="true", n.cyc=1200)
 }
@@ -219,13 +188,46 @@ test_df <- data.frame(
   "null_dev" = deviance(null_model)
 )
 
+#CENTILES CDF
+df <- df %>%
+  mutate(age_yrs=(un_log(logAge_days)-280)/365.25,
+         sex = ifelse(sexMale==0, "Female", "Male")) %>%
+  mutate(age_grp = case_when(
+    age_yrs <= 3 ~ "3 and younger",
+    age_yrs > 3 & age_yrs <= 10 ~ "3 - 10",
+    age_yrs > 10 & age_yrs <= 20 ~ "10 - 20",
+    age_yrs > 20 & age_yrs <= 40 ~ "20 - 40",
+    age_yrs > 40 & age_yrs <= 60 ~ "40 - 60",
+    age_yrs > 60 & age_yrs <= 80 ~ "60 - 80",
+    age_yrs > 80 ~ "80 and older"
+  ))
+
+#centiles
+results_full <- cent_cdf(model, df, plot=FALSE, group=c("sex", "age_grp"))
+results_full$model <- "full"
+results_null <- cent_cdf(null_model, df, plot=FALSE, group=c("sex", "age_grp"))
+results_null$model <- "null"
+
+#centiles
+results_df <- rbind(results_full, results_null)
+fwrite(results_df, file=paste0(save_path, "/cent_csvs/", filename, "_centiles.csv"))
+
 ##################
 #FIT NULL MODEL WITH NO SEX-EFFECT FOR TBV-CORRECTED MODELS
 if (total == TRUE) {
   print("fitting null model of all sex effects")
-  null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex", n.cyc=1200)
-  
   file_null2 <- paste0(save_path, "/model_objs/", filename, "_null2_mod.rds")
+  null_model2 <- load_saved_mod(file_null2)
+  if (is.null(null_model2)){
+    null_model2 <- gamlss_lambda_rep(base_mod, null_mod="allSex", n.cyc=1200)
+  }
+
+  #if model doesn't fit, fail
+  if (is.null(null_model2)) {
+    message("sex null model fitting failed")
+    stop("sex null model fitting failed")
+  }
+
   print (paste("saving to", file_null2))
   saveRDS(null_model2, file=file_null2)
   
@@ -256,13 +258,11 @@ fwrite(test_df, file=paste0(save_path, "/model_sums/", filename, "_LRtest.csv"))
 
 ####################
 #GET SEX-DIFFERENCES
-# Predict 50th cent & sigma values for each simulated level of factor_var
-
-
 # Process sim_df_uniform (shared grid for cross-pheno/split comparison)
 result_df <- process_sex_diffs(sim_data_list = sim_df_uniform, model = model, df = df, age_var = age_var)
 # Save results
 print("saving uniform sex diffs")
 fwrite(result_df, file=paste0(save_path, "/cent_csvs/", pheno, "_uniform_sexdiffs.csv"))
+
 
 print("SUCCESS")
