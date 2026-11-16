@@ -175,6 +175,7 @@ test_out <- tryCatch({LR.test(null_model, model, print=FALSE)},
                        message(e$message, "- returning NA")
                        list(chi = NA, df = NA, p.val = NA)})
 f2 <- cohens_f2_local(model, null_model) #effect size
+pseudo_r2 <- gamlss::Rsq(model) - gamlss::Rsq(null_model) #effect size
 
 #TEST
 test_df <- data.frame(
@@ -182,6 +183,7 @@ test_df <- data.frame(
   "df" = test_out$df,
   "p_val" = test_out$p.val,
   "fsq" = f2,
+  "pseudo_r2" = pseudo_r2,
   "pheno" = pheno,
   "effect" = "sex_age",
   "full_dev" = deviance(model),
@@ -238,6 +240,7 @@ if (total == TRUE) {
                           message(e$message, "- returning NA")
                           list(chi = NA, df = NA, p.val = NA)})
   f2_2 <- cohens_f2_local(model, null_model2) #effect size
+  pseudo_r2 <- gamlss::Rsq(model) - gamlss::Rsq(null_model2) #effect size
   
   #TEST
   test_df2 <- data.frame(
@@ -245,6 +248,7 @@ if (total == TRUE) {
     "df" = test_out2$df,
     "p_val" = test_out2$p.val,
     "fsq" = f2_2,
+    "pseudo_r2" = pseudo_r2,
     "pheno" = pheno,
     "effect" = "sex_all",
     "full_dev" = deviance(model),
