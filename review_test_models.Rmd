@@ -123,18 +123,23 @@ LR.df_plot$cv_sample <- factor(LR.df_plot$cv_sample, levels = c("A", "B"))
 saveRDS(LR.df_plot, "./data/LR_df_plot.rds")
 ```
 
-```{r, eval=FALSE}
-#check cortical
-setdiff(unique(dk$data$label), unique(LR.df_plot$label)) #corpus callosum is subdivided - remove from dk plots
+find hidden phenos (those not in plot's FOV)
+```{r}
+# (pheno_cat, atlas label) pairs that plot_cv_brain() can actually draw
+atlas_labels <- bind_rows(
+  tidyr::crossing(pheno_cat = c("Regional Vol", "Regional SA", "Regional CT"),
+                  label     = unique(dk_fill$data$label)),
+  tibble(pheno_cat = "Subcortical Vol", label = unique(aseg_fill$data$label)),
+  tibble(pheno_cat = "Global Vol",      label = unique(aseg_all_clean$data$label))
+) %>%
+  filter(!is.na(label))
 
-#check subcortical
-setdiff(unique(aseg$data$label), unique(LR.df_plot$label)) # all included
+not_plotted <- LR.df_uncor %>%
+  mutate(pheno_cat = as.character(pheno_cat)) %>%
+  distinct(pheno, pheno_cat, label) %>%
+  anti_join(atlas_labels, by = c("pheno_cat", "label"))
 
-#check global
-setdiff(unique(aseg_all$data$label), unique(LR.df_plot$tissue_class)) # all included
-
-#see what's not included anywhere
-setdiff(unique(LR.df_plot$label), c(unique(dk$data$label), unique(aseg$data$label)))
+not_plotted
 ```
 
 "Left-Accumbens-area", "Right-Accumbens-area", "Left-Cerebellum-Cortex" & "Left-Cerebellum-White-Matter" aren't in field of view for aseg atlas
@@ -220,7 +225,7 @@ range(LR.df_uncor$sig_resi, na.rm=T)
 ```{r}
 #removing ventricles for visualization:
 LR.df_uncor_novent <- LR.df_uncor %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_uncor_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_uncor_novent, 
                           fill_var = resi, 
@@ -275,7 +280,7 @@ Sensitivity analyses with inverse weighting by euler
 LR.df_w_novent <- LR.df_plot %>%
   filter(total==FALSE) %>%
   filter_sensitivity(keep="weighted") %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
                           fill_var = resi, 
@@ -320,7 +325,7 @@ similar but slightly larger S, slightly fewer significant regions
 LR.df_w_novent <- LR.df_plot %>%
   filter(total==FALSE) %>%
   filter_sensitivity(keep="age2plus") %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
                           fill_var = resi, 
@@ -347,7 +352,7 @@ Sensitivity analyses
 LR.df_w_novent <- LR.df_plot %>%
   filter(total==FALSE) %>%
   filter_sensitivity(keep="runnerup") %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
                           fill_var = resi,
@@ -392,7 +397,7 @@ ggplot(LR.df_tot) +
 ```{r}
 #removing ventricles for visualization:
 LR.df_tot_novent <- LR.df_tot %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_tot_novent$resi)
 
 full_plt_tot <- plot_cv_brain(df = LR.df_tot_novent, 
@@ -428,7 +433,7 @@ Sensitivity analyses with inverse weighting by euler
 LR.df_w_novent <- LR.df_plot %>%
   dplyr::filter(total==TRUE & effect=="sex_age") %>%
   filter_sensitivity(keep="weighted") %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
                           fill_var = resi, 
@@ -454,7 +459,7 @@ Sensitivity analyses in CT, removing subjects < 2 years
 LR.df_w_novent <- LR.df_plot %>%
   dplyr::filter(total==TRUE & effect=="sex_age") %>%
   filter_sensitivity(keep="age2plus") %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
                           fill_var = resi, 
@@ -480,7 +485,7 @@ ggsave("figs/supplement/resi_tbv_age2plus.png", full_plt_uncor, dpi=600, height=
 LR.df_w_novent <- LR.df_plot %>%
   dplyr::filter(total==TRUE & effect=="sex_age") %>%
   filter_sensitivity(keep="runnerup") %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
                           fill_var = resi,
@@ -515,7 +520,7 @@ ggplot(LR.df_tot_sex) +
 ```{r}
 #removing ventricles for visualization:
 LR.df_tot_sex_novent <- LR.df_tot_sex %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_tot_sex_novent$resi)
 
 full_plt_tot_sex <- plot_cv_brain(df = LR.df_tot_sex_novent, 
@@ -574,7 +579,7 @@ Sensitivity analyses with inverse weighting by euler
 LR.df_w_novent <- LR.df_plot %>%
   dplyr::filter(total==TRUE & effect=="sex_all") %>%
   filter_sensitivity(keep="weighted") %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
                           fill_var = resi, 
@@ -599,7 +604,7 @@ ggsave("figs/supplement/resi_tbv_allsex_weight.png", full_plt_uncor, dpi=600, he
 LR.df_w_novent <- LR.df_plot %>%
   dplyr::filter(total==TRUE & effect=="sex_all") %>%
   filter_sensitivity(keep="age2plus") %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent, 
                           fill_var = resi, 
@@ -624,7 +629,7 @@ ggsave("figs/supplement/resi_tbv_allsex_age2plus.png", full_plt_uncor, dpi=600, 
 LR.df_w_novent <- LR.df_plot %>%
   dplyr::filter(total==TRUE & effect=="sex_all") %>%
   filter_sensitivity(keep="runnerup") %>%
-  filter(!(pheno %in% vent_list))
+  filter(!(pheno %in% c(vent_list, not_plotted$pheno)))
 range(LR.df_w_novent$resi)
 full_plt_uncor <- plot_cv_brain(df = LR.df_w_novent,
                           fill_var = resi,

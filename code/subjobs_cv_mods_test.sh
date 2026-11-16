@@ -4,7 +4,7 @@
 #SBATCH --time=80:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=20G
+#SBATCH --mem-per-cpu=10G
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_test/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_test/R-%A_%a.err
 
@@ -31,7 +31,7 @@ echo "SIM DF: $SIMDF"
 
 BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/
 source $BASE/code/check_branch.sh
-SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.17.sif"
+SINGULARITY_IMAGE="/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/containers/r_gamlss_0.2.18.sif"
 
 singularity run --cleanenv \
     -B $BASE \
