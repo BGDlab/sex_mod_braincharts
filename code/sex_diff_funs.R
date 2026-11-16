@@ -13,14 +13,16 @@ get_deriv <- function(x, age) {
 #   model: fit gamlss model
 #   df: data model was fit on
 #   age_var: name of age column in model ("age_days" or "logAge_days")
-process_sex_diffs <- function(sim_data_list, model, df, age_var) {
+#   age_range: c(min, max) ages to keep from the sim grid; defaults to the range of df
+#              (fit_boot_mods.R passes the original test df's range so all bootstraps share one grid)
+process_sex_diffs <- function(sim_data_list, model, df, age_var, age_range = range(df[[age_var]])) {
 
   # Initialize empty list
   centile_result_list <- list()
 
-  # Get age range of fit data to filter sim grid
-  min_age <- min(df[[age_var]])
-  max_age <- max(df[[age_var]])
+  # Age range to filter sim grid
+  min_age <- age_range[1]
+  max_age <- age_range[2]
 
   #(no column subsetting needed: gamlssTools' data-free prediction picks the model's predictors by name)
   sim_list <- lapply(sim_data_list, function(s) s %>%
