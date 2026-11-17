@@ -1,10 +1,10 @@
 #!/bin/bash
 #submit one array job per config line (split x pheno), one array task per bootstrap
 #with --rerun TRUE, only bootstraps without finished output (_uniform_sexdiffs.csv + _info.csv) are submitted
-#run from outside code dir
+#can be run from any directory (paths below are absolute)
 #usage: ./code/submit_boot_mods.sh --config <config file> [--n_boot 500] [--throttle 200] [--rerun TRUE/FALSE] [--lines "1 2"] [--dry_run TRUE]
 
-n_boot=500
+n_boot=1000
 throttle=200
 rerun="FALSE"
 lines=""
@@ -28,7 +28,10 @@ if [[ -z "$config" ]]; then
 fi
 
 config=$(realpath $config)
-mkdir -p ./code/jobfiles/boot
+
+BASE=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc
+#log dir from subjobs_boot_mods.sh's #SBATCH --output/--error - slurm won't create it
+mkdir -p $BASE/code/jobfiles/boot
 
 #default: every line in the config
 if [[ -z "$lines" ]]; then
@@ -67,7 +70,7 @@ do
     array_spec="1-${n_boot}"
   fi
 
-  cmd="sbatch --job-name=boot_${split}_${pheno} --array=${array_spec}%${throttle} ./code/subjobs_boot_mods.sh $config $line"
+  cmd="sbatch --job-name=boot_${split}_${pheno} --array=${array_spec}%${throttle} $BASE/code/subjobs_boot_mods.sh $config $line"
   echo "$cmd"
   if [[ "$dry_run" != "TRUE" ]]; then
     $cmd
