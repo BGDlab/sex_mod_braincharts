@@ -8,6 +8,9 @@
 #SBATCH --output=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_test/R-%A_%a.out
 #SBATCH --error=/mnt/isilon/bgdlab_processing/Margaret/sex_mod_pvc/code/jobfiles/cv_test/R-%A_%a.err
 
+#make outputs group-writable so collaborators submitting jobs can overwrite each other's files
+umask 002
+
 CONFIGFN=$1
 #CONFIGFN=$(realpath $CONFIGFN)
 
