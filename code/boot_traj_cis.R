@@ -36,7 +36,9 @@ read_split <- function(pheno_dir, split) {
 
 #simultaneous band on one set of curves (one row per boot_id x age_days)
 sim_band <- function(curves) {
+  #redefine as dataframe
   df <- data.frame(boot = curves$boot_id, age_days = curves$age_days, value = curves$centile_M_minus_F_agez)
+  #get CIs
   simultaneous_pct_ci(df, "age_days", "value", interval = probs[3] - probs[1]) %>%
     rename(sim_lower = lower, sim_upper = upper)
 }
@@ -64,8 +66,8 @@ for (pheno in phenos) {
 
   n_list[[pheno]] <- curves[, .(n_curves = uniqueN(boot_id)), by = .(pheno, cv_sample)]
 
-  #SIMULTANEOUS BANDS on each curve set
-  set.seed(1) #ties are ranked & split at random
+  #SIMULTANEOUS BANDS on each curve set (A, B, and mean)
+  set.seed(1)
   band_list[[pheno]] <- rbindlist(lapply(split(curves, by = "cv_sample"), function(cs) {
     cbind(pheno = pheno, cv_sample = cs$cv_sample[1], sim_band(cs))
   }))
@@ -78,7 +80,7 @@ n_curves <- rbindlist(n_list)
 bands <- rbindlist(band_list)
 boot_points <- bind_rows(points_list)
 
-#POINTWISE CIs on single-valued points (min_sex_diff can have several crossings - see crossing_cis() in the Rmd)
+#POINTWISE CIs on single-valued points (min_sex_diff can have several crossings, skipping for now)
 point_cis <- boot_points %>%
   filter(metric != "min_sex_diff") %>%
   summarise(n_boot = sum(!is.na(age)),
