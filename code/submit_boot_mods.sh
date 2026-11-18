@@ -1,7 +1,6 @@
 #!/bin/bash
 #submit one array job per config line (split x pheno), one array task per bootstrap
 #with --rerun TRUE, only bootstraps without finished output (_uniform_sexdiffs.csv + _info.csv) are submitted
-#can be run from any directory (paths below are absolute)
 #usage: ./code/submit_boot_mods.sh --config <config file> [--n_boot 500] [--throttle 200] [--rerun TRUE/FALSE] [--lines "1 2"] [--dry_run TRUE]
 
 n_boot=1000

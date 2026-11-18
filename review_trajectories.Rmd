@@ -85,13 +85,14 @@ sum_cols <- setdiff(names(sexdiffs_tbv), c("logAge_days", "cv_sample", "weighted
 #test plots
 sexdiffs_tbv %>%
   filter(pheno %in% global_list) %>%
-  group_by(pheno, age_days) %>%
-  #filtering outliers
   filter(age_days >= 370) %>%
-  summarise(across(all_of(sum_cols), mean)) %>%
+  group_by(pheno, cv_sample) %>%
+  mutate(centile_M_minus_F_agez = centile_M_minus_F_agez / max(abs(centile_M_minus_F_agez)) * 100) %>%
+  ungroup() %>%
   ggplot() +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(x=age_days, y=centile_M_minus_F_agez, group=pheno, color=pheno), linewidth=1.5)
+  geom_line(aes(x=age_days, y=centile_M_minus_F_agez, group=pheno, color=pheno), linewidth=1.5) +
+  facet_wrap(~cv_sample)
 
 sexdiffs_tbv %>%
   filter(pheno %in% global_list) %>%
@@ -101,7 +102,7 @@ sexdiffs_tbv %>%
   summarise(across(all_of(sum_cols), mean)) %>%
   ggplot() +
   geom_hline(yintercept = 0, linetype='dashed', color='grey20') +
-  geom_line(aes(x=age_days, y=log_M_div_F, group=pheno, color=pheno), linewidth=1.5)
+  geom_line(aes(x=age_days, y=centile_M_minus_F_agez, group=pheno, color=pheno), linewidth=1.5)
 ```
 
 ```{r}

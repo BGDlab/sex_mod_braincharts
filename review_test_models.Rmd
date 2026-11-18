@@ -134,7 +134,7 @@ atlas_labels <- bind_rows(
 ) %>%
   filter(!is.na(label))
 
-not_plotted <- LR.df_uncor %>%
+not_plotted <- LR.df_plot %>%
   mutate(pheno_cat = as.character(pheno_cat)) %>%
   distinct(pheno, pheno_cat, label) %>%
   anti_join(atlas_labels, by = c("pheno_cat", "label"))
@@ -663,4 +663,104 @@ LR_table <- LR.df_plot %>%
   mutate(effect_tested = ifelse(effect_tested=="sex_age", "age-varying sex component", "any sex effect"))
 
 fwrite(LR_table, "figs/supplement/significance_test_results.csv")
+```
+
+##Centile CDF Plots
+
+```{r}
+paths <- Sys.glob(file.path(test_path, "cent_csvs/*_centiles.csv"))
+
+# Read all matching CSVs
+output_fread <- lapply(paths, fread)
+length(output_fread)
+names(output_fread) <- paths
+#stringr::str_extract(paths, "(?<=cv_sample_)[A-Za-z]+(?=_test)")
+
+length(output_fread)
+
+centile_df <- bind_rows(output_fread, .id="file") %>%
+  mutate(cv_sample = stringr::str_extract(file, "(?<=cv_sample_)[A-Za-z]+(?=_test)"),
+          pheno = stringr::str_remove(basename(file), "_(mu|none|both|all|fs|total).*$"),
+         total = stringr::str_extract(file, "(?<=total)(TRUE|FALSE)"),
+         weighted  = stringr::str_detect(file, "weight"),
+         age2plus = stringr::str_detect(file, "age2plus"),
+         runnerup = stringr::str_detect(file, "runnerup"))%>%
+  dplyr::select(!file)
+
+stopifnot(all_of(unique(centile_df$pheno) %in% pheno_list))
+```
+
+save table
+
+```{r}
+centile_df_table <- centile_df %>%
+  mutate(age_grp = fct_relevel(age_grp, "3 and younger", 
+                               "3 - 10",
+                               "10 - 20",
+                               "20 - 40",
+                               "40 - 60",
+                               "60 - 80" ,
+                               "80 and older")) %>%
+  group_by(total, model, weighted, age2plus, runnerup, cv_sample, pheno) %>%
+  dplyr::arrange(age_grp, .by_group = T) %>%
+  select(total, model, weighted, age2plus, runnerup, pheno, cv_sample, sex, age_grp, ends_with("%")) %>%
+  rename(total_size_covar = total,
+         surfhole_weighted = weighted,
+         age_range_years = age_grp,
+         idp = pheno) %>%
+  mutate(model = ifelse(model=="full", "full (age-varying sex effect)", "null (sex intercept)"))
+
+fwrite(centile_df_table, "figs/supplement/significance_test_results.csv")
+```
+
+plot
+
+```{r}
+centile_df_plt <- centile_df %>%
+  tidyr::pivot_longer(cols = ends_with("%"), 
+  names_to = "fitted", values_to = "empirical") %>%
+  mutate(fitted = as.numeric(sub("%", "", fitted, fixed = TRUE))/100,
+         age_grp = fct_relevel(age_grp, "3 and younger", 
+                               "3 - 10",
+                               "10 - 20",
+                               "20 - 40",
+                               "40 - 60",
+                               "60 - 80" ,
+                               "80 and older"))
+
+cent_boxplot_main <- centile_df_plt %>% 
+  dplyr::filter(total == FALSE) %>%
+  filter_sensitivity() %>%
+  ggplot(aes(x = factor(fitted), y = empirical - fitted, color = model)) +
+  geom_hline(yintercept = 0, color = "gray") +
+  geom_boxplot(outlier.size = 0.4) +
+  scale_color_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
+                        values = c("full" = "#2f944c",
+                                   "null" = "#962f78"))+
+  ggh4x::facet_nested(
+    cv_sample + sex ~ age_grp,
+    nest_line = element_line(linetype = 1)
+  ) +
+  theme_bw() +
+  theme(legend.title = element_blank(), legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7))+
+  labs(x="Fitted Centile", y="Empirical - Fitted Centile")
+ggsave("figs/supplement/cent_cdf_uncorrected.png", cent_boxplot_main, dpi=600, height=7, width=9, bg = "white")
+cent_boxplot_main
+
+centile_df_plt %>% 
+  dplyr::filter(total == TRUE) %>%
+  filter_sensitivity() %>%
+  ggplot(aes(x = factor(fitted), y = empirical - fitted, color = model)) +
+  geom_hline(yintercept = 0, color = "gray") +
+  geom_boxplot(outlier.size = 0.4) +
+  scale_color_manual(labels = c("full" = "Sex-Moderated", "null" = "Sex-Intercept Only"),
+                        values = c("full" = "#2f944c",
+                                   "null" = "#962f78"))+
+  ggh4x::facet_nested(
+    cv_sample + sex ~ age_grp,
+    nest_line = element_line(linetype = 1)
+  ) +
+  theme_bw() +
+  labs(x="Fitted Centile", y="Empirical - Fitted Centile")
 ```
