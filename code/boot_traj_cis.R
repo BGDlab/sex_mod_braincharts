@@ -80,7 +80,7 @@ n_curves <- rbindlist(n_list)
 bands <- rbindlist(band_list)
 boot_points <- bind_rows(points_list)
 
-#POINTWISE CIs on single-valued points (min_sex_diff can have several crossings, skipping for now)
+#POINTWISE CIs on single-valued points (min_sex_diff can have several crossings - see crossing_cis() in the Rmd)
 point_cis <- boot_points %>%
   filter(metric != "min_sex_diff") %>%
   summarise(n_boot = sum(!is.na(age)),

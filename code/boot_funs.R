@@ -42,6 +42,19 @@ subset_start_fv <- function(mod, idx) {
   return(mod)
 }
 
+read_split <- function(pheno_dir, split) {
+  files <- list.files(pheno_dir, pattern = "_uniform_sexdiffs\\.csv$", full.names = TRUE)
+  rbindlist(lapply(files, fread, select = c("boot_id", "logAge_days", curve_cols)))[, cv_sample := split]
+}
+
+#simultaneous band on one set of curves (one row per boot_id x age_days)
+sim_band <- function(curves) {
+  #redefine as dataframe
+  df <- data.frame(boot = curves$boot_id, age_days = curves$age_days, value = curves$centile_M_minus_F_agez)
+  #get CIs
+  simultaneous_pct_ci(df, "age_days", "value", interval = probs[3] - probs[1]) %>%
+    rename(sim_lower = lower, sim_upper = upper)
+}
 
 #Functions for the points of interest on sex-difference trajectories 
 #requires dplyr, tidyr, gcplyr
