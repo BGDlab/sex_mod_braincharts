@@ -29,8 +29,15 @@ phenos <- intersect(basename(list.dirs(boot_dir_A, recursive = FALSE)),
                     basename(list.dirs(boot_dir_B, recursive = FALSE)))
 print(paste(length(phenos), "phenos in both splits:", paste(phenos, collapse = ", ")))
 
+#read one split's finished bootstraps for a pheno: only those with an _info.csv, which fit_boot_mods.R writes last,
+#so sexdiffs csvs from jobs still running aren't read half-written. NULL if the split has none (e.g. jobs queued/failed)
 read_split <- function(pheno_dir, split) {
   files <- list.files(pheno_dir, pattern = "_uniform_sexdiffs\\.csv$", full.names = TRUE)
+  files <- files[file.exists(sub("_uniform_sexdiffs\\.csv$", "_info.csv", files))]
+  if (length(files) == 0) {
+    message("no finished bootstraps for ", basename(pheno_dir), " in split ", split)
+    return(NULL)
+  }
   rbindlist(lapply(files, fread, select = c("boot_id", "logAge_days", curve_cols)))[, cv_sample := split]
 }
 
@@ -49,18 +56,27 @@ n_list <- list()
 
 for (pheno in phenos) {
   print(paste("processing", pheno))
-  dt <- rbind(read_split(file.path(boot_dir_A, pheno), "A"),
-              read_split(file.path(boot_dir_B, pheno), "B"))
+  #rbindlist drops a split with no finished bootstraps (NULL), so a pheno w/ data in one split gets just that split
+  dt <- rbindlist(list(read_split(file.path(boot_dir_A, pheno), "A"),
+                       read_split(file.path(boot_dir_B, pheno), "B")))
+  if (nrow(dt) == 0) {
+    message("skipping ", pheno, ": no finished bootstraps in either split")
+    next
+  }
   dt[, age_days := 10^logAge_days] #= gamlssTools::un_log(), as in the Rmd
   dt <- dt[age_days >= min_age_days]
 
   #each split's curves, plus the split-averaged curves of bootstrap pairs
   #(ages covered by one split only keep that split's value, as in glob_mean)
+  curve_sets <- list(dt[, c("cv_sample", "boot_id", "age_days", curve_cols), with = FALSE])
   pair_ids <- intersect(dt[cv_sample == "A", unique(boot_id)], dt[cv_sample == "B", unique(boot_id)])
-  curves <- rbind(
-    dt[, c("cv_sample", "boot_id", "age_days", curve_cols), with = FALSE],
-    dt[boot_id %in% pair_ids, lapply(.SD, mean), by = .(boot_id, age_days), .SDcols = curve_cols][, cv_sample := "mean"],
-    use.names = TRUE)
+  if (length(pair_ids) > 0) {
+    curve_sets$mean <- dt[boot_id %in% pair_ids, lapply(.SD, mean), by = .(boot_id, age_days), .SDcols = curve_cols][
+      , cv_sample := "mean"]
+  } else {
+    message("no bootstrap pairs for ", pheno, " - skipping split-averaged curves")
+  }
+  curves <- rbindlist(curve_sets, use.names = TRUE)
   setorder(curves, cv_sample, boot_id, age_days)
   curves[, pheno := pheno]
 
